@@ -1,0 +1,10 @@
+Databricks Labs Transpiler
+
+Copyright 2021-2022 Databricks, Inc.
+
+
+This Software includes software developed at Databricks (https://www.databricks.com/) and its use is subject to the included LICENSE file.
+
+Additionally, this Software contains code from the following open source projects:
+
+Fastparse - The MIT License - Copyright (c) 2014 Li Haoyi (haoyi.sg@gmail.com)
