@@ -30,7 +30,7 @@ class PythonGenerator {
 
   private def expressionCode(expr: Expression): String = expr match {
     case Literal(value, t @ BooleanType) =>
-      val pyBool = if (value.isInstanceOf[Boolean]) "True" else "False"
+      val pyBool = if (value.asInstanceOf[Boolean]) "True" else "False"
       s"F.lit($pyBool)"
     case Literal(value, t @ IntegerType) =>
       s"F.lit($value)"
