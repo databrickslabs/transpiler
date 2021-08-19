@@ -1,8 +1,8 @@
-package splunkql
+package spl
 
 import fastparse.internal.Instrument
-import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.Outcome
+import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.concurrent.TimeLimits.failAfter
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.must.Matchers

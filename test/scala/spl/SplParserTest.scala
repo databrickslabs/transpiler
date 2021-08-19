@@ -1,7 +1,7 @@
-package splunkql
+package spl
 
-class SPLTest extends ParserSuite {
-  import SPL._
+class SplParserTest extends ParserSuite {
+  import spl.SplParser._
 
   test("f") {
     p(bool(_), Bool(false))
