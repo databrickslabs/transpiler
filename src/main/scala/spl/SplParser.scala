@@ -12,7 +12,7 @@ import fastparse._
  * @link https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Search
  * @link https://docs.splunk.com/Documentation/Splunk/8.2.1/Search/Aboutsearchlanguagesyntax
  */
-private[splunkql] object SplParser {
+object SplParser {
   implicit def debugLogger[R](r: R) = new {
     def @@ (implicit ctx: P[_], name: sourcecode.Name): R = {
       if (ctx.logDepth == -1) return r
@@ -36,7 +36,7 @@ private[splunkql] object SplParser {
   private def digit[_: P] = CharIn("0-9")
 
   def W[_: P](s: String): P[Unit] = IgnoreCase(s)
-  private[splunkql] def bool[_:P] =
+  private[spl] def bool[_:P] =
     ("true" | "t").map(_ => Bool(true)) |
       ("false" | "f").map(_ => Bool(false))
 
@@ -57,7 +57,7 @@ private[splunkql] object SplParser {
   def term[_: P]: P[String] = CharsWhile(!" ".contains(_)).!
 
   // syntax: -?/d+(?!/.)
-  private[splunkql] def int[_: P]: P[IntValue] = ("+" | "-").?.! ~~ digit.rep(1).! map {
+  private[spl] def int[_: P]: P[IntValue] = ("+" | "-").?.! ~~ digit.rep(1).! map {
     case (sign, i) => IntValue(if (sign.equals("-")) -1 * i.toInt else i.toInt)
   }
 
