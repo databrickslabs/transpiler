@@ -267,4 +267,38 @@ class SplParserTest extends ParserSuite {
       ))
     )))
   }
+
+  test("stats first(startTime) AS startTime, last(histID) AS lastPassHistId BY testCaseId") {
+    p(pipeline(_), Pipeline(Seq(
+      StatsCommand(Map(),Seq(
+        Alias(
+          Call("first",Seq(
+            Value("startTime")
+          )),
+          "startTime"),
+        Alias(
+          Call("last",Seq(
+            Value("histID")
+          )),
+          "lastPassHistId")
+      ),
+      Seq(
+        Value("testCaseId")
+      ))
+    )))
+  }
+
+  test("stats count(eval(status=404))") {
+    p(pipeline(_), Pipeline(Seq(
+      StatsCommand(Map(),Seq(
+        Call("count",Seq(
+          Call("eval",Seq(
+            Binary(
+              Value("status"),
+              Equals,
+              Value("404")
+            ))))))
+      ))
+    ))
+  }
 }

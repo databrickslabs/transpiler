@@ -106,9 +106,9 @@ object SplParser {
 
   // lookup <lookup-dataset> (<lookup-field> [AS <event-field>] )...
   //[ (OUTPUT | OUTPUTNEW) ( <lookup-destfield> [AS <event-destfield>] )...]
-  def aliasedField[_:P]: P[AliasedField] = (field ~ W("AS") ~ token map AliasedField.tupled)
+  def aliasedField[_:P]: P[Alias] = (field ~ W("AS") ~ token map Alias.tupled)
   def fieldRep[_:P]: P[Seq[Field]] = (aliasedField | field).filter {
-    case AliasedField(field, alias) => field.value.toLowerCase() != "output"
+    case Alias(Value(field), alias) => field.toLowerCase() != "output"
     case Value(v) => v.toLowerCase != "output"
   }.rep(1)
   def lookupOutput[_:P]: P[LookupOutput] = (W("OUTPUT")|W("OUTPUTNEW")).! ~ fieldRep map LookupOutput.tupled
@@ -119,7 +119,15 @@ object SplParser {
 
   def table[_:P]: P[TableCommand] = "table" ~ field.rep(1) map TableCommand
 
-  def command[_:P]: P[Command] = table | where | lookup | collect | convert | eval | impliedSearch
+  // https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/Stats
+  def aliasedCall[_:P] = call ~ W("as") ~ token map Alias.tupled
+  def stats[_:P] = ("stats" ~ fieldAndValueList ~
+    (aliasedCall | call).rep(1, ",") ~
+    (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq())) ~
+    ("dedup_splitvals" ~ "=" ~ bool).?.map(v => v.exists(_.value)))
+    .map(StatsCommand.tupled)
+
+  def command[_:P]: P[Command] = stats | table | where | lookup | collect | convert | eval | impliedSearch
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline
 }
 
