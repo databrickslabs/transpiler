@@ -1,10 +1,10 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.FunctionIdentifier
-import org.apache.spark.sql.catalyst.expressions.{Attribute, EqualTo, Expression, ExpressionDescription, ExpressionInfo, Or, Unevaluable}
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.types.{BooleanType, DataType, StringType}
+import org.apache.spark.sql.types._
 
 class TermExtension extends (SparkSessionExtensions => Unit) {
   override def apply(extensions: SparkSessionExtensions): Unit = {
@@ -15,18 +15,22 @@ class TermExtension extends (SparkSessionExtensions => Unit) {
     extensions.injectFunction((FunctionIdentifier("term"), new ExpressionInfo(
       clazz.getCanonicalName,null,"term", df.usage(),
       df.arguments(), df.examples(), df.note(), df.group(),
-      df.since(), df.deprecated()),
-      exprs => Term(exprs.head)))
+      df.since(), df.deprecated()), {
+        case Seq(expr) => Term(expr)
+        case _ => throw new AnalysisException("TERM() expects only single argument")
+      }))
   }
 }
 
 class TermExpansion(spark: SparkSession) extends Rule[LogicalPlan] {
-  override def apply(plan: LogicalPlan): LogicalPlan = plan transformExpressions {
-    case Term(child) =>
-      expand(plan.output
-        .filter(_.dataType == StringType),
-        child)
-  }
+  override def apply(plan: LogicalPlan): LogicalPlan =
+    plan transformExpressions {
+      case Term(child) =>
+        if (!child.resolved) {
+          throw new AnalysisException(s"Child expression must be resolved: $child")
+        }
+        expand(plan.output.filter(_.dataType == StringType), child)
+    }
 
   private def expand(attrs: Seq[Attribute], expr: Expression): Expression =
     attrs match {
