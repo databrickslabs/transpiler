@@ -23,6 +23,7 @@ class TermExtensionTest extends AnyFunSuite {
 
     val result = spark.createDataset(dummy)
       .where("TERM('e') OR term('a')")
+      .select("n")
     result.show()
 
     val rows = result.select("n").as[Int].collect()
