@@ -56,3 +56,7 @@
 | mvfilter() |  |
 | len() |  |
 | count() |  |
+
+## Developing 
+
+Parsers are implemented using [fastparse](https://github.com/com-lihaoyi/fastparse) (MIT)
