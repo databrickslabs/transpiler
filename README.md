@@ -2,17 +2,57 @@
 
 ![.](spark-spl.png)
 
-## Compatibility
+## Commands
 
 | Command/Feature | Parser | Catalyst | Codegen |
 | ---: | :---: | :---: | :---: |
 | search | ✅ | ✅ | ✅ |
-| TERM(..) |  | ✅ |  |
-| CIDR search |  |  |  |
 | eval | ✅ | ✅ | ✅ |
+| table | ✅ | ✅ | ✅ |
+| rex |  |  |  |
+| regex |  |  |  |
+| where | ✅ | ✅ | ✅ |
+| lookup | ✅ |  |  |
+| bin |  |  |  |
+| rename |  |  |  |
+| join |  |  |  |
+| fields |  |  |  |
 | convert | ✅ |  |  |
 | collect | ✅ | ✅ | ✅ |
-| lookup | ✅ |  |  |
-| where | ✅ | ✅ | ✅ |
-| table | ✅ | ✅ | ✅ |
 | stats | ✅ |  |  |
+| sort |  |  |  |
+| return |  |  |  |
+| mvcombine |  |  |  |
+| map |  |  |  |
+| inputlookup |  |  |  |
+| head |  |  |  |
+| format |  |  |  |
+| fillnull |  |  |  |
+| eventstats |  |  |  |
+| dedup |  |  |  |
+ 
+## Functions
+
+| Function | Catalyst |
+| ---: | :---: |
+| term() | extension |
+| CIDR search |  |  |  |
+| strftime() |  |
+| values() |  |
+| latest() |  |
+| earliest() |  |
+| if() |  |
+| mvcount() |  |
+| coalesce() |  |
+| mvindex() |  |
+| mvappend() |  |
+| null() |  |
+| min() |  |
+| round() |  |
+| max() |  |
+| substr() |  |
+| isnotnull() |  |
+| sum() |  |
+| mvfilter() |  |
+| len() |  |
+| count() |  |
