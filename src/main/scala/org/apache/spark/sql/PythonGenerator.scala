@@ -24,6 +24,10 @@ class PythonGenerator {
       }
     case Filter(condition, child) =>
       fromPlan(child) + "\n" + unfoldWheres(condition)
+
+    case Limit(expr, child) =>
+      s"${fromPlan(child)}\n.limit(${expr})"
+
     case relation: UnresolvedRelation =>
       s"spark.table(${quoted(relation.name)})"
   }

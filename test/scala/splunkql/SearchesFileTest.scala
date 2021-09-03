@@ -1,9 +1,12 @@
 package splunkql
 
+import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
 import org.scalatest.funsuite.AnyFunSuite
 
 class SearchesFileTest extends AnyFunSuite {
+
+  private val LOGGER: Logger = Logger.getLogger(this.getClass)
   private def res = getClass.getResourceAsStream(_)
 
   test("att&ck") {
@@ -19,7 +22,7 @@ class SearchesFileTest extends AnyFunSuite {
       .agg(sum("id") as "a")
       .withColumn("c", lit(1))
       .withColumn("d", lit(2))
-    println(df)
+    LOGGER.info(df)
   }
 
   test("expansion") {
@@ -28,6 +31,6 @@ class SearchesFileTest extends AnyFunSuite {
       new MacrosFile(res("/macros.conf")))
 
     val plan = sc.generatePython("[T1101] Security Support Provider")
-    println(plan)
+    LOGGER.info(s"Generated code: \n${plan}")
   }
 }

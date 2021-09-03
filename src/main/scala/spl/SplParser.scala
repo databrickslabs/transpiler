@@ -114,6 +114,15 @@ object SplParser {
   def lookupOutput[_:P]: P[LookupOutput] = (W("OUTPUT")|W("OUTPUTNEW")).! ~ fieldRep map LookupOutput.tupled
   def lookup[_:P]: P[LookupCommand] = "lookup" ~ fieldAndValueList ~ token ~ fieldRep ~ lookupOutput.? map LookupCommand.tupled
 
+  /**
+   * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Head
+   * Function is missing the case where both a limit and a condition are passed
+   * ie. head limit=10 (1==1)
+   * TODO Add condition
+   * @tparam _
+   * @return
+   */
+  def head[_:P]: P[HeadCommand] = "head" ~ ((int | "limit=" ~ int) | expr) ~  ("keeplast=" ~ bool).? ~ ("null=" ~ bool).? map HeadCommand.tupled
   // where <predicate-expression>
   def where[_:P]: P[WhereCommand] = "where" ~ expr map WhereCommand
 
@@ -127,7 +136,7 @@ object SplParser {
     ("dedup_splitvals" ~ "=" ~ bool).?.map(v => v.exists(_.value)))
     .map(StatsCommand.tupled)
 
-  def command[_:P]: P[Command] = stats | table | where | lookup | collect | convert | eval | impliedSearch
+  def command[_:P]: P[Command] = stats | table | where | lookup | collect | convert | eval | head | impliedSearch
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline
 }
 
