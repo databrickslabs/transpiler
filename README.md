@@ -25,7 +25,7 @@
 | mvcombine |  |  |  |
 | map |  |  |  |
 | inputlookup |  |  |  |
-| head |  |  |  |
+| head | ✅ | ✅ | ✅ |
 | format |  |  |  |
 | fillnull |  |  |  |
 | eventstats |  |  |  |
