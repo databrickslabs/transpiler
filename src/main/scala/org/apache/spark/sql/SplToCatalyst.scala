@@ -1,18 +1,21 @@
 package org.apache.spark.sql
 
+import org.apache.log4j.Logger
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Filter, LogicalPlan, Project}
+import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Filter, Limit, LogicalPlan, Project}
 import org.apache.spark.sql.catalyst.{expressions => e}
+import spl.IntValue
 
 class SplToCatalyst {
   /**
    * Currently projected expressions
    * TODO: https://github.com/databricks/spark-spl/issues/2
    */
+  private val LOGGER: Logger = Logger.getLogger(this.getClass)
   private var output = Seq[e.NamedExpression]()
 
   def process(p: spl.Pipeline): LogicalPlan = p.commands.foldLeft(
-        UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) { (tree, command) =>
+      UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) { (tree, command) =>
       command match {
         case spl.EvalCommand(fields) =>
           fields.foldLeft(tree) { (plan, field) =>
@@ -37,6 +40,14 @@ class SplToCatalyst {
             val name = fc.alias.getOrElse(fc.field).value
             withColumn(plan, name, spl.Call(fc.func, Seq(fc.field)))
           }
+
+        case spl.HeadCommand(evalExpr, keepLast, nullOption) =>
+          // TODO Implement keeplast and null options behaviour
+          LOGGER.debug(s"Adding `HeadCommand` with options: ${evalExpr} to the tree")
+          if (evalExpr.isInstanceOf[IntValue])
+            Limit(expression(evalExpr), tree)
+          else
+            Filter(expression(evalExpr), tree)
 
         case spl.LookupCommand(options, dataset, fields, output) =>
           // TODO: implement it as joins later
