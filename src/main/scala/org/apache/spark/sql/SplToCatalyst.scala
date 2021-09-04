@@ -4,7 +4,6 @@ import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Filter, Limit, LogicalPlan, Project}
 import org.apache.spark.sql.catalyst.{expressions => e}
-import spl.IntValue
 
 class SplToCatalyst extends Logging {
   /**
