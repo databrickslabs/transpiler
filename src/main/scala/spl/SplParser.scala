@@ -122,7 +122,11 @@ object SplParser {
    * @tparam _
    * @return
    */
-  def head[_:P]: P[HeadCommand] = "head" ~ ((int | "limit=" ~ int) | expr) ~  ("keeplast=" ~ bool).? ~ ("null=" ~ bool).? map HeadCommand.tupled
+  def head[_:P]: P[HeadCommand] = ("head" ~ ((int | "limit=" ~ int) | expr)
+                                          ~  ("keeplast=" ~ bool).?
+                                          ~ ("null=" ~ bool).?).map(item => {
+    HeadCommand(item._1, item._2.getOrElse(Bool(false)), item._3.getOrElse(Bool(false)))
+  })
   // where <predicate-expression>
   def where[_:P]: P[WhereCommand] = "where" ~ expr map WhereCommand
 
