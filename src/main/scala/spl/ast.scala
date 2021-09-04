@@ -33,7 +33,7 @@ case class LookupCommand(options: Map[String,String], dataset: String, fields: S
 case class CollectCommand(args: Map[String,String], fields: Seq[Value]) extends Command
 case class WhereCommand(expr: Expr) extends Command
 case class TableCommand(fields: Seq[Value]) extends Command
-case class HeadCommand(evalExpr: Expr, keepLast: Option[Bool], nullOption: Option[Bool]) extends Command
+case class HeadCommand(evalExpr: Expr, keepLast: Bool = Bool(false), nullOption: Bool = Bool(false)) extends Command
 
 /**
  * Documentation taken from:

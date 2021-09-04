@@ -168,19 +168,19 @@ class SplParserTest extends ParserSuite {
   }
 
   test("head 20") {
-    p(head(_), HeadCommand(IntValue(20), None, None))
+    p(head(_), HeadCommand(IntValue(20), Bool(false), Bool(false)))
   }
 
   test("head limit=400") {
-    p(head(_), HeadCommand(IntValue(400), None, None))
+    p(head(_), HeadCommand(IntValue(400), Bool(false), Bool(false)))
   }
 
   test("head limit=400 keeplast=true null=false") {
-    p(head(_), HeadCommand(IntValue(400), Option(Bool(true)), Option(Bool(false))))
+    p(head(_), HeadCommand(IntValue(400), Bool(true), Bool(false)))
   }
 
   test("head count>10") {
-    p(head(_), HeadCommand(Binary(Value("count"), GreaterThan, Value("10")), None, None))
+    p(head(_), HeadCommand(Binary(Value("count"), GreaterThan, Value("10")), Bool(false), Bool(false)))
   }
 
   test("eval mitre_category=\"Discovery\"") {

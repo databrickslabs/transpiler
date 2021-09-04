@@ -1,34 +1,45 @@
 package org.apache.spark.sql
+
+import org.scalatest.Assertion
 import org.scalatest.funsuite.AnyFunSuite
 import spl.{HeadCommand, IntValue, Pipeline, Value}
-import org.apache.spark.sql.catalyst.expressions.Literal
-import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.expressions.{GreaterThan, Literal}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.plans.logical.{Filter, Limit, LogicalPlan}
 
 class SplToCatalystTestSuite extends AnyFunSuite {
 
     private val mySqlToCatalyst = new SplToCatalyst
 
-    test("HeadCommand should generate a Limit") {
-        val myPipeline = Pipeline(Seq(HeadCommand(IntValue(10), None, None)))
-        val plan: LogicalPlan = mySqlToCatalyst.process(myPipeline)
+    /**
+     *
+     * @param command
+     * @param callback
+     * @return
+     */
+    def assertPlan(command: spl.Command, callback: (spl.Command, LogicalPlan) => LogicalPlan): Assertion = {
+        val myPipeline = Pipeline(Seq(command))
+        val myPlanToTest: LogicalPlan = mySqlToCatalyst.process(myPipeline)
 
         val expectedPlan = myPipeline.commands.foldLeft(
-            UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) { (tree, _) =>
-                Limit(Literal(10), tree)
+            UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) {
+            (tree, cmd) => callback(cmd, tree)
         }
-        assert(expectedPlan == plan)
+        assert(myPlanToTest == expectedPlan)
+    }
+
+    test("HeadCommand should generate a Limit") {
+
+        assertPlan(
+            HeadCommand(IntValue(10), spl.Bool(false), spl.Bool(false)),
+            (_, tree) => Limit(Literal(10), tree))
     }
 
     test("HeadCommand should generate a Filter") {
-        val myPipeline = Pipeline(Seq(HeadCommand((Value("count>10")), None, None)))
-        val plan: LogicalPlan = mySqlToCatalyst.process(myPipeline)
-
-        val expectedPlan = myPipeline.commands.foldLeft(
-            UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) { (tree, _) =>
-                Filter(Literal("count>10"), tree)
-        }
-        assert(expectedPlan == plan)
+        assertPlan(
+            HeadCommand(spl.Binary(Value("count"), spl.GreaterThan, spl.IntValue(10))),
+            (_, tree) => Filter(GreaterThan(UnresolvedAttribute("count"), Literal(10)), tree)
+        )
     }
 
 }

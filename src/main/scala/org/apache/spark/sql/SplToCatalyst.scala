@@ -1,17 +1,15 @@
 package org.apache.spark.sql
 
-import org.apache.log4j.Logger
+import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Filter, Limit, LogicalPlan, Project}
 import org.apache.spark.sql.catalyst.{expressions => e}
-import spl.IntValue
 
-class SplToCatalyst {
+class SplToCatalyst extends Logging {
   /**
    * Currently projected expressions
    * TODO: https://github.com/databricks/spark-spl/issues/2
    */
-  private val LOGGER: Logger = Logger.getLogger(this.getClass)
   private var output = Seq[e.NamedExpression]()
 
   def process(p: spl.Pipeline): LogicalPlan = p.commands.foldLeft(
@@ -41,13 +39,13 @@ class SplToCatalyst {
             withColumn(plan, name, spl.Call(fc.func, Seq(fc.field)))
           }
 
-        case spl.HeadCommand(evalExpr, keepLast, nullOption) =>
+        case spl.HeadCommand(expr, keepLast, nullOption) =>
           // TODO Implement keeplast and null options behaviour
-          LOGGER.debug(s"Adding `HeadCommand` with options: ${evalExpr} to the tree")
-          if (evalExpr.isInstanceOf[IntValue])
-            Limit(expression(evalExpr), tree)
+          logger.debug(s"Adding `HeadCommand` with options: ${expr} to the tree")
+          if (expr.isInstanceOf[spl.IntValue])
+            Limit(expression(expr), tree)
           else
-            Filter(expression(evalExpr), tree)
+            Filter(expression(expr), tree)
 
         case spl.LookupCommand(options, dataset, fields, output) =>
           // TODO: implement it as joins later
