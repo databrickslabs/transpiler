@@ -34,7 +34,8 @@ case class CollectCommand(args: Map[String,String], fields: Seq[Value]) extends 
 case class WhereCommand(expr: Expr) extends Command
 case class TableCommand(fields: Seq[Value]) extends Command
 case class HeadCommand(evalExpr: Expr, keepLast: Bool = Bool(false), nullOption: Bool = Bool(false)) extends Command
-
+case class FieldsCommand(op: Option[String], fields: Seq[Value]) extends Command
+case class SortCommand(fieldsToSort: Seq[(Option[String], Expr)]) extends Command
 /**
  * Documentation taken from:
  * @link https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/Stats

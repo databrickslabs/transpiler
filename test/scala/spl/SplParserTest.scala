@@ -168,19 +168,105 @@ class SplParserTest extends ParserSuite {
   }
 
   test("head 20") {
-    p(head(_), HeadCommand(IntValue(20), Bool(false), Bool(false)))
+    p(head(_),
+      HeadCommand(
+        IntValue(20),
+        Bool(false),
+        Bool(false)
+      )
+    )
   }
 
   test("head limit=400") {
-    p(head(_), HeadCommand(IntValue(400), Bool(false), Bool(false)))
+    p(head(_),
+      HeadCommand(
+        IntValue(400),
+        Bool(false),
+        Bool(false))
+    )
   }
 
   test("head limit=400 keeplast=true null=false") {
-    p(head(_), HeadCommand(IntValue(400), Bool(true), Bool(false)))
+    p(head(_),
+      HeadCommand(
+        IntValue(400),
+        Bool(true),
+        Bool(false)
+      )
+    )
   }
 
   test("head count>10") {
-    p(head(_), HeadCommand(Binary(Value("count"), GreaterThan, Value("10")), Bool(false), Bool(false)))
+    p(head(_),
+      HeadCommand(
+        Binary(
+          Value("count"),
+          GreaterThan,
+          Value("10")
+        ),
+        Bool(false),
+        Bool(false)
+      )
+    )
+  }
+
+  test("fields column_a, column_b, column_c") {
+    p(fields(_),
+      FieldsCommand(
+        None,
+        Seq(
+          Value("column_a"),
+          Value("column_b"),
+          Value("column_c")
+        )
+      )
+    )
+  }
+
+  test("fields + column_a, column_b") {
+    p(fields(_),
+      FieldsCommand(
+        Option("+"),
+        Seq(
+          Value("column_a"),
+          Value("column_b")
+        )
+      )
+    )
+  }
+
+  test("fields - column_a, column_b") {
+    p(fields(_),
+      FieldsCommand(
+        Option("-"),
+        Seq(
+          Value("column_a"),
+          Value("column_b")
+        )
+      )
+    )
+  }
+
+  test("sort A, -B, +num(C)") {
+    p(sort(_),
+      SortCommand(
+        Seq(
+          (None, Value("A")),
+          (Some("-"), Value("B")),
+          (Some("+"), Call("num", Seq(Value("C"))))
+        )
+      )
+    )
+  }
+
+  test("sort A") {
+    p(sort(_),
+      SortCommand(
+        Seq(
+          (None, Value("A")),
+        )
+      )
+    )
   }
 
   test("eval mitre_category=\"Discovery\"") {
