@@ -1,9 +1,11 @@
 package org.apache.spark.sql
 
 import org.apache.logging.log4j.scala.Logging
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Filter, Limit, LogicalPlan, Project}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, SortOrder}
+import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Filter, Limit, LogicalPlan, Project, Sort}
 import org.apache.spark.sql.catalyst.{expressions => e}
+import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 
 class SplToCatalyst extends Logging {
   /**
@@ -11,6 +13,18 @@ class SplToCatalyst extends Logging {
    * TODO: https://github.com/databricks/spark-spl/issues/2
    */
   private var output = Seq[e.NamedExpression]()
+
+  /**
+   *
+   * @param fields
+   * @param tree
+   * @return
+   */
+  def SelectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
+    Project(fields.map {
+      case spl.Value(value) => Column(value)
+    }.map(_.named), tree)
+  }
 
   def process(p: spl.Pipeline): LogicalPlan = p.commands.foldLeft(
       UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) { (tree, command) =>
@@ -29,9 +43,7 @@ class SplToCatalyst extends Logging {
           Filter(expression(expr), tree)
 
         case spl.TableCommand(fields) =>
-          Project(fields.map {
-            case spl.Value(value) => Column(value)
-          }.map(_.named), tree)
+          SelectExpr(fields, tree)
 
         case spl.ConvertCommand(timeformat, convs) =>
           convs.foldLeft(tree) { (plan, fc) =>
@@ -45,7 +57,43 @@ class SplToCatalyst extends Logging {
           if (expr.isInstanceOf[spl.IntValue])
             Limit(expression(expr), tree)
           else
-            Filter(expression(expr), tree)
+            Limit(expression(expr), tree)
+
+        case spl.SortCommand(fields) =>
+          println(fields)
+          val sortOrder: Seq[SortOrder] = fields.map(field => {
+            val order = if (field._1.getOrElse("+") == "-") Descending else Ascending
+            field._2 match {
+              case spl.Call(name, args) =>
+                name match {
+                  case "num" =>
+                    SortOrder(Cast(expression(args.head), DoubleType), order)
+                  case "str" =>
+                    SortOrder(Cast(expression(args.head), StringType), order)
+                  case "ip" =>
+                    // TODO implement logic for ip function
+                    // see https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/sort
+                    SortOrder(expression(args.head), order)
+                  case _ =>
+                    SortOrder(expression(args.head), order)
+                }
+              case spl.Value(value) =>
+                SortOrder(expression(spl.Value(value)), order)
+            }
+          })
+          Sort(sortOrder, global = true, tree)
+
+        case spl.FieldsCommand(op, fields) =>
+          if (op.getOrElse("+").equals("-")) {
+            val fieldsToDiscard = fields.map(
+              item => item.value.replace("*", "(.*)")
+            ).mkString("|")
+
+            val columnRegex = UnresolvedRegex(s"^(?!$$${fieldsToDiscard}).*$$", None, false)
+            Project(Seq(columnRegex), tree)
+          }
+          else
+            SelectExpr(fields, tree)
 
         case spl.LookupCommand(options, dataset, fields, output) =>
           // TODO: implement it as joins later

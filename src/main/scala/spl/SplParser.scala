@@ -6,7 +6,7 @@ import fastparse._
 /**
  * SPL parser and AST
  *
- * https://docs.splunk.com/Splexicon:Searchprocessinglanguage
+ * https://docs.splunk.com/Splexicon:Searchpro`cessinglanguage
  * @link https://gist.github.com/ChrisYounger/520bdb1a7c8b22f5210213f83a3ab2db
  * @link https://gist.github.com/ChrisYounger/e51f9c3aba0f1ed02e5caee7d4a6128b
  * @link https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Search
@@ -123,10 +123,26 @@ object SplParser {
    * @return
    */
   def head[_:P]: P[HeadCommand] = ("head" ~ ((int | "limit=" ~ int) | expr)
-                                          ~  ("keeplast=" ~ bool).?
+                                          ~ ("keeplast=" ~ bool).?
                                           ~ ("null=" ~ bool).?).map(item => {
     HeadCommand(item._1, item._2.getOrElse(Bool(false)), item._3.getOrElse(Bool(false)))
   })
+
+  /**
+   * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Fields
+   * Function is missing wildcard fields (except when discarding fields ie. fields - myField, ...)
+   * @tparam _
+   * @return
+   */
+  def fields[_:P]: P[FieldsCommand] = "fields" ~ ("+" | "-").!.? ~ field.rep(min = 1, sep = ",") map FieldsCommand.tupled
+
+  /**
+   * https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Sort
+   * ip
+   * @tparam _
+   * @return
+   */
+  def sort[_:P]: P[SortCommand] = "sort" ~ (("+"|"-").!.? ~~ expr).rep(min = 1, sep = ",") map SortCommand
   // where <predicate-expression>
   def where[_:P]: P[WhereCommand] = "where" ~ expr map WhereCommand
 
@@ -140,7 +156,7 @@ object SplParser {
     ("dedup_splitvals" ~ "=" ~ bool).?.map(v => v.exists(_.value)))
     .map(StatsCommand.tupled)
 
-  def command[_:P]: P[Command] = stats | table | where | lookup | collect | convert | eval | head | impliedSearch
+  def command[_:P]: P[Command] = stats | table | where | lookup | collect | convert | eval | head | fields | sort | impliedSearch
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline
 }
 
