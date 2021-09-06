@@ -1,0 +1,21 @@
+name: build
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+    branches: [master]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+
+      - name: SBT action test
+        id: sbt
+        uses: lokkju/github-action-sbt@v0.2.2
