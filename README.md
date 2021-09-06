@@ -16,11 +16,11 @@
 | bin |  |  |  |
 | rename |  |  |  |
 | join |  |  |  |
-| fields |  |  |  |
+| fields | ✅ | ✅ | ✅ |
 | convert | ✅ |  |  |
 | collect | ✅ | ✅ | ✅ |
 | stats | ✅ |  |  |
-| sort |  |  |  |
+| sort | ✅ | ✅ | ✅ |
 | return |  |  |  |
 | mvcombine |  |  |  |
 | map |  |  |  |

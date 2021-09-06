@@ -28,6 +28,18 @@ class PythonGenerator {
     case Limit(expr, child) =>
       s"${fromPlan(child)}\n.limit(${expr})"
 
+    case Sort(order, global, child) =>
+      val orderBy = order.map(item => {
+        val dirStr = if (item.direction == Ascending) "asc()"  else "desc()"
+        item.child match {
+          case Cast(colExpr, dataType, _) =>
+            s"""col("${colExpr.toString()}").cast("${dataType.simpleString}").${dirStr}""".trim
+          case Literal(colExpr, _) =>
+            s"""col("${colExpr.toString}").${dirStr}""".trim
+        }
+      })
+      s"${fromPlan(child)}\n.orderBy(${orderBy.mkString(", ")})"
+
     case relation: UnresolvedRelation =>
       s"spark.table(${quoted(relation.name)})"
   }
