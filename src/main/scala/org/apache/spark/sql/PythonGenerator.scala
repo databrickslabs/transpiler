@@ -22,7 +22,7 @@ class PythonGenerator {
         val withColumn = exprs.filter(_.exprId == newExprs.head).head
         s"$childCode\n.withColumn(${q(withColumn.name)}, ${expressionCode(withColumn.children.head)})"
       } else {
-        s"$childCode\n.selectExpr(${exprs.map(expression).map(q).mkString(", ")})"
+        s"$childCode\n.selectExpr(${exprList(exprs)})"
       }
 
     case Filter(condition, child) =>
@@ -45,7 +45,14 @@ class PythonGenerator {
 
     case relation: UnresolvedRelation =>
       s"spark.table(${q(relation.name)})"
+
+    case Aggregate(by, agg, child) =>
+      val aggs = agg.map(expressionCode).mkString(", ")
+      s"${fromPlan(child)}\n.groupBy(${exprList(by)})\n.agg($aggs)"
   }
+
+  private def exprList(exprs: Seq[Expression]) =
+    exprs.map(expression).map(q).mkString(", ")
 
   private def expressionCode(expr: Expression): String = expr match {
     case Literal(value, t @ BooleanType) =>
