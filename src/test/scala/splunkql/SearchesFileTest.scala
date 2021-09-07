@@ -21,6 +21,7 @@ class SearchesFileTest extends AnyFunSuite with Logging {
       .agg(sum("id") as "a")
       .withColumn("c", lit(1))
       .withColumn("d", lit(2))
+        .join(spark.table("x"), Seq("a"), "left")
     logger.info(df.queryExecution.logical)
     logger.info("printed")
   }

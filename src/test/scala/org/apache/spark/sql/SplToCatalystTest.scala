@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
-import org.apache.spark.sql.catalyst.plans.PlanTestBase
+import org.apache.spark.sql.catalyst.plans.{LeftOuter, PlanTestBase, UsingJoin}
 
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
@@ -120,6 +120,22 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         Seq(Column("host").named),
                         Seq(Alias(Count(Seq()), "count")()),
                         tree)))
+    }
+
+    test("LookupCommand to Join") {
+        check(spl.LookupCommand(
+            "dst", Seq(
+                spl.Value("a"),
+                spl.AliasedField(spl.Value("b"), "c")
+            ), None),
+        (_, tree) =>
+            Join(tree,
+                Project(Seq(
+                    UnresolvedAttribute("a"),
+                    Alias(UnresolvedAttribute("b"), "c")()
+                ), UnresolvedRelation(Seq("dst"))),
+                UsingJoin(LeftOuter, Seq("a", "c")),
+                None, JoinHint.NONE))
     }
 
     private def check(command: spl.Command,

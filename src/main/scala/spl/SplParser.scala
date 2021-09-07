@@ -112,7 +112,7 @@ object SplParser {
     case Value(v) => v.toLowerCase != "output"
   }.rep(1)
   def lookupOutput[_:P]: P[LookupOutput] = (W("OUTPUT")|W("OUTPUTNEW")).! ~ fieldRep map LookupOutput.tupled
-  def lookup[_:P]: P[LookupCommand] = "lookup" ~ fieldAndValueList ~ token ~ fieldRep ~ lookupOutput.? map LookupCommand.tupled
+  def lookup[_:P]: P[LookupCommand] = "lookup" ~ token ~ fieldRep ~ lookupOutput.? map LookupCommand.tupled
 
   /**
    * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Head
