@@ -330,7 +330,6 @@ class SplParserTest extends ParserSuite {
   test("lookup process_create_whitelist a b output reason") {
     p(pipeline(_), Pipeline(Seq(
       LookupCommand(
-        Map(),
         "process_create_whitelist",
         Seq(
           Value("a"),

@@ -12,7 +12,7 @@
 | rex |  |  |  |
 | regex |  |  |  |
 | where | ✅ | ✅ | ✅ |
-| lookup | ✅ |  |  |
+| lookup | ✅ | ✅ | ✅ |
 | bin |  |  |  |
 | rename |  |  |  |
 | join |  |  |  |

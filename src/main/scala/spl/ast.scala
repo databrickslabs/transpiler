@@ -29,7 +29,10 @@ case class EvalCommand(fields: Seq[(Value,Expr)]) extends Command
 case class FieldConversion(func: String, field: Value, alias: Option[Value])
 case class ConvertCommand(timeformat: Option[String], convs: Seq[FieldConversion]) extends Command
 case class LookupOutput(kv: String, fields: Seq[Field])
-case class LookupCommand(options: Map[String,String], dataset: String, fields: Seq[Field], output: Option[LookupOutput]) extends Command
+case class LookupCommand(dataset: String, fields: Seq[Field], output: Option[LookupOutput]) extends Command {
+  def hasOutput: Boolean = output.isDefined
+  /** Does this lookup command have any aliases from the right side of the join? */
+}
 case class CollectCommand(args: Map[String,String], fields: Seq[Value]) extends Command
 case class WhereCommand(expr: Expr) extends Command
 case class TableCommand(fields: Seq[Value]) extends Command

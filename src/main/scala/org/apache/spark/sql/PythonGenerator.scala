@@ -2,6 +2,7 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.plans.{Cross, ExistenceJoin, FullOuter, Inner, InnerLike, LeftAnti, LeftOuter, LeftSemi, NaturalJoin, RightOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
 
@@ -49,6 +50,15 @@ class PythonGenerator {
     case Aggregate(by, agg, child) =>
       val aggs = agg.map(expressionCode).mkString(", ")
       s"${fromPlan(child)}\n.groupBy(${exprList(by)})\n.agg($aggs)"
+
+    case Join(left, right, joinType, _, _) =>
+      // TODO: condition and hints are not yet supported
+      val (tp, on) = joinType match {
+        case UsingJoin(tp, usingColumns) => (tp, usingColumns)
+        case tp => (tp, Seq())
+      }
+      val how = q(tp.sql.replace(" ", "_").toLowerCase)
+      s"${fromPlan(left)}\n.join(${fromPlan(right)},\n[${on.map(q).mkString(", ")}], $how)"
   }
 
   private def exprList(exprs: Seq[Expression]) =

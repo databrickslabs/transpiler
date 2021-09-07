@@ -4,7 +4,8 @@ import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
 import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, NamedExpression, SortDirection, SortOrder}
-import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Limit, LogicalPlan, Project, Sort}
+import org.apache.spark.sql.catalyst.plans.{JoinType, LeftOuter, UsingJoin}
+import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Join, JoinHint, Limit, LogicalPlan, Project, Sort}
 import org.apache.spark.sql.catalyst.{expressions => e}
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 
@@ -87,9 +88,8 @@ class SplToCatalyst extends Logging {
           } else
             selectExpr(fields, tree)
 
-        case spl.LookupCommand(options, dataset, fields, output) =>
-          // TODO: implement it as joins later
-          tree
+        case spl.LookupCommand(dataset, fields, output) =>
+          leftJoinUsing(dataset, fields, output, tree)
 
         case spl.CollectCommand(args, fields) =>
           //fields.map(fieldName => Column(fieldName.value))
@@ -105,6 +105,40 @@ class SplToCatalyst extends Logging {
           }
       }
     }
+
+  private def leftJoinUsing(dataset: String,
+                            fields: Seq[spl.Field],
+                            output: Option[spl.LookupOutput],
+                            tree: LogicalPlan): Join = {
+    val hasAliases: Boolean = fields exists {
+      case _: spl.Value => false
+      case _: spl.Alias => true
+      case _: spl.AliasedField => true
+    }
+    var right = UnresolvedRelation(Seq(dataset)).asInstanceOf[LogicalPlan]
+    if (hasAliases || output.isDefined) {
+      right = Project(fields.map {
+        case spl.Value(fieldName) =>
+          UnresolvedAttribute(fieldName)
+        case spl.AliasedField(spl.Value(fieldName), alias) =>
+          e.Alias(UnresolvedAttribute(fieldName), alias)()
+      } ++ (output match {
+        case Some(spl.LookupOutput(kv, outputFields)) =>
+          outputFields.map { // hm... this looks like a duplicate logic...
+            case spl.Value(fieldName) =>
+              UnresolvedAttribute(fieldName)
+            case spl.AliasedField(spl.Value(fieldName), alias) =>
+              e.Alias(UnresolvedAttribute(fieldName), alias)()
+          }
+        case None => Seq()
+      }), right)
+    }
+    Join(tree, right,
+      UsingJoin(LeftOuter, fields.map {
+        case spl.Value(fieldName) => fieldName
+        case spl.AliasedField(_, alias) => alias
+      }), None, JoinHint.NONE)
+  }
 
   private def aggregate(by: Seq[spl.Value], funcs: Seq[spl.Expr], tree: LogicalPlan) =
     Aggregate(fieldList(by), aggregates(funcs), tree)
@@ -175,8 +209,4 @@ class SplToCatalyst extends Logging {
     case spl.Value(value) => e.Literal.create(value)
     case spl.IntValue(value) => e.Literal.create(value)
   }
-}
-
-object SplToCatalyst {
-  def resolveAlias(name: String): Option[Expression => String] = Some(_ => name)
 }

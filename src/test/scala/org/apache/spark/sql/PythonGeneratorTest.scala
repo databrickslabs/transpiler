@@ -3,6 +3,7 @@ package org.apache.spark.sql
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
+import org.apache.spark.sql.catalyst.plans.{LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.scalatest.Outcome
 import org.scalatest.concurrent.TimeLimits.failAfter
@@ -85,6 +86,15 @@ class PythonGeneratorTest extends AnyFunSuite {
       Seq(Alias(Count(Seq()),
         "count")()),
       src))
+  }
+
+  test(".join(spark.table('dst')\n.withColumn('c', F.expr('`b`')),\n['c'], 'left_outer')") {
+    g(Join(src,
+      Project(Seq(
+        Alias(UnresolvedAttribute("b"), "c")()
+      ), UnresolvedRelation(Seq("dst"))),
+      UsingJoin(LeftOuter, Seq("c")),
+      None, JoinHint.NONE))
   }
 
   private def g(plan: LogicalPlan): Unit = {
