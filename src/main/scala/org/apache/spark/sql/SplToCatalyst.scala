@@ -51,7 +51,43 @@ class SplToCatalyst extends Logging {
           if (expr.isInstanceOf[spl.IntValue])
             Limit(expression(expr), tree)
           else
-            Filter(expression(expr), tree)
+            Limit(expression(expr), tree)
+
+        case spl.SortCommand(fields) =>
+          println(fields)
+          val sortOrder: Seq[SortOrder] = fields.map(field => {
+            val order = if (field._1.getOrElse("+") == "-") Descending else Ascending
+            field._2 match {
+              case spl.Call(name, args) =>
+                name match {
+                  case "num" =>
+                    SortOrder(Cast(expression(args.head), DoubleType), order)
+                  case "str" =>
+                    SortOrder(Cast(expression(args.head), StringType), order)
+                  case "ip" =>
+                    // TODO implement logic for ip function
+                    // see https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/sort
+                    SortOrder(expression(args.head), order)
+                  case _ =>
+                    SortOrder(expression(args.head), order)
+                }
+              case spl.Value(value) =>
+                SortOrder(expression(spl.Value(value)), order)
+            }
+          })
+          Sort(sortOrder, global = true, tree)
+
+        case spl.FieldsCommand(op, fields) =>
+          if (op.getOrElse("+").equals("-")) {
+            val fieldsToDiscard = fields.map(
+              item => item.value.replace("*", "(.*)")
+            ).mkString("|")
+
+            val columnRegex = UnresolvedRegex(s"^(?!$$${fieldsToDiscard}).*$$", None, false)
+            Project(Seq(columnRegex), tree)
+          }
+          else
+            SelectExpr(fields, tree)
 
         case spl.SortCommand(fields) =>
           println(fields)
