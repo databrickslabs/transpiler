@@ -21,26 +21,44 @@ class SplToCatalyst extends Logging {
   }
 
   private def sortOrder(fields: Seq[(Option[String], spl.Expr)]): Seq[SortOrder] = {
-    fields.map(field => {
-      val order = if (field._1.getOrElse("+") == "-") Descending else Ascending
-      field._2 match {
-        case spl.Call(name, args) =>
-          name match {
-            case "num" =>
-              SortOrder(Cast(attr(args.head), DoubleType), order)
-            case "str" =>
-              SortOrder(Cast(attr(args.head), StringType), order)
-            case "ip" =>
-              // TODO implement logic for ip function
-              // see https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/sort
-              SortOrder(attr(args.head), order)
-            case _ =>
-              SortOrder(attr(args.head), order)
-          }
-        case spl.Value(value) =>
-          SortOrder(UnresolvedAttribute(value), order)
+    fields map {
+      case Tuple2(a, b) => (b, if (a.getOrElse("+") == "-") Descending else Ascending)
+    } map {
+      case (spl.Call(name, args), order) => name match {
+        case "num" =>
+          SortOrder(Cast(attr(args.head), DoubleType), order)
+        case "str" =>
+          SortOrder(Cast(attr(args.head), StringType), order)
+        case "ip" =>
+          // TODO implement logic for ip function
+          // see https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/sort
+          SortOrder(attr(args.head), order)
+        case _ =>
+          SortOrder(attr(args.head), order)
       }
-    })
+      case (spl.Value(value), order) =>
+        SortOrder(UnresolvedAttribute(value), order)
+    }
+//    fields.map(field => {
+//      val order = if (field._1.getOrElse("+") == "-") Descending else Ascending
+//      field._2 match {
+//        case spl.Call(name, args) =>
+//          name match {
+//            case "num" =>
+//              SortOrder(Cast(attr(args.head), DoubleType), order)
+//            case "str" =>
+//              SortOrder(Cast(attr(args.head), StringType), order)
+//            case "ip" =>
+//              // TODO implement logic for ip function
+//              // see https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/sort
+//              SortOrder(attr(args.head), order)
+//            case _ =>
+//              SortOrder(attr(args.head), order)
+//          }
+//        case spl.Value(value) =>
+//          SortOrder(UnresolvedAttribute(value), order)
+//      }
+//    })
   }
 
   def process(p: spl.Pipeline): LogicalPlan = p.commands.foldLeft(
