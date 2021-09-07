@@ -14,13 +14,7 @@ class SplToCatalyst extends Logging {
    */
   private var output = Seq[e.NamedExpression]()
 
-  /**
-   *
-   * @param fields
-   * @param tree
-   * @return
-   */
-  def SelectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
+  def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
     Project(fields.map {
       case spl.Value(value) => Column(value)
     }.map(_.named), tree)
@@ -43,7 +37,7 @@ class SplToCatalyst extends Logging {
           Filter(expression(expr), tree)
 
         case spl.TableCommand(fields) =>
-          SelectExpr(fields, tree)
+          selectExpr(fields, tree)
 
         case spl.ConvertCommand(timeformat, convs) =>
           convs.foldLeft(tree) { (plan, fc) =>
@@ -57,7 +51,7 @@ class SplToCatalyst extends Logging {
           if (expr.isInstanceOf[spl.IntValue])
             Limit(expression(expr), tree)
           else
-            Limit(expression(expr), tree)
+            Filter(expression(expr), tree)
 
         case spl.SortCommand(fields) =>
           println(fields)
@@ -85,15 +79,12 @@ class SplToCatalyst extends Logging {
 
         case spl.FieldsCommand(op, fields) =>
           if (op.getOrElse("+").equals("-")) {
-            val fieldsToDiscard = fields.map(
-              item => item.value.replace("*", "(.*)")
-            ).mkString("|")
-
+            val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
             val columnRegex = UnresolvedRegex(s"^(?!$$${fieldsToDiscard}).*$$", None, false)
             Project(Seq(columnRegex), tree)
           }
           else
-            SelectExpr(fields, tree)
+            selectExpr(fields, tree)
 
         case spl.LookupCommand(options, dataset, fields, output) =>
           // TODO: implement it as joins later
