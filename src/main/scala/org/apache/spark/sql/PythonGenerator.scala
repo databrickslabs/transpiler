@@ -10,7 +10,9 @@ class PythonGenerator {
 
   def fromPlan(plan: LogicalPlan): String = plan match {
     case AppendData(table, query, writeOptions, isByName) =>
-      s"(${fromPlan(query)}\n.write.saveAsTable(${quoted(table.name)}, mode='append'))"
+      // TODO enclose in parentheses one level above this
+      s"${fromPlan(query)}\n.write.saveAsTable(${q(table.name)}, mode='append')"
+
     case Project(exprs, child) =>
       val childCode = fromPlan(child)
       val currExprs = exprs.filter(!_.isInstanceOf[Unevaluable]).map(_.exprId).toSet
@@ -18,15 +20,16 @@ class PythonGenerator {
       prevExprs = currExprs
       if (newExprs.size == 1) {
         val withColumn = exprs.filter(_.exprId == newExprs.head).head
-        s"$childCode\n.withColumn(${quoted(withColumn.name)}, ${expressionCode(withColumn.children.head)})"
+        s"$childCode\n.withColumn(${q(withColumn.name)}, ${expressionCode(withColumn.children.head)})"
       } else {
-        s"$childCode\n.selectExpr(${exprs.map(expression).map(quoted).mkString(", ")})"
+        s"$childCode\n.selectExpr(${exprs.map(expression).map(q).mkString(", ")})"
       }
+
     case Filter(condition, child) =>
       fromPlan(child) + "\n" + unfoldWheres(condition)
 
     case Limit(expr, child) =>
-      s"${fromPlan(child)}\n.limit(${expr})"
+      s"${fromPlan(child)}\n.limit($expr)"
 
     case Sort(order, global, child) =>
       val orderBy = order.map(item => {
@@ -41,7 +44,7 @@ class PythonGenerator {
       s"${fromPlan(child)}\n.orderBy(${orderBy.mkString(", ")})"
 
     case relation: UnresolvedRelation =>
-      s"spark.table(${quoted(relation.name)})"
+      s"spark.table(${q(relation.name)})"
   }
 
   private def expressionCode(expr: Expression): String = expr match {
@@ -51,13 +54,13 @@ class PythonGenerator {
     case Literal(value, t @ IntegerType) =>
       s"F.lit($value)"
     case Literal(value, t @ StringType) =>
-      s"F.lit(${quoted(value.toString)})"
-    case _ => s"F.expr(${quoted(expr.sql)})"
+      s"F.lit(${q(value.toString)})"
+    case _ => s"F.expr(${q(expr.sql)})"
   }
 
   private def unfoldWheres(expr: Expression): String = expr match {
-    case And(left, right) => s"${unfoldWheres(left)}\n.where(${quoted(expression(right))})"
-    case _ => s".where(${quoted(expression(expr))})"
+    case And(left, right) => s"${unfoldWheres(left)}\n.where(${q(expression(right))})"
+    case _ => s".where(${q(expression(expr))})"
   }
 
 //  org.apache.spark.sql.catalyst.util.toPrettySQL(expr)
@@ -69,5 +72,9 @@ class PythonGenerator {
     case _: Any => expr.sql
   }
 
-  private def quoted(value: String) = '"' + value + '"'
+  /**
+   * Sugar for quoting strings
+   * TODO: make it smarter and use double quotes when needed
+   */
+  private def q(value: String) = "'" + value + "'"
 }

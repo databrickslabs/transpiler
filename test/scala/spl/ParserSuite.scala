@@ -6,6 +6,7 @@ import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.concurrent.TimeLimits.failAfter
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.must.Matchers
+import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 
 import scala.collection.mutable
@@ -13,7 +14,7 @@ import scala.collection.mutable
 class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   import fastparse._
 
-  val timeLimit = 300000 millis
+  val timeLimit: Span = 300000 millis
 
   var currentTest: String = _
   override def withFixture(test: NoArgTest): Outcome = {
