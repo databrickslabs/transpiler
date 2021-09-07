@@ -19,7 +19,7 @@
 | fields | ✅ | ✅ | ✅ |
 | convert | ✅ |  |  |
 | collect | ✅ | ✅ | ✅ |
-| stats | ✅ |  |  |
+| stats | ✅ | ✅ | ✅ |
 | sort | ✅ | ✅ | ✅ |
 | return |  |  |  |
 | mvcombine |  |  |  |

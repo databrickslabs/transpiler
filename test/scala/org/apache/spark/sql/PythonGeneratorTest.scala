@@ -2,6 +2,7 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.aggregate.Count
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.scalatest.Outcome
 import org.scalatest.concurrent.TimeLimits.failAfter
@@ -77,6 +78,14 @@ class PythonGeneratorTest extends AnyFunSuite {
 //      SortOrder(Cast("a"), Descending)
 //    ), global = true, src))
 //  }
+
+  test(".groupBy('host')\n.agg(F.expr('count() AS `count`'))") {
+    g(Aggregate(
+      Seq(Column("host").named),
+      Seq(Alias(Count(Seq()),
+        "count")()),
+      src))
+  }
 
   private def g(plan: LogicalPlan): Unit = {
     val code = new PythonGenerator().fromPlan(plan)

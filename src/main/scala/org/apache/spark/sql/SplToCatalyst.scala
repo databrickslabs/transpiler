@@ -1,9 +1,10 @@
 package org.apache.spark.sql
 
 import org.apache.logging.log4j.scala.Logging
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, SortOrder}
-import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Filter, Limit, LogicalPlan, Project, Sort}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.expressions.aggregate.Count
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, NamedExpression, SortDirection, SortOrder}
+import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Limit, LogicalPlan, Project, Sort}
 import org.apache.spark.sql.catalyst.{expressions => e}
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 
@@ -94,25 +95,53 @@ class SplToCatalyst extends Logging {
           //fields.map(fieldName => Column(fieldName.value))
           // TODO: add projection if fields is not empty
           AppendData(UnresolvedRelation(Seq(args("index"))), tree, Map(), isByName = true)
+
+        case spl.StatsCommand(params, funcs, by, dedupSplitVals) =>
+          if (dedupSplitVals) {
+            Deduplicate(by.map(x => UnresolvedAttribute(x.value)),
+              aggregate(by, funcs, tree))
+          } else {
+            aggregate(by, funcs, tree)
+          }
       }
     }
+
+  private def aggregate(by: Seq[spl.Value], funcs: Seq[spl.Expr], tree: LogicalPlan) =
+    Aggregate(fieldList(by), aggregates(funcs), tree)
+
+  private def fieldList(fields: Seq[spl.Value]): Seq[Expression] = fields.map {
+    case spl.Value(value) => Column(value)
+  }.map(_.named)
+
+  private def aggregates(funcs: Seq[spl.Expr]): Seq[NamedExpression] = funcs.map {
+    case call: spl.Call =>
+      e.Alias(function(call), call.name)()
+    case spl.Alias(call: spl.Call, name) =>
+      e.Alias(function(call), name)()
+    // TODO: add failure case
+  }
 
   private def withColumn(tree: LogicalPlan, name: String, expr: spl.Expr): Project = {
     output = output :+ e.Alias(expression(expr), name)()
     Project(output, tree)
   }
 
-  private def mapCall(call: spl.Call): e.Expression = call.name match {
+  private def function(call: spl.Call): e.Expression = call.name match {
     case "isnull" =>
       e.IsNull(expression(call.args.head))
     case "ctime" =>
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
+    case "count" =>
+      Count(call.args.map(expression))
+    case _ =>
+      val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
+      throw new AnalysisException(s"Unknown SPL function: $approx")
   }
 
   private def expression(expr: spl.Expr): e.Expression = expr match {
     case constant: spl.Constant => mapConstants(constant)
-    case call: spl.Call => mapCall(call)
+    case call: spl.Call => function(call)
     case spl.Unary(symbol, right) => symbol match {
       case spl.UnaryNot => e.Not(expression(right))
       // TODO: failure modes
@@ -146,4 +175,8 @@ class SplToCatalyst extends Logging {
     case spl.Value(value) => e.Literal.create(value)
     case spl.IntValue(value) => e.Literal.create(value)
   }
+}
+
+object SplToCatalyst {
+  def resolveAlias(name: String): Option[Expression => String] = Some(_ => name)
 }

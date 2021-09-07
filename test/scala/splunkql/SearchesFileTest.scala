@@ -21,7 +21,8 @@ class SearchesFileTest extends AnyFunSuite with Logging {
       .agg(sum("id") as "a")
       .withColumn("c", lit(1))
       .withColumn("d", lit(2))
-    logger.info(df)
+    logger.info(df.queryExecution.logical)
+    logger.info("printed")
   }
 
   test("expansion") {
