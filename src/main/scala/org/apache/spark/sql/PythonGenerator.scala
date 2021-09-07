@@ -36,9 +36,9 @@ class PythonGenerator {
         val dirStr = if (item.direction == Ascending) "asc()"  else "desc()"
         item.child match {
           case Cast(colExpr, dataType, _) =>
-            s"""col("${colExpr.toString()}").cast("${dataType.simpleString}").${dirStr}""".trim
-          case Literal(colExpr, _) =>
-            s"""col("${colExpr.toString}").${dirStr}""".trim
+            s"F.col(${q(colExpr.toString())}).cast(${q(dataType.simpleString)}).${dirStr}"
+          case UnresolvedAttribute(nameParts) =>
+            s"F.col(${q(nameParts.mkString("."))}).${dirStr}"
         }
       })
       s"${fromPlan(child)}\n.orderBy(${orderBy.mkString(", ")})"

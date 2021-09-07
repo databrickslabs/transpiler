@@ -119,8 +119,6 @@ object SplParser {
    * Function is missing the case where both a limit and a condition are passed
    * ie. head limit=10 (1==1)
    * TODO Add condition
-   * @tparam _
-   * @return
    */
   def head[_:P]: P[HeadCommand] = ("head" ~ ((int | "limit=" ~ int) | expr)
                                           ~ ("keeplast=" ~ bool).?
@@ -131,16 +129,12 @@ object SplParser {
   /**
    * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Fields
    * Function is missing wildcard fields (except when discarding fields ie. fields - myField, ...)
-   * @tparam _
-   * @return
    */
   def fields[_:P]: P[FieldsCommand] = "fields" ~ ("+" | "-").!.? ~ field.rep(min = 1, sep = ",") map FieldsCommand.tupled
 
   /**
    * https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Sort
    * ip
-   * @tparam _
-   * @return
    */
   def sort[_:P]: P[SortCommand] = "sort" ~ (("+"|"-").!.? ~~ expr).rep(min = 1, sep = ",") map SortCommand
   // where <predicate-expression>
