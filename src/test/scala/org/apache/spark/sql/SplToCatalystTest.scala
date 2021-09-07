@@ -1,14 +1,15 @@
 package org.apache.spark.sql
 
-import java.util.UUID
 import org.scalatest.funsuite.AnyFunSuite
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
+import org.apache.spark.sql.catalyst.plans.PlanTestBase
 
-class SplToCatalystTest extends AnyFunSuite {
+
+class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("HeadCommand should generate a Limit") {
         check(spl.HeadCommand(
             spl.IntValue(10),
@@ -100,8 +101,7 @@ class SplToCatalystTest extends AnyFunSuite {
         (_, tree) =>
             Aggregate(
                 Seq(Column("host").named),
-                Seq(Alias(Count(Seq()),
-                    "count")(exprId = newExprId(1))),
+                Seq(Alias(Count(Seq()), "count")()),
                 tree))
     }
 
@@ -118,33 +118,19 @@ class SplToCatalystTest extends AnyFunSuite {
                     ),
                     Aggregate(
                         Seq(Column("host").named),
-                        Seq(Alias(Count(Seq()),
-                            "count")(exprId = newExprId(1))),
+                        Seq(Alias(Count(Seq()), "count")()),
                         tree)))
     }
 
-    def check(command: spl.Command,
+    private def check(command: spl.Command,
               callback: (spl.Command, LogicalPlan) => LogicalPlan
               ): Unit = this.synchronized {
-        val myPipeline = spl.Pipeline(Seq(command))
-
-        // here starts the tale of readable tests:
-        // JVM ID & expression ID are global variables,
-        // so we lock the plan assertion and hijack the ids
-        val dummyExpr = NamedExpression.newExprId
-        jvmId = dummyExpr.jvmId
-        curId = dummyExpr.id
-
-        val myPlanToTest: LogicalPlan = new SplToCatalyst().process(myPipeline)
-        val expectedPlan = myPipeline.commands.foldLeft(
+        val pipeline = spl.Pipeline(Seq(command))
+        val actualPlan: LogicalPlan = new SplToCatalyst().process(pipeline)
+        val expectedPlan = pipeline.commands.foldLeft(
             UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) {
             (tree, cmd) => callback(cmd, tree)
         }
-        assert(myPlanToTest == expectedPlan)
+        comparePlans(actualPlan, expectedPlan, checkAnalysis = false)
     }
-
-    private var jvmId: UUID = _
-    private var curId: Long = _
-    // here be dragonz
-    private def newExprId(offset: Int): ExprId = ExprId(curId + offset, jvmId)
 }
