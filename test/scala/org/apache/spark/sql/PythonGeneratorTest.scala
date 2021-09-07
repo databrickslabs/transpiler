@@ -66,6 +66,18 @@ class PythonGeneratorTest extends AnyFunSuite {
     g(Limit(Literal.create(10), src))
   }
 
+  test(".orderBy(F.col('a').desc())") {
+    g(Sort(Seq(
+      SortOrder(UnresolvedAttribute("a"), Descending)
+    ), global = true, src))
+  }
+
+//  test(".orderBy(F.col('a').cast('double').asc())") {
+//    g(Sort(Seq(
+//      SortOrder(Cast("a"), Descending)
+//    ), global = true, src))
+//  }
+
   private def g(plan: LogicalPlan): Unit = {
     val code = new PythonGenerator().fromPlan(plan)
         // replace src shim to make tests readable

@@ -39,7 +39,11 @@ class SplToCatalystTestSuite extends AnyFunSuite {
     test("HeadCommand should generate a Filter") {
         assertPlan(
             HeadCommand(spl.Binary(Value("count"), spl.GreaterThan, spl.IntValue(10))),
-            (_, tree) => Filter(GreaterThan(UnresolvedAttribute("count"), Literal(10)), tree)
+            (_, tree) => Filter(
+                GreaterThan(
+                    UnresolvedAttribute("count"),
+                    Literal(10)
+                ), tree)
         )
     }
 
@@ -50,9 +54,9 @@ class SplToCatalystTestSuite extends AnyFunSuite {
                 Tuple2(Some("-"), Value("B")),
                 Tuple2(Some("+"), Call("num", Seq(Value("C")))))),
             (_, tree) => Sort(Seq(
-                SortOrder(Literal("A"), Ascending),
-                SortOrder(Literal("B"), Descending),
-                SortOrder(Cast(Literal("C"), DoubleType), Ascending)
+                SortOrder(UnresolvedAttribute("A"), Ascending),
+                SortOrder(UnresolvedAttribute("B"), Descending),
+                SortOrder(Cast(UnresolvedAttribute("C"), DoubleType), Ascending)
             ), global =  true, tree)
         )
     }
@@ -61,7 +65,7 @@ class SplToCatalystTestSuite extends AnyFunSuite {
         assertPlan(
             SortCommand(Seq(Tuple2(None, Value("A")))),
             (_, tree) => Sort(Seq(
-                SortOrder(Literal("A"), Ascending)
+                SortOrder(UnresolvedAttribute("A"), Ascending)
             ), global =  true, tree)
         )
     }
