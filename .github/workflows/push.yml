@@ -18,4 +18,4 @@ jobs:
 
       - name: SBT action test
         id: sbt
-        uses: VincentTNR/github-action-sbt@v0.2.2
+        uses: VincentTNR/github-action-sbt@master
