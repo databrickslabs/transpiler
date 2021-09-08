@@ -147,6 +147,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             "From: <(?<from>.*)> To: <(?<to>.*)>"),
         (_, tree) =>
             Project(Seq(
+                UnresolvedRegex("^.*?", None, caseSensitive = false),
                 Alias(RegExpExtract(
                     Column("colNameA").expr,
                     Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),

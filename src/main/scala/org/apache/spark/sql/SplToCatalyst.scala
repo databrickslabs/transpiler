@@ -237,6 +237,7 @@ class SplToCatalyst extends Logging {
     mode match {
       case Some(value) => throw new NotImplementedError(s"rex mode=${value.value} [...] currently not supported !")
       case None =>
+        output = output :+ UnresolvedRegex("^.*?", None, false)
         rexParseNamedGroup(regex) map {
           case (colName, groupIndex)  =>
             val alias = e.Alias(
