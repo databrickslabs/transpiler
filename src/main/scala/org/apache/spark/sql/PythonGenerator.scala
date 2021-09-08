@@ -1,6 +1,6 @@
 package org.apache.spark.sql
 
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.{Cross, ExistenceJoin, FullOuter, Inner, InnerLike, LeftAnti, LeftOuter, LeftSemi, NaturalJoin, RightOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
@@ -85,6 +85,7 @@ class PythonGenerator {
   def expression(expr: Expression): String = expr match {
     case UnresolvedAlias(child, aliasFunc) => expression(child)
     case Alias(child, name) => s"${expression(child)} AS $name"
+    case UnresolvedRegex(regexPattern, table, caseSensitive) => s"`${regexPattern}`"
     case a: UnresolvedAttribute => a.name
     case _: Any => expr.sql
   }

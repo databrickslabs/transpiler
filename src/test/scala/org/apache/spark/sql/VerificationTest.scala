@@ -49,19 +49,22 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
-  test("rex field=_raw \"From: <(?<from>.*)> To: <(?<to>.*)>\"") {
+  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"") {
     import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
     spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+
     executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"",
-      """+-----------------------+---------------------------+
-        ||from                   |to                         |
-        |+-----------------------+---------------------------+
-        ||MariaDubois@example.com|zecora@buttercupgames.com  |
-        ||WeiZhang@example.com   |mcintosh@buttercupgames.com|
-        ||Exit_Desk@sample.net   |lyra@buttercupgames.com    |
-        ||Manish_Das@example.com |dash@buttercupgames.com    |
-        |+-----------------------+---------------------------+
-        |""".stripMargin)
+      """+------------------------------+-----------------------+---------------------------+
+        ||                          _raw|                   from|                         to|
+        |+------------------------------+-----------------------+---------------------------+
+        ||Mon Mar 19 20:16:27 2018 In...|MariaDubois@example.com|  zecora@buttercupgames.com|
+        ||Mon Mar 19 20:16:03 2018 In...|   WeiZhang@example.com|mcintosh@buttercupgames.com|
+        ||Mon Mar 19 20:16:02 2018 In...|   Exit_Desk@sample.net|    lyra@buttercupgames.com|
+        ||Mon Mar 19 20:15:53 2018 In...| Manish_Das@example.com|    dash@buttercupgames.com|
+        |+------------------------------+-----------------------+---------------------------+
+        |""".stripMargin, truncate = 30)
   }
 
 }
