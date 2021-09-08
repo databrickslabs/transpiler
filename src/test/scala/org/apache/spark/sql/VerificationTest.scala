@@ -11,6 +11,21 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     Dummy("e", "d", "c", 5, valid = true),
   )
 
+  val dummySingleField = Seq(
+    SingleRawField("Mon Mar 19 20:16:27 2018 Info: Bounced: DCID 8413617 MID 19338947 From: " +
+                   "<MariaDubois@example.com> To: <zecora@buttercupgames.com> RID 0 - 5.4.7 - " +
+                   "Delivery expired (message too old) ('000', ['timeout'])"),
+    SingleRawField("Mon Mar 19 20:16:03 2018 Info: Delayed: DCID 8414309 MID 19410908 From: " +
+                   "<WeiZhang@example.com> To: <mcintosh@buttercupgames.com> RID 0 - 4.3.2 - " +
+                   "Not accepting messages at this time ('421', ['4.3.2 try again later'])"),
+    SingleRawField("Mon Mar 19 20:16:02 2018 Info: Bounced: DCID 0 MID 19408690 From: " +
+                   "<Exit_Desk@sample.net> To: <lyra@buttercupgames.com> RID 0 - 5.1.2 - " +
+                   "Bad destination host ('000', ['DNS Hard Error looking (MX):  NXDomain'])"),
+    SingleRawField("Mon Mar 19 20:15:53 2018 Info: Delayed: DCID 8414166 MID 19410657 From: " +
+                   "<Manish_Das@example.com> To: <dash@buttercupgames.com> RID 0 - 4.3.2 - " +
+                   "Not accepting messages at this time ('421', ['4.3.2 try again later'])")
+  )
+
   test("thing") {
     generates("n>2 | stats count() by valid",
       """(spark.table('x')
@@ -33,4 +48,20 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |+---+---+---+---+-----+
         |""".stripMargin)
   }
+
+  test("rex field=_raw \"From: <(?<from>.*)> To: <(?<to>.*)>\"") {
+    import spark.implicits._
+    spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"",
+      """+-----------------------+---------------------------+
+        ||from                   |to                         |
+        |+-----------------------+---------------------------+
+        ||MariaDubois@example.com|zecora@buttercupgames.com  |
+        ||WeiZhang@example.com   |mcintosh@buttercupgames.com|
+        ||Exit_Desk@sample.net   |lyra@buttercupgames.com    |
+        ||Manish_Das@example.com |dash@buttercupgames.com    |
+        |+-----------------------+---------------------------+
+        |""".stripMargin)
+  }
+
 }
