@@ -40,5 +40,5 @@ trait ProcessProxy {
 
   def executes(search: String, results: String) =
     assert(Transpiler.toDataFrame(spark, search)
-      .showString(20) == results)
+      .showString(20, 0) == results)
 }
