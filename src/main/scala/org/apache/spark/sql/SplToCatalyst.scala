@@ -1,9 +1,13 @@
 package org.apache.spark.sql
 
+import spl.RexCommand
+
+import scala.collection.mutable
+import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, NamedExpression, SortDirection, SortOrder}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, Literal, NamedExpression, RegExpExtract, SortDirection, SortOrder}
 import org.apache.spark.sql.catalyst.plans.{JoinType, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Join, JoinHint, Limit, LogicalPlan, Project, Sort}
 import org.apache.spark.sql.catalyst.{expressions => e}
@@ -15,6 +19,17 @@ class SplToCatalyst extends Logging {
    * TODO: https://github.com/databricks/spark-spl/issues/2
    */
   private var output = Seq[e.NamedExpression]()
+
+  private def rexParseNamedGroup(inputString: String): mutable.Map[String, Int] = {
+    val namedGroupPattern: Regex = "<([a-zA-Z_0-9]+)>".r
+    val namedGroupMap = mutable.Map[String, Int]()
+    var index = 1
+    for (patternMatch <- namedGroupPattern.findAllMatchIn(inputString)) {
+      namedGroupMap(patternMatch.group(1)) = index
+      index += 1
+    }
+    namedGroupMap
+  }
 
   private def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
     Project(fields.map {
@@ -102,6 +117,28 @@ class SplToCatalyst extends Logging {
               aggregate(by, funcs, tree))
           } else {
             aggregate(by, funcs, tree)
+          }
+
+        case RexCommand(field, maxMatch, offsetField, mode, regex) =>
+          // TODO find a way to implement max_match, offset_field and mode
+          mode match {
+            case Some(value) => throw new NotImplementedError("mode=sed currently not supported in rex command")
+            case None =>
+              rexParseNamedGroup(regex).foreach((item) => {
+                val colName = item._1
+                val groupIndex = item._2
+                val alias = e.Alias(
+                  RegExpExtract(
+                    field match {
+                      case Some(value) => Column(value.value).expr
+                      case None => Column("_raw").expr
+                    },
+                    Literal(regex),
+                    Literal(groupIndex)), colName)()
+                println(alias.sql)
+                output = output :+ alias
+              })
+              Project(output, tree)
           }
       }
     }

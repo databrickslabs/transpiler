@@ -97,10 +97,41 @@ class PythonGeneratorTest extends AnyFunSuite {
       None, JoinHint.NONE))
   }
 
+  test(".withColumn('from', F.expr('regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1)'))") {
+    g(
+      Project(
+        Seq(Alias(
+          RegExpExtract(
+            Column("event_type").expr,
+            Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
+            Literal(1)), "from")()), src)
+    )
+  }
+
+  test(".selectExpr('regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1) AS from', " +
+                   "'regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 2) AS to')") {
+    g(
+      Project(
+        Seq(
+          Alias(RegExpExtract(
+            Column("event_type").expr,
+            Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
+            Literal(1)), "from")(),
+          Alias(RegExpExtract(
+            Column("event_type").expr,
+            Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
+            Literal(2)), "to")()
+        ), src),
+
+    )
+  }
+
   private def g(plan: LogicalPlan): Unit = {
     val code = new PythonGenerator().fromPlan(plan)
         // replace src shim to make tests readable
         .replace("spark.table('src')\n", "")
+    println(code)
+    println(currentTest)
     assert(code == currentTest)
   }
 

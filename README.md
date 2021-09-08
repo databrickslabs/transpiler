@@ -9,7 +9,7 @@
 | search | ✅ | ✅ | ✅ |
 | eval | ✅ | ✅ | ✅ |
 | table | ✅ | ✅ | ✅ |
-| rex |  |  |  |
+| rex | ✅ | ✅ | ✅ |
 | regex |  |  |  |
 | where | ✅ | ✅ | ✅ |
 | lookup | ✅ | ✅ | ✅ |
@@ -25,7 +25,7 @@
 | mvcombine |  |  |  |
 | map |  |  |  |
 | inputlookup |  |  |  |
-| head | ✅ | ✅ | ✅ |
+| head | 
 | format |  |  |  |
 | fillnull |  |  |  |
 | eventstats |  |  |  |

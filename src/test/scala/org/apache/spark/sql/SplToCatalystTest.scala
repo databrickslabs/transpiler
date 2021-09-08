@@ -138,6 +138,38 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 None, JoinHint.NONE))
     }
 
+    test("Rex Command should generate a Project") {
+        check(spl.RexCommand(
+            Some(spl.Value("colNameA")),
+            None,
+            None,
+            None,
+            "From: <(?<from>.*)> To: <(?<to>.*)>"),
+        (_, tree) =>
+            Project(Seq(
+                Alias(RegExpExtract(
+                    Column("colNameA").expr,
+                    Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
+                    Literal(1)), "from")(),
+                Alias(RegExpExtract(
+                    Column("colNameA").expr,
+                    Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
+                    Literal(2)), "to")(),
+        ), tree))
+    }
+
+    test("Rex Command should throw an error") {
+        val command = spl.RexCommand(
+            Some(spl.Value("colNameA")),
+            None,
+            None,
+            Some(spl.Value("sed")),
+            "s/(\\d{4}-){3}/XXXX-XXXX-XXXX-/g")
+
+        assertPlanThrows(command, new NotImplementedError)
+    }
+
+
     private def check(command: spl.Command,
               callback: (spl.Command, LogicalPlan) => LogicalPlan
               ): Unit = this.synchronized {
@@ -148,5 +180,12 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (tree, cmd) => callback(cmd, tree)
         }
         comparePlans(actualPlan, expectedPlan, checkAnalysis = false)
+    }
+
+    private def assertPlanThrows(command: spl.Command, error: Throwable): Unit = {
+        val pipeline = spl.Pipeline(Seq(command))
+        assertThrows[NotImplementedError] {
+            new SplToCatalyst().process(pipeline)
+        }
     }
 }

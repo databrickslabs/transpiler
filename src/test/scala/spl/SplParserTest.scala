@@ -402,4 +402,28 @@ class SplParserTest extends ParserSuite {
       ))
     ))
   }
+
+  test("rex field=savedsearch_id max_match=10 \"(?<user>\\w+);(?<app>\\w+);(?<SavedSearchName>\\w+)\"") {
+    p(pipeline(_), Pipeline(Seq(
+      RexCommand(
+        Some(Value("savedsearch_id")),
+        Some(IntValue(10)),
+        None,
+        None,
+        "(?<user>\\w+);(?<app>\\w+);(?<SavedSearchName>\\w+)"
+      )
+    )))
+  }
+
+  test("rex mode=sed \"s/(\\d{4}-){3}/XXXX-XXXX-XXXX-/g\"") {
+    p(pipeline(_), Pipeline(Seq(
+      RexCommand(
+        None,
+        None,
+        None,
+        Some(Value("sed")),
+        "s/(\\d{4}-){3}/XXXX-XXXX-XXXX-/g"
+      )
+    )))
+  }
 }
