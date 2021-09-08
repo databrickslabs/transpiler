@@ -130,8 +130,6 @@ class PythonGeneratorTest extends AnyFunSuite {
     val code = new PythonGenerator().fromPlan(plan)
         // replace src shim to make tests readable
         .replace("spark.table('src')\n", "")
-    println(code)
-    println(currentTest)
     assert(code == currentTest)
   }
 
