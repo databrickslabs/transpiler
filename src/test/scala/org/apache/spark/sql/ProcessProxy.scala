@@ -38,7 +38,7 @@ trait ProcessProxy {
   def generates(search: String, code: String) =
     assert(Transpiler.toPython(search) == code)
 
-  def executes(search: String, results: String) =
+  def executes(search: String, results: String, truncate: Int = 0) =
     assert(Transpiler.toDataFrame(spark, search)
-      .showString(20, 0) == results)
+      .showString(20, truncate) == results)
 }
