@@ -150,7 +150,12 @@ object SplParser {
     ("dedup_splitvals" ~ "=" ~ bool).?.map(v => v.exists(_.value)))
     .map(StatsCommand.tupled)
 
-  def command[_:P]: P[Command] = stats | table | where | lookup | collect | convert | eval | head | fields | sort | impliedSearch
+  def rex[_:P]: P[RexCommand] = ("rex" ~ ("field=" ~ field).?
+                                                   ~ ("max_match=" ~ int).?
+                                                   ~ ("offset_field=" ~ field).?
+                                                   ~ ("mode=" ~ field).? ~ doubleQuoted) map RexCommand.tupled
+
+  def command[_:P]: P[Command] = stats | table | where | lookup | collect | convert | eval | head | fields | sort | rex | impliedSearch
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline
 }
 

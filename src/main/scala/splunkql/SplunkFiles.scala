@@ -47,8 +47,7 @@ case class SplunkContext(sf: SearchesFile, mf: MacrosFile) {
         case Parsed.Success(value, _) => value
         case f: Parsed.Failure =>
           throw new AssertionError(f.trace().longMsg)
-      }
-    }
+    }}
 
   def getSearchInCatalyst(name: String) = {
     val tsc = new SplToCatalyst()
