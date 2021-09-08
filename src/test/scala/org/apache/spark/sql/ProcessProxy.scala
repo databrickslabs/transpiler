@@ -47,4 +47,5 @@ trait ProcessProxy extends Logging {
     logger.debug(s"Expected:\n${results}")
     assert(testVar == results)
   }
+
 }
