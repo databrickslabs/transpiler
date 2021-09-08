@@ -66,5 +66,4 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |+------------------------------+-----------------------+---------------------------+
         |""".stripMargin, truncate = 30)
   }
-
 }
