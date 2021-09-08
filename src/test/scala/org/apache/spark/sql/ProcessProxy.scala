@@ -2,6 +2,8 @@ package org.apache.spark.sql
 
 import scala.collection.mutable
 import scala.sys.process.{Process, ProcessLogger}
+import org.apache.logging.log4j.scala.Logging
+
 
 class Capture extends ProcessLogger {
   private val stdout = new mutable.StringBuilder()
@@ -13,7 +15,7 @@ class Capture extends ProcessLogger {
   def getError: String = stderr.toString
 }
 
-trait ProcessProxy {
+trait ProcessProxy extends Logging {
   private val folder = getClass.getResource("/").getFile
 
   lazy val spark = {
@@ -38,7 +40,11 @@ trait ProcessProxy {
   def generates(search: String, code: String) =
     assert(Transpiler.toPython(search) == code)
 
-  def executes(search: String, results: String, truncate: Int = 0) =
-    assert(Transpiler.toDataFrame(spark, search)
-      .showString(20, truncate) == results)
+  def executes(search: String, results: String, truncate: Int = 0) = {
+    val testVar = Transpiler.toDataFrame(spark, search)
+                            .showString(20, truncate)
+    logger.debug(s"Test:\n${testVar}")
+    logger.debug(s"Expected:\n${results}")
+    assert(testVar == results)
+  }
 }

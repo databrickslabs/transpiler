@@ -40,11 +40,11 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     spark.createDataset(dummy).createOrReplaceTempView("x")
     executes("n>2",
       """+---+---+---+---+-----+
-        ||  a|  b|  c|  n|valid|
+        ||a  |b  |c  |n  |valid|
         |+---+---+---+---+-----+
-        ||  g|  h|  i|  3| true|
-        ||  h|  g|  f|  4|false|
-        ||  e|  d|  c|  5| true|
+        ||g  |h  |i  |3  |true |
+        ||h  |g  |f  |4  |false|
+        ||e  |d  |c  |5  |true |
         |+---+---+---+---+-----+
         |""".stripMargin)
   }
