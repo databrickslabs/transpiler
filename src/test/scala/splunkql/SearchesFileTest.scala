@@ -12,7 +12,7 @@ class SearchesFileTest extends AnyFunSuite with Logging {
     val sf = new SearchesFile(res("/savedsearches.conf"))
   }
 
-  test("att") {
+  ignore("att") {
     import org.apache.spark.sql.functions._
     val spark = SparkSession.builder().master("local[1]").getOrCreate()
     val df = spark.range(10)
