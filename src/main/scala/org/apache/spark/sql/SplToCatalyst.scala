@@ -1,7 +1,5 @@
 package org.apache.spark.sql
 
-import spl.RexCommand
-
 import scala.collection.mutable
 import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
@@ -19,44 +17,6 @@ class SplToCatalyst extends Logging {
    * TODO: https://github.com/databricks/spark-spl/issues/2
    */
   private var output = Seq[e.NamedExpression]()
-
-  private def rexParseNamedGroup(inputString: String): mutable.Map[String, Int] = {
-    val namedGroupPattern: Regex = "<([a-zA-Z_0-9]+)>".r
-    val namedGroupMap = mutable.Map[String, Int]()
-    var index = 1
-    for (patternMatch <- namedGroupPattern.findAllMatchIn(inputString)) {
-      namedGroupMap(patternMatch.group(1)) = index
-      index += 1
-    }
-    namedGroupMap
-  }
-
-  private def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
-    Project(fields.map {
-      case spl.Value(value) => Column(value)
-    }.map(_.named), tree)
-  }
-
-  private def sortOrder(fields: Seq[(Option[String], spl.Expr)]): Seq[SortOrder] = {
-    fields map {
-      case Tuple2(a, b) => (b, if (a.getOrElse("+") == "-") Descending else Ascending)
-    } map {
-      case (spl.Call(name, args), order) => name match {
-        case "num" =>
-          SortOrder(Cast(attr(args.head), DoubleType), order)
-        case "str" =>
-          SortOrder(Cast(attr(args.head), StringType), order)
-        case "ip" =>
-          // TODO implement logic for ip function
-          // see https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/sort
-          SortOrder(attr(args.head), order)
-        case _ =>
-          SortOrder(attr(args.head), order)
-      }
-      case (spl.Value(value), order) =>
-        SortOrder(UnresolvedAttribute(value), order)
-    }
-  }
 
   def process(p: spl.Pipeline): LogicalPlan = p.commands.foldLeft(
       UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) { (tree, command) =>
@@ -119,27 +79,9 @@ class SplToCatalyst extends Logging {
             aggregate(by, funcs, tree)
           }
 
-        case RexCommand(field, maxMatch, offsetField, mode, regex) =>
+        case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
           // TODO find a way to implement max_match, offset_field and mode
-          mode match {
-            case Some(value) => throw new NotImplementedError("mode=sed currently not supported in rex command")
-            case None =>
-              rexParseNamedGroup(regex).foreach((item) => {
-                val colName = item._1
-                val groupIndex = item._2
-                val alias = e.Alias(
-                  RegExpExtract(
-                    field match {
-                      case Some(value) => Column(value.value).expr
-                      case None => Column("_raw").expr
-                    },
-                    Literal(regex),
-                    Literal(groupIndex)), colName)()
-                println(alias.sql)
-                output = output :+ alias
-              })
-              Project(output, tree)
-          }
+          rexExtract(field, maxMatch, offsetField, mode, regex, tree)
       }
     }
 
@@ -245,5 +187,69 @@ class SplToCatalyst extends Logging {
     case spl.Bool(value) => e.Literal.create(value)
     case spl.Value(value) => e.Literal.create(value)
     case spl.IntValue(value) => e.Literal.create(value)
+  }
+
+  private def rexParseNamedGroup(inputString: String): mutable.Map[String, Int] = {
+    val namedGroupPattern: Regex = "<([a-zA-Z_0-9]+)>".r
+    val namedGroupMap = mutable.Map[String, Int]()
+    var index = 1
+    for (patternMatch <- namedGroupPattern.findAllMatchIn(inputString)) {
+      namedGroupMap(patternMatch.group(1)) = index
+      index += 1
+    }
+    namedGroupMap
+  }
+
+  private def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
+    Project(fields.map {
+      case spl.Value(value) => Column(value)
+    }.map(_.named), tree)
+  }
+
+  private def sortOrder(fields: Seq[(Option[String], spl.Expr)]): Seq[SortOrder] = {
+    fields map {
+      case Tuple2(a, b) => (b, if (a.getOrElse("+") == "-") Descending else Ascending)
+    } map {
+      case (spl.Call(name, args), order) => name match {
+        case "num" =>
+          SortOrder(Cast(attr(args.head), DoubleType), order)
+        case "str" =>
+          SortOrder(Cast(attr(args.head), StringType), order)
+        case "ip" =>
+          // TODO implement logic for ip function
+          // see https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/sort
+          SortOrder(attr(args.head), order)
+        case _ =>
+          SortOrder(attr(args.head), order)
+      }
+      case (spl.Value(value), order) =>
+        SortOrder(UnresolvedAttribute(value), order)
+    }
+  }
+
+  private def rexExtract(field: Option[spl.Value],
+                         maxMatch: Option[spl.IntValue],
+                         offsetField: Option[spl.Value],
+                         mode: Option[spl.Value],
+                         regex: String,
+                         tree: LogicalPlan): Project = {
+    // TODO _raw column configurable
+    mode match {
+      case Some(value) => throw new NotImplementedError(s"rex mode=${value.value} [...] currently not supported !")
+      case None =>
+        rexParseNamedGroup(regex) map {
+          case (colName, groupIndex)  =>
+            val alias = e.Alias(
+              RegExpExtract(
+                field match {
+                  case Some(value) => Column(value.value).expr
+                  case None => Column("_raw").expr
+                },
+                Literal(regex),
+                Literal(groupIndex)), colName)()
+          output = output :+ alias
+        }
+        Project(output, tree)
+    }
   }
 }

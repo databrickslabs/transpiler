@@ -77,27 +77,27 @@ class SplParserTest extends ParserSuite {
       Binary(
         Value("event_id"),
         Equals,
-        IntValue(12)
+        Value("12")
       ),
       Or,
       Binary(
         Binary(
           Value("event_id"),
           Equals,
-          IntValue(13)
+          Value("13")
         ),
         Or,
         Binary(
           Value("event_id"),
           Equals,
-          IntValue(14)
+          Value("14")
         )
       )
     ))
   }
 
   test("a=b b=c (c=f OR d=t)") {
-    p(impliedSearch(_), Binary(
+    p(impliedSearch(_), SearchCommand(Binary(
       Binary(
         Binary(
           Value("a"),
@@ -116,16 +116,16 @@ class SplParserTest extends ParserSuite {
         Binary(
           Value("c"),
           Equals,
-          Bool(false)
+          Value("f")
         ),
         Or,
         Binary(
           Value("d"),
           Equals,
-          Bool(true)
+          Value("t")
         )
       )
-    ))
+    )))
   }
 
   test("code IN(4*, 5*)") {
