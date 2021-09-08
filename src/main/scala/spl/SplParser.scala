@@ -67,7 +67,7 @@ object SplParser {
     | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P)
 
   private def binaryOf[_: P](a: => P[Expr], b: => P[OperatorSymbol]): P[Expr] =
-    (a ~~ (b ~ a).rep).map {
+    (a ~ (b ~ a).rep).map {
       case (expr, tuples) => climb(expr, tuples)
     }
   private def unaryOf[_: P](expr: => P[Expr]): P[Unary] = UnaryNot.P ~ expr map Unary.tupled
