@@ -11,6 +11,8 @@ import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Dedup
 import org.apache.spark.sql.catalyst.{expressions => e}
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 
+import scala.collection.mutable.ListBuffer
+
 class SplToCatalyst extends Logging {
   /**
    * Currently projected expressions
@@ -58,7 +60,7 @@ class SplToCatalyst extends Logging {
         case spl.FieldsCommand(op, fields) =>
           if (op.getOrElse("+").equals("-")) {
             val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
-            val columnRegex = UnresolvedRegex(s"^(?!$$${fieldsToDiscard}).*$$", None, false)
+            val columnRegex = UnresolvedRegex(s"(?!$$${fieldsToDiscard}).*", None, false)
             Project(Seq(columnRegex), tree)
           } else
             selectExpr(fields, tree)
@@ -79,9 +81,13 @@ class SplToCatalyst extends Logging {
             aggregate(by, funcs, tree)
           }
 
-        case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
+        case spl.RexCommand(field, maxMatch, offsetField, mode, regex) => {
           // TODO find a way to implement max_match, offset_field and mode
           rexExtract(field, maxMatch, offsetField, mode, regex, tree)
+        }
+
+        case spl.RenameCommand(alias) =>
+          renameColumn(alias, tree)
       }
     }
 
@@ -237,8 +243,9 @@ class SplToCatalyst extends Logging {
     mode match {
       case Some(value) => throw new NotImplementedError(s"rex mode=${value.value} [...] currently not supported !")
       case None =>
-        output = output :+ UnresolvedRegex("^.*?", None, false)
-        rexParseNamedGroup(regex) map {
+        val myList = new ListBuffer[NamedExpression]()
+        myList += UnresolvedRegex("^.*?", None, false)
+        rexParseNamedGroup(regex) foreach {
           case (colName, groupIndex)  =>
             val alias = e.Alias(
               RegExpExtract(
@@ -248,9 +255,16 @@ class SplToCatalyst extends Logging {
                 },
                 Literal(regex),
                 Literal(groupIndex)), colName)()
-          output = output :+ alias
+            myList += alias
         }
-        Project(output, tree)
+        Project(myList, tree)
     }
+  }
+
+  private def renameColumn(alias: spl.Alias, tree: LogicalPlan): LogicalPlan = {
+    Project(Seq(
+      UnresolvedRegex(s"^(?!${attr(alias.expr).name}).*", None, caseSensitive = false),
+      e.Alias(attr(alias.expr), alias.name)()
+    ), tree)
   }
 }

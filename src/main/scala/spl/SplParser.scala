@@ -106,7 +106,7 @@ object SplParser {
 
   // lookup <lookup-dataset> (<lookup-field> [AS <event-field>] )...
   //[ (OUTPUT | OUTPUTNEW) ( <lookup-destfield> [AS <event-destfield>] )...]
-  def aliasedField[_:P]: P[Alias] = (field ~ W("AS") ~ token map Alias.tupled)
+  def aliasedField[_:P]: P[Alias] = (field ~ W("AS") ~ (token|doubleQuoted) map Alias.tupled)
   def fieldRep[_:P]: P[Seq[Field]] = (aliasedField | field).filter {
     case Alias(Value(field), alias) => field.toLowerCase() != "output"
     case Value(v) => v.toLowerCase != "output"
@@ -155,7 +155,21 @@ object SplParser {
                                                    ~ ("offset_field=" ~ field).?
                                                    ~ ("mode=" ~ field).? ~ doubleQuoted) map RexCommand.tupled
 
-  def command[_:P]: P[Command] = stats | table | where | lookup | collect | convert | eval | head | fields | sort | rex | impliedSearch
+  def rename[_:P]: P[RenameCommand] = "rename" ~ aliasedField map RenameCommand
+
+  def command[_:P]: P[Command] = (stats | table
+                                        | where
+                                        | lookup
+                                        | collect
+                                        | convert
+                                        | eval
+                                        | head
+                                        | fields
+                                        | sort
+                                        | rex
+                                        | rename
+                                        | impliedSearch)
+
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline
 }
 
