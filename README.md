@@ -14,7 +14,7 @@
 | where | ✅ | ✅ | ✅ |
 | lookup | ✅ | ✅ | ✅ |
 | bin |  |  |  |
-| rename |  |  |  |
+| rename | ✅ | ✅ | ✅ |
 | join |  |  |  |
 | fields | ✅ | ✅ | ✅ |
 | convert | ✅ |  |  |
