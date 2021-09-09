@@ -88,7 +88,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 spl.Value("colB"))),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("^(?!$colA|colB).*$",
+                UnresolvedRegex("(?!$colA|colB).*",
                     None, caseSensitive = false)
             ), tree))
     }
@@ -177,7 +177,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 "colARenamed")),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("^(?!$colNameA).*$", None, caseSensitive = false),
+                UnresolvedRegex("(?!colNameA).*", None, caseSensitive = false),
                 Alias(Column("colNameA").expr, "colARenamed")()
             ), tree)
         )
