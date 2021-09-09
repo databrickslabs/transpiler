@@ -170,6 +170,18 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         assertPlanThrows(command, new NotImplementedError)
     }
 
+    test("rename command should generate a Project") {
+        check(spl.RenameCommand(
+            spl.Alias(
+                spl.Value("colNameA"),
+                "colARenamed")),
+        (_, tree) =>
+            Project(Seq(
+                UnresolvedRegex("^(?!$colNameA).*$", None, caseSensitive = false),
+                Alias(Column("colNameA").expr, "colARenamed")()
+            ), tree)
+        )
+    }
 
     private def check(command: spl.Command,
               callback: (spl.Command, LogicalPlan) => LogicalPlan

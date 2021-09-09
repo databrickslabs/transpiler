@@ -426,4 +426,36 @@ class SplParserTest extends ParserSuite {
       )
     )))
   }
+
+  test("rename _ip AS IPAddress") {
+    p(rename(_),
+      RenameCommand(
+        Alias(
+          Value("_ip"),
+          "IPAddress"
+        ))
+    )
+  }
+
+  // Regex not taken into account
+  test("rename foo* AS bar*") {
+    p(rename(_),
+      RenameCommand(
+        Alias(
+          Value("foo*"),
+          "bar*"
+        ))
+    )
+  }
+
+  test("rename count AS \"Count of Events\"") {
+    p(rename(_),
+      RenameCommand(
+        Alias(
+          Value("count"),
+          "Count of Events"
+        ))
+    )
+  }
+
 }

@@ -55,7 +55,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
     spark.createDataset(dummySingleField).createOrReplaceTempView("x")
 
-    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"",
+    executes(_,
       """+------------------------------+-----------------------+---------------------------+
         ||                          _raw|                   from|                         to|
         |+------------------------------+-----------------------+---------------------------+
@@ -64,6 +64,59 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         ||Mon Mar 19 20:16:02 2018 In...|   Exit_Desk@sample.net|    lyra@buttercupgames.com|
         ||Mon Mar 19 20:15:53 2018 In...| Manish_Das@example.com|    dash@buttercupgames.com|
         |+------------------------------+-----------------------+---------------------------+
+        |""".stripMargin, truncate = 30)
+  }
+
+  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+
+    executes(_,
+      """+-----------------------+---------------------------+
+        ||                   from|                         to|
+        |+-----------------------+---------------------------+
+        ||MariaDubois@example.com|  zecora@buttercupgames.com|
+        ||   WeiZhang@example.com|mcintosh@buttercupgames.com|
+        ||   Exit_Desk@sample.net|    lyra@buttercupgames.com|
+        || Manish_Das@example.com|    dash@buttercupgames.com|
+        |+-----------------------+---------------------------+
+        |""".stripMargin, truncate = 30)
+  }
+
+  test("rex rename a as a1") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummy).createOrReplaceTempView("x")
+
+    executes(_,
+      """+---+---+---+---+-----+
+        ||a1 |b  |c  |n  |valid|
+        |+---+---+---+---+-----+
+        ||g  |h  |i  |3  |true |
+        ||h  |g  |f  |4  |false|
+        ||e  |d  |c  |5  |true |
+        |+---+---+---+---+-----+
+        |""".stripMargin, truncate = 30)
+  }
+
+  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | rename from AS emailFrom | rename to AS emailTo") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+
+    executes(_,
+      """+-----------------------+---------------------------+
+        ||              emailFrom|                    emailTo|
+        |+-----------------------+---------------------------+
+        ||MariaDubois@example.com|  zecora@buttercupgames.com|
+        ||   WeiZhang@example.com|mcintosh@buttercupgames.com|
+        ||   Exit_Desk@sample.net|    lyra@buttercupgames.com|
+        || Manish_Das@example.com|    dash@buttercupgames.com|
+        |+-----------------------+---------------------------+
         |""".stripMargin, truncate = 30)
   }
 }

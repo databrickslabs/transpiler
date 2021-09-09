@@ -1,7 +1,7 @@
 package org.apache.spark.sql
 
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.expressions.{Alias, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
 import org.apache.spark.sql.catalyst.plans.{LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
@@ -125,6 +125,26 @@ class PythonGeneratorTest extends AnyFunSuite {
 
     )
   }
+
+  test(".selectExpr('`^(?!$event).*$`')") {
+    g(
+      Project(
+        Seq(
+          UnresolvedRegex("^(?!$event).*$", None, caseSensitive = false)
+        ), src)
+    )
+  }
+
+  test(".selectExpr('`^(?!event_type).*`', 'event_type AS testRenamed')") {
+    g(
+      Project(
+        Seq(
+          UnresolvedRegex("^(?!event_type).*", None, caseSensitive = false),
+          Alias(Column("event_type").expr, "testRenamed")()
+        ), src)
+    )
+  }
+
 
   private def g(plan: LogicalPlan): Unit = {
     val code = new PythonGenerator().fromPlan(plan)
