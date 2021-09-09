@@ -19,7 +19,7 @@ class PythonGenerator {
       val currExprs = exprs.filter(!_.isInstanceOf[Unevaluable]).map(_.exprId).toSet
       val newExprs = currExprs.diff(prevExprs)
       prevExprs = currExprs
-      if (newExprs.size == 1) {
+      if (newExprs.size == 1 & exprs.length == 1) {
         val withColumn = exprs.filter(_.exprId == newExprs.head).head
         s"$childCode\n.withColumn(${q(withColumn.name)}, ${expressionCode(withColumn.children.head)})"
       } else {
