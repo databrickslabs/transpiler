@@ -263,7 +263,7 @@ class SplToCatalyst extends Logging {
 
   private def renameColumn(alias: spl.Alias, tree: LogicalPlan): LogicalPlan = {
     Project(Seq(
-      UnresolvedRegex(s"^(?!${attr(alias.expr).name}).*", None, caseSensitive = false),
+      UnresolvedRegex(s"(?!${attr(alias.expr).name}).*", None, caseSensitive = false),
       e.Alias(attr(alias.expr), alias.name)()
     ), tree)
   }
