@@ -145,7 +145,6 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-
   private def g(plan: LogicalPlan): Unit = {
     val code = new PythonGenerator().fromPlan(plan)
         // replace src shim to make tests readable

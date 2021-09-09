@@ -457,5 +457,4 @@ class SplParserTest extends ParserSuite {
         ))
     )
   }
-
 }
