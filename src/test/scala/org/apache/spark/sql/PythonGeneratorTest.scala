@@ -97,7 +97,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       None, JoinHint.NONE))
   }
 
-  test(".withColumn('from', F.expr('regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1)'))") {
+  test(".withColumn('from', F.expr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1)\"))") {
     g(
       Project(
         Seq(Alias(
@@ -108,8 +108,8 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".selectExpr('regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1) AS from', " +
-                   "'regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 2) AS to')") {
+  test(".selectExpr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1) AS from\", " +
+                   "\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 2) AS to\")") {
     g(
       Project(
         Seq(

@@ -41,6 +41,7 @@ object SplParser {
       ("false" | "f").map(_ => Bool(false))
 
   def token[_: P]: P[String] = ("_"|"*"|"-"|"@"|letter|digit).repX(1).! // TODO: this is a hack for @15m
+
   def doubleQuoted[_: P]: P[String] = P( "\"" ~ (
     CharsWhile(!"\"".contains(_))
       | "\\" ~~ AnyChar
@@ -156,6 +157,7 @@ object SplParser {
                                                    ~ ("mode=" ~ field).? ~ doubleQuoted) map RexCommand.tupled
 
   def rename[_:P]: P[RenameCommand] = "rename" ~ aliasedField map RenameCommand
+  def _regex[_:P]: P[RegexCommand] = "regex" ~ (field ~ ("="|"!=").!).? ~ doubleQuoted map RegexCommand.tupled
 
   def command[_:P]: P[Command] = (stats | table
                                         | where
@@ -168,6 +170,7 @@ object SplParser {
                                         | sort
                                         | rex
                                         | rename
+                                        | _regex
                                         | impliedSearch)
 
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline
