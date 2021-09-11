@@ -458,4 +458,21 @@ class SplParserTest extends ParserSuite {
     )
   }
 
+  test("regex _raw=\"(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)\"") {
+    p(_regex(_), RegexCommand(
+      Some((Value("_raw"), "=")),
+      "(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)"))
+  }
+
+  test("regex _raw!=\"(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)\"") {
+    p(_regex(_), RegexCommand(
+      Some((Value("_raw"), "!=")),
+      "(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)"))
+  }
+
+  test("regex \"(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)\"") {
+    p(_regex(_), RegexCommand(
+      None,
+      "(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)"))
+  }
 }

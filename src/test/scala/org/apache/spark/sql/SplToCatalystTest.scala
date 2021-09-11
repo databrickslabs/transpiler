@@ -183,6 +183,19 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("regex command should generate a Filter") {
+        check(spl.RegexCommand(
+            Some((spl.Value("colNameA"), "!=")),
+            "[0-9]{5}(-[0-9]{4})?"),
+            (_, tree) =>
+                Filter(Not(
+                    RLike(
+                        Column("colNameA").expr,
+                        Literal("[0-9]{5}(-[0-9]{4})?"))
+                ), tree)
+        )
+    }
+
     private def check(command: spl.Command,
               callback: (spl.Command, LogicalPlan) => LogicalPlan
               ): Unit = this.synchronized {
