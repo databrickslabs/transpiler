@@ -10,7 +10,7 @@
 | eval | ✅ | ✅ | ✅ |
 | table | ✅ | ✅ | ✅ |
 | rex | ✅ | ✅ | ✅ |
-| regex |  |  |  |
+| regex | ✅ | ✅ | ✅ |
 | where | ✅ | ✅ | ✅ |
 | lookup | ✅ | ✅ | ✅ |
 | bin |  |  |  |
