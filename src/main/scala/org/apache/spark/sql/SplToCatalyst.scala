@@ -5,7 +5,7 @@ import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, Literal, NamedExpression, RegExpExtract, SortDirection, SortOrder}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, Literal, NamedExpression, RLike, RegExpExtract, Not, SortOrder}
 import org.apache.spark.sql.catalyst.plans.{JoinType, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Join, JoinHint, Limit, LogicalPlan, Project, Sort}
 import org.apache.spark.sql.catalyst.{expressions => e}
@@ -88,6 +88,15 @@ class SplToCatalyst extends Logging {
 
         case spl.RenameCommand(alias) =>
           renameColumn(alias, tree)
+
+        case spl.RegexCommand(item, regex) =>
+          item match {
+            case Some(value) =>
+              val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => (expr)
+              Filter(catalystOp(RLike(Column(value._1.value).expr, Literal(regex))), tree)
+            case None =>
+              Filter(RLike(Column("_raw").expr, Literal(regex)), tree)
+          }
       }
     }
 

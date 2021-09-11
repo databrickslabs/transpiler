@@ -8,6 +8,7 @@ import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
 
 class PythonGenerator {
   var prevExprs = Set[ExprId]()
+  val pattern = "((?<![\\\\])['])".r
 
   def fromPlan(plan: LogicalPlan): String = plan match {
     case AppendData(table, query, writeOptions, isByName) =>
@@ -85,6 +86,7 @@ class PythonGenerator {
   def expression(expr: Expression): String = expr match {
     case UnresolvedAlias(child, aliasFunc) => expression(child)
     case Alias(child, name) => s"${expression(child)} AS $name"
+    case RLike(left, right) => s"${left.sql} RLIKE ${right.sql}"
     case UnresolvedRegex(regexPattern, table, caseSensitive) => s"`${regexPattern}`"
     case a: UnresolvedAttribute => a.name
     case _: Any => expr.sql
@@ -92,7 +94,11 @@ class PythonGenerator {
 
   /**
    * Sugar for quoting strings
-   * TODO: make it smarter and use double quotes when needed
    */
-  private def q(value: String) = "'" + value + "'"
+  private def q(value: String) = {
+    if (pattern.findAllIn(value).toList.isEmpty)
+      "'" + value + "'"
+    else
+      "\"" + value + "\""
+  }
 }
