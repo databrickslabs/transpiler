@@ -48,6 +48,6 @@ case class RexCommand(field: Option[Value],
                       offsetField: Option[Value],
                       mode: Option[Value],
                       regex: String) extends Command
-case class RenameCommand(alias: Alias) extends Command
+case class RenameCommand(alias: Seq[Alias]) extends Command
 case class RegexCommand(item: Option[(Value, String)], regex: String) extends Command
 case class Pipeline(commands: Seq[Command])

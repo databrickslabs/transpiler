@@ -6,7 +6,7 @@ import fastparse._
 /**
  * SPL parser and AST
  *
- * https://docs.splunk.com/Splexicon:Searchpro`cessinglanguage
+ * https://docs.splunk.com/Splexicon:Searchprorcessinglanguage
  * @link https://gist.github.com/ChrisYounger/520bdb1a7c8b22f5210213f83a3ab2db
  * @link https://gist.github.com/ChrisYounger/e51f9c3aba0f1ed02e5caee7d4a6128b
  * @link https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Search
@@ -156,7 +156,7 @@ object SplParser {
                                                    ~ ("offset_field=" ~ field).?
                                                    ~ ("mode=" ~ field).? ~ doubleQuoted) map RexCommand.tupled
 
-  def rename[_:P]: P[RenameCommand] = "rename" ~ aliasedField map RenameCommand
+  def rename[_:P]: P[RenameCommand] = "rename" ~ aliasedField.rep(min = 1, sep = ",") map RenameCommand
   def _regex[_:P]: P[RegexCommand] = "regex" ~ (field ~ ("="|"!=").!).? ~ doubleQuoted map RegexCommand.tupled
 
   def command[_:P]: P[Command] = (stats | table
