@@ -86,8 +86,8 @@ class SplToCatalyst extends Logging {
           rexExtract(field, maxMatch, offsetField, mode, regex, tree)
         }
 
-        case spl.RenameCommand(alias) =>
-          renameColumn(alias, tree)
+        case spl.RenameCommand(aliases) =>
+          renameColumn(aliases, tree)
 
         case spl.RegexCommand(item, regex) =>
           item match {
@@ -270,10 +270,13 @@ class SplToCatalyst extends Logging {
     }
   }
 
-  private def renameColumn(alias: spl.Alias, tree: LogicalPlan): LogicalPlan = {
-    Project(Seq(
-      UnresolvedRegex(s"(?!${attr(alias.expr).name}).*", None, caseSensitive = false),
-      e.Alias(attr(alias.expr), alias.name)()
-    ), tree)
+  private def renameColumn(aliases: Seq[spl.Alias], tree: LogicalPlan): LogicalPlan = {
+    val myList = new ListBuffer[NamedExpression]
+    val regex = aliases.map(alias => attr(alias.expr).name).mkString("|")
+    myList += UnresolvedRegex(s"(?!$$${regex}).*", None, false)
+    aliases foreach {alias => {
+      myList += e.Alias(attr(alias.expr), alias.name)()
+    }}
+    Project(myList.toSeq, tree)
   }
 }

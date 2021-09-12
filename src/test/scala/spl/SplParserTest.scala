@@ -430,10 +430,28 @@ class SplParserTest extends ParserSuite {
   test("rename _ip AS IPAddress") {
     p(rename(_),
       RenameCommand(
+        Seq(Alias(
+          Value("_ip"),
+          "IPAddress"
+        )))
+    )
+  }
+
+  test("rename _ip AS IPAddress, _host AS host, _port AS port") {
+    p(rename(_),
+      RenameCommand(Seq(
         Alias(
           Value("_ip"),
           "IPAddress"
-        ))
+        ),
+        Alias(
+          Value("_host"),
+          "host"
+        ),
+        Alias(
+          Value("_port"),
+          "port"
+        )))
     )
   }
 
@@ -441,20 +459,20 @@ class SplParserTest extends ParserSuite {
   test("rename foo* AS bar*") {
     p(rename(_),
       RenameCommand(
-        Alias(
+        Seq(Alias(
           Value("foo*"),
           "bar*"
-        ))
+        )))
     )
   }
 
   test("rename count AS \"Count of Events\"") {
     p(rename(_),
       RenameCommand(
-        Alias(
+        Seq(Alias(
           Value("count"),
           "Count of Events"
-        ))
+        )))
     )
   }
 
