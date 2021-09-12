@@ -32,7 +32,6 @@ class SearchesFileTest extends AnyFunSuite with Logging {
       new MacrosFile(res("/macros.conf")))
 
     val plan = sc.generatePython("[T1101] Security Support Provider")
-    println(plan)
     logger.info(s"Generated code: \n${plan}")
   }
 }
