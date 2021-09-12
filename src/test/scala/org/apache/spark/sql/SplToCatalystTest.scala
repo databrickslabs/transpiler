@@ -171,17 +171,35 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     }
 
     test("rename command should generate a Project") {
-        check(spl.RenameCommand(
+        check(spl.RenameCommand(Seq(
             spl.Alias(
                 spl.Value("colNameA"),
-                "colARenamed")),
+                "colARenamed"))),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("(?!colNameA).*", None, caseSensitive = false),
+                UnresolvedRegex("(?!$colNameA).*", None, caseSensitive = false),
                 Alias(Column("colNameA").expr, "colARenamed")()
             ), tree)
         )
     }
+
+    test("rename command should generate another Project") {
+        check(spl.RenameCommand(Seq(
+            spl.Alias(
+                spl.Value("colNameA"),
+                "colARenamed"),
+            spl.Alias(
+                spl.Value("colNameB"),
+                "colBRenamed"))),
+            (_, tree) =>
+                Project(Seq(
+                    UnresolvedRegex("(?!$colNameA|colNameB).*", None, caseSensitive = false),
+                    Alias(Column("colNameA").expr, "colARenamed")(),
+                    Alias(Column("colNameB").expr, "colBRenamed")()
+                ), tree)
+        )
+    }
+
 
     test("regex command should generate a Filter") {
         check(spl.RegexCommand(
