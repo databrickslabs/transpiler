@@ -95,7 +95,7 @@ object SplParser {
   def primary[_: P]: P[Expr] = unaryOf(expr) | fieldIn | parens | argu
   def expr[_: P]: P[Expr] = binaryOf(primary, ALL)
 
-  def impliedSearch[_: P]: P[SearchCommand] = expr.rep(max=100) map(_.reduce((a, b) => Binary(a, And, b))) map SearchCommand
+  def impliedSearch[_: P]: P[SearchCommand] = "search".? ~ expr.rep(max=100) map(_.reduce((a, b) => Binary(a, And, b))) map SearchCommand
   def eval[_:P]: P[EvalCommand] = "eval" ~ (field ~ "=" ~ expr).rep(sep=",") map EvalCommand
 
   // | convert dur2sec(*delay)
@@ -158,21 +158,60 @@ object SplParser {
 
   def rename[_:P]: P[RenameCommand] = "rename" ~ aliasedField.rep(min = 1, sep = ",") map RenameCommand
   def _regex[_:P]: P[RegexCommand] = "regex" ~ (field ~ ("="|"!=").!).? ~ doubleQuoted map RegexCommand.tupled
+  def join[_:P]: P[JoinCommand] = ("join" ~ ("type=" ~ ("inner"|"outer"|"left").!).?
+                                          ~ ("usetime=" ~ bool).?
+                                          ~ ("earlier=" ~ bool).?
+                                          ~ ("overwrite=" ~ bool).?
+                                          ~ ("max=" ~ int).?
+                                          ~ field.rep(min = 1, sep = ",")
+                                          ~ subSearch) map { command => {
+      JoinCommand(
+        command._1 match {
+          case Some(value) => value
+          case None => "inner"
+        },
+        command._2 match {
+          case Some(useTime) => useTime.value
+          case None => false
+        },
+        command._3 match {
+          case Some(earlier) => earlier.value
+          case None => true
+        },
+        command._4 match {
+          case Some(overwrite) => overwrite.value
+          case None => false
+        },
+        command._5 match {
+          case Some(max) => max.value
+          case None => 1
+        },
+        command._6,
+        command._7
+      )
+    }
+  }
+
+  def _return[_:P]: P[ReturnCommand] = "return" ~ int.? ~ (
+      (field ~ "=" ~ expr).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map ReturnCommand.tupled
 
   def command[_:P]: P[Command] = (stats | table
-                                        | where
-                                        | lookup
-                                        | collect
-                                        | convert
-                                        | eval
-                                        | head
-                                        | fields
-                                        | sort
-                                        | rex
-                                        | rename
-                                        | _regex
-                                        | impliedSearch)
+                                         | where
+                                         | lookup
+                                         | collect
+                                         | convert
+                                         | eval
+                                         | head
+                                         | fields
+                                         | sort
+                                         | rex
+                                         | rename
+                                         | _regex
+                                         | join
+                                         | _return
+                                         | impliedSearch)
 
+  def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline
 }
 

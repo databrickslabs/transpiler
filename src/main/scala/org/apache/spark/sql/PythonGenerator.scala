@@ -5,10 +5,11 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.{Cross, ExistenceJoin, FullOuter, Inner, InnerLike, LeftAnti, LeftOuter, LeftSemi, NaturalJoin, RightOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
+import scala.util.matching.Regex
 
 class PythonGenerator {
-  var prevExprs = Set[ExprId]()
-  val pattern = "((?<![\\\\])['])".r
+  var prevExprs: Set[ExprId] = Set[ExprId]()
+  val pattern: Regex = "((?<![\\\\])['])".r
 
   def fromPlan(plan: LogicalPlan): String = plan match {
     case AppendData(table, query, writeOptions, isByName) =>
@@ -20,12 +21,14 @@ class PythonGenerator {
       val currExprs = exprs.filter(!_.isInstanceOf[Unevaluable]).map(_.exprId).toSet
       val newExprs = currExprs.diff(prevExprs)
       prevExprs = currExprs
-      if (newExprs.size == 1 & exprs.length == 1) {
-        val withColumn = exprs.filter(_.exprId == newExprs.head).head
-        s"$childCode\n.withColumn(${q(withColumn.name)}, ${expressionCode(withColumn.children.head)})"
-      } else {
-        s"$childCode\n.selectExpr(${exprList(exprs)})"
-      }
+      // Removing withColumn translation here as it has a slight different behaviour than selecting 1 element
+      s"$childCode\n.selectExpr(${exprList(exprs)})"
+//      if (newExprs.size == 1 & exprs.length == 1) {
+//        val withColumn = exprs.filter(_.exprId == newExprs.head).head
+//        s"$childCode\n.withColumn(${q(withColumn.name)}, ${expressionCode(withColumn.children.head)})"
+//      } else {
+//      s"$childCode\n.selectExpr(${exprList(exprs)})"
+//      }
 
     case Filter(condition, child) =>
       fromPlan(child) + "\n" + unfoldWheres(condition)
@@ -38,7 +41,7 @@ class PythonGenerator {
         val dirStr = if (item.direction == Ascending) "asc()"  else "desc()"
         item.child match {
           case Cast(colExpr, dataType, _) =>
-            s"F.col(${q(colExpr.toString())}).cast(${q(dataType.simpleString)}).${dirStr}"
+            s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)}).${dirStr}"
           case UnresolvedAttribute(nameParts) =>
             s"F.col(${q(nameParts.mkString("."))}).${dirStr}"
         }

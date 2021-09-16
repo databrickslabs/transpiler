@@ -50,4 +50,14 @@ case class RexCommand(field: Option[Value],
                       regex: String) extends Command
 case class RenameCommand(alias: Seq[Alias]) extends Command
 case class RegexCommand(item: Option[(Value, String)], regex: String) extends Command
+case class JoinCommand(joinType: String = "inner",
+                       useTime: Boolean = false,
+                       earlier: Boolean = true,
+                       overwrite: Boolean = true,
+                       max: Int = 1,
+                       fields: Seq[Value],
+                       subSearch: Pipeline) extends Command
+
+case class ReturnCommand(count: Option[IntValue], fields: Seq[Product with Serializable]) extends Command
+
 case class Pipeline(commands: Seq[Command])

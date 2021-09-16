@@ -88,7 +88,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 spl.Value("colB"))),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("(?!$colA|colB).*",
+                UnresolvedRegex("(?!colA|colB).*",
                     None, caseSensitive = false)
             ), tree))
     }
@@ -177,7 +177,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 "colARenamed"))),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("(?!$colNameA).*", None, caseSensitive = false),
+                UnresolvedRegex("(?!colNameA).*", None, caseSensitive = false),
                 Alias(Column("colNameA").expr, "colARenamed")()
             ), tree)
         )
@@ -193,7 +193,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 "colBRenamed"))),
             (_, tree) =>
                 Project(Seq(
-                    UnresolvedRegex("(?!$colNameA|colNameB).*", None, caseSensitive = false),
+                    UnresolvedRegex("(?!colNameA|colNameB).*", None, caseSensitive = false),
                     Alias(Column("colNameA").expr, "colARenamed")(),
                     Alias(Column("colNameB").expr, "colBRenamed")()
                 ), tree)
@@ -211,6 +211,46 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         Column("colNameA").expr,
                         Literal("[0-9]{5}(-[0-9]{4})?"))
                 ), tree)
+        )
+    }
+
+    test("return 10 ip host port") {
+        check(spl.ReturnCommand(
+            Some(spl.IntValue(10)),
+            Seq(spl.Value("ip"),
+                spl.Value("host"),
+                spl.Value("port"))),
+        (_, tree) => Limit(Literal(10), Project(Seq(
+            Column("ip").named,
+            Column("host").named,
+            Column("port").named)
+        , tree))
+        )
+    }
+
+    test("return 10 ip $env $test") {
+        check(spl.ReturnCommand(
+            Some(spl.IntValue(10)),
+            Seq(spl.Value("env"),
+                spl.Value("test"))),
+            (_, tree) => Limit(Literal(10), Project(Seq(
+                Column("env").named,
+                Column("test").named)
+            , tree))
+        )
+    }
+
+    test("return 20 a=ip b=host c=port") {
+        check(spl.ReturnCommand(
+            Some(spl.IntValue(20)),
+            Seq((spl.Value("a"), spl.Value("ip")),
+                (spl.Value("b"), spl.Value("host")),
+                (spl.Value("c"), spl.Value("port")))),
+            (_, tree) => Limit(Literal(20), Project(Seq(
+                Alias(Column("ip").named, "a")(),
+                Alias(Column("host").named, "b")(),
+                Alias(Column("port").named, "c")())
+            , tree))
         )
     }
 
