@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
-import org.apache.spark.sql.catalyst.plans.{LeftOuter, PlanTestBase, UsingJoin}
+import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
 
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
@@ -253,6 +253,45 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             , tree))
         )
     }
+
+    test("join product_id [search vendors]") {
+        check(spl.JoinCommand(
+            joinType = "inner",
+            useTime = false,
+            earlier = true,
+            overwrite = false,
+            max = 1,
+            Seq(spl.Value("product_id")),
+            spl.Pipeline(Seq(
+                spl.SearchCommand(spl.Value("vendors"))
+            ))),
+            (_, tree) => {
+                Join(tree,
+                     Filter(Literal("vendors"), tree),
+                     UsingJoin(Inner, List("product_id")), None, JoinHint.NONE)
+            }
+        )
+    }
+
+    test("join type=left product_id product_name [search vendors]") {
+        check(spl.JoinCommand(
+            joinType = "left",
+            useTime = false,
+            earlier = true,
+            overwrite = false,
+            max = 1,
+            Seq(spl.Value("product_id"), spl.Value("product_name")),
+            spl.Pipeline(Seq(
+                spl.SearchCommand(spl.Value("vendors"))
+            ))),
+            (_, tree) => {
+                Join(tree,
+                    Filter(Literal("vendors"), tree),
+                    UsingJoin(LeftOuter, List("product_id", "product_name")), None, JoinHint.NONE)
+            }
+        )
+    }
+
 
     private def check(command: spl.Command,
               callback: (spl.Command, LogicalPlan) => LogicalPlan
