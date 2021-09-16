@@ -5,6 +5,7 @@ import org.apache.spark.sql.catalyst.expressions.{Alias, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
 import org.apache.spark.sql.catalyst.plans.{LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.types.DoubleType
 import org.scalatest.Outcome
 import org.scalatest.concurrent.TimeLimits.failAfter
 import org.scalatest.funsuite.AnyFunSuite
@@ -32,7 +33,7 @@ class PythonGeneratorTest extends AnyFunSuite {
   }
 
   // TODO: this test is a bit wrong, fix the logic
-  test(".selectExpr('1 AS a', '1 AS b')\n.withColumn('a', F.lit(1))") {
+  test(".selectExpr('1 AS a', '1 AS b')\n.selectExpr('1 AS a')") {
     g(Project(
       Seq(
         // TODO: make another case with UnresolvedAttribute here
@@ -74,11 +75,11 @@ class PythonGeneratorTest extends AnyFunSuite {
     ), global = true, src))
   }
 
-//  test(".orderBy(F.col('a').cast('double').asc())") {
-//    g(Sort(Seq(
-//      SortOrder(Cast("a"), Descending)
-//    ), global = true, src))
-//  }
+  test(".orderBy(F.col('a').cast('double').asc())") {
+    g(Sort(Seq(
+      SortOrder(Cast(Column("a").expr, DoubleType), Ascending)
+    ), global = true, src))
+  }
 
   test(".groupBy('host')\n.agg(F.expr('count() AS `count`'))") {
     g(Aggregate(
@@ -88,7 +89,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       src))
   }
 
-  test(".join(spark.table('dst')\n.withColumn('c', F.expr('`b`')),\n['c'], 'left_outer')") {
+  test(".join(spark.table('dst')\n.selectExpr('b AS c'),\n['c'], 'left_outer')") {
     g(Join(src,
       Project(Seq(
         Alias(UnresolvedAttribute("b"), "c")()
@@ -97,7 +98,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       None, JoinHint.NONE))
   }
 
-  test(".withColumn('from', F.expr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1)\"))") {
+  test(".selectExpr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1) AS from\")") {
     g(
       Project(
         Seq(Alias(
@@ -126,11 +127,11 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".selectExpr('`^(?!$event).*$`')") {
+  test(".selectExpr('`^(?!event).*$`')") {
     g(
       Project(
         Seq(
-          UnresolvedRegex("^(?!$event).*$", None, caseSensitive = false)
+          UnresolvedRegex("^(?!event).*$", None, caseSensitive = false)
         ), src)
     )
   }

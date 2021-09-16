@@ -5,11 +5,12 @@ import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, Literal, NamedExpression, RLike, RegExpExtract, Not, SortOrder}
-import org.apache.spark.sql.catalyst.plans.{JoinType, LeftOuter, UsingJoin}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, Literal, NamedExpression, Not, RLike, RegExpExtract, SortOrder}
+import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Join, JoinHint, Limit, LogicalPlan, Project, Sort}
 import org.apache.spark.sql.catalyst.{expressions => e}
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
+import spl.{Expr, Value}
 
 import scala.collection.mutable.ListBuffer
 
@@ -60,7 +61,7 @@ class SplToCatalyst extends Logging {
         case spl.FieldsCommand(op, fields) =>
           if (op.getOrElse("+").equals("-")) {
             val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
-            val columnRegex = UnresolvedRegex(s"(?!$$${fieldsToDiscard}).*", None, false)
+            val columnRegex = UnresolvedRegex(s"(?!${fieldsToDiscard}).*", None, false)
             Project(Seq(columnRegex), tree)
           } else
             selectExpr(fields, tree)
@@ -69,7 +70,7 @@ class SplToCatalyst extends Logging {
           leftJoinUsing(dataset, fields, output, tree)
 
         case spl.CollectCommand(args, fields) =>
-          //fields.map(fieldName => Column(fieldName.value))
+          // fields.map(fieldName => Column(fieldName.value))
           // TODO: add projection if fields is not empty
           AppendData(UnresolvedRelation(Seq(args("index"))), tree, Map(), isByName = true)
 
@@ -97,6 +98,29 @@ class SplToCatalyst extends Logging {
             case None =>
               Filter(RLike(Column("_raw").expr, Literal(regex)), tree)
           }
+
+        case spl.JoinCommand(joinType, useTime, earlier,
+                             overwrite, max, fields, subSearch) =>
+          Join(tree, process(subSearch),
+               UsingJoin(joinType match {
+                 case "inner" => Inner
+                 case "left" => LeftOuter
+                 case "outer" => LeftOuter
+                 case _ => Inner
+               }, fields.map(_.value)), None, JoinHint.NONE)
+
+        case spl.ReturnCommand(count, fields) =>
+          val countLimit = count match {
+            case Some(item) => Literal(item.value)
+            case None => Literal(1)
+          }
+
+          Limit(countLimit, Project(fields.map {
+            case alias: (Value, Expr) =>
+              e.Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
+            case field: (Value) =>
+              Column(field.value).named
+          }, tree))
       }
     }
 
@@ -253,7 +277,7 @@ class SplToCatalyst extends Logging {
       case Some(value) => throw new NotImplementedError(s"rex mode=${value.value} [...] currently not supported !")
       case None =>
         val myList = new ListBuffer[NamedExpression]()
-        myList += UnresolvedRegex("^.*?", None, false)
+        myList += UnresolvedRegex("^.*?", None, caseSensitive = false)
         rexParseNamedGroup(regex) foreach {
           case (colName, groupIndex)  =>
             val alias = e.Alias(
@@ -273,7 +297,7 @@ class SplToCatalyst extends Logging {
   private def renameColumn(aliases: Seq[spl.Alias], tree: LogicalPlan): LogicalPlan = {
     val myList = new ListBuffer[NamedExpression]
     val regex = aliases.map(alias => attr(alias.expr).name).mkString("|")
-    myList += UnresolvedRegex(s"(?!$$${regex}).*", None, false)
+    myList += UnresolvedRegex(s"(?!${regex}).*", None, false)
     aliases foreach {alias => {
       myList += e.Alias(attr(alias.expr), alias.name)()
     }}
