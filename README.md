@@ -15,13 +15,13 @@
 | lookup | ✅ | ✅ | ✅ |
 | bin |  |  |  |
 | rename | ✅ | ✅ | ✅ |
-| join |  |  |  |
+| join |  | ✅ | ✅ | ✅ |
 | fields | ✅ | ✅ | ✅ |
 | convert | ✅ |  |  |
 | collect | ✅ | ✅ | ✅ |
 | stats | ✅ | ✅ | ✅ |
 | sort | ✅ | ✅ | ✅ |
-| return |  |  |  |
+| return | ✅ | ✅ | ✅ |
 | mvcombine |  |  |  |
 | map |  |  |  |
 | inputlookup |  |  |  |

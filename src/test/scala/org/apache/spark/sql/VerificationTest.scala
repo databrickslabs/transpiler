@@ -55,7 +55,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
     spark.createDataset(dummySingleField).createOrReplaceTempView("x")
 
-    executes(_,
+    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"",
       """+------------------------------+-----------------------+---------------------------+
         ||                          _raw|                   from|                         to|
         |+------------------------------+-----------------------+---------------------------+
@@ -73,7 +73,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
     spark.createDataset(dummySingleField).createOrReplaceTempView("x")
 
-    executes(_,
+    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw",
       """+-----------------------+---------------------------+
         ||                   from|                         to|
         |+-----------------------+---------------------------+
@@ -85,30 +85,32 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin, truncate = 30)
   }
 
-  test("rex rename a as a1") {
+  test("rename a as a1") {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
     spark.createDataset(dummy).createOrReplaceTempView("x")
 
-    executes(_,
-      """+---+---+---+---+-----+
-        ||a1 |b  |c  |n  |valid|
-        |+---+---+---+---+-----+
-        ||g  |h  |i  |3  |true |
-        ||h  |g  |f  |4  |false|
-        ||e  |d  |c  |5  |true |
-        |+---+---+---+---+-----+
+    executes("rename a as a1",
+      """+---+---+---+-----+---+
+        ||  b|  c|  n|valid| a1|
+        |+---+---+---+-----+---+
+        ||  b|  c|  1| true|  a|
+        ||  e|  f|  2|false|  d|
+        ||  h|  i|  3| true|  g|
+        ||  g|  f|  4|false|  h|
+        ||  d|  c|  5| true|  e|
+        |+---+---+---+-----+---+
         |""".stripMargin, truncate = 30)
   }
 
-  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | rename from AS emailFrom | rename to AS emailTo") {
+  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | rename from AS emailFrom, to AS emailTo") {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
     spark.createDataset(dummySingleField).createOrReplaceTempView("x")
 
-    executes(_,
+    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | rename from AS emailFrom, to AS emailTo",
       """+-----------------------+---------------------------+
         ||              emailFrom|                    emailTo|
         |+-----------------------+---------------------------+
@@ -118,5 +120,57 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         || Manish_Das@example.com|    dash@buttercupgames.com|
         |+-----------------------+---------------------------+
         |""".stripMargin, truncate = 30)
+  }
+
+  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | return 4 emailFrom=from emailTo=to") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+
+    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | return 4 emailFrom=from emailTo=to",
+      """+-----------------------+---------------------------+
+        ||              emailFrom|                    emailTo|
+        |+-----------------------+---------------------------+
+        ||MariaDubois@example.com|  zecora@buttercupgames.com|
+        ||   WeiZhang@example.com|mcintosh@buttercupgames.com|
+        ||   Exit_Desk@sample.net|    lyra@buttercupgames.com|
+        || Manish_Das@example.com|    dash@buttercupgames.com|
+        |+-----------------------+---------------------------+
+        |""".stripMargin, truncate = 30)
+  }
+
+  test("join type=inner a [search a=\"a\"]") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummy).createOrReplaceTempView("x")
+
+    executes("join type=inner a [search a=\"a\"]",
+    """+---+---+---+---+-----+---+---+---+-----+
+      ||a  |b  |c  |n  |valid|b  |c  |n  |valid|
+      |+---+---+---+---+-----+---+---+---+-----+
+      ||a  |b  |c  |1  |true |b  |c  |1  |true |
+      |+---+---+---+---+-----+---+---+---+-----+
+      |""".stripMargin)
+  }
+
+  test("join type=left a [search a=\"a\"]") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummy).createOrReplaceTempView("x")
+
+    executes("join type=left a [search a=\"a\"]",
+      """+---+---+---+---+-----+----+----+----+-----+
+        ||a  |b  |c  |n  |valid|b   |c   |n   |valid|
+        |+---+---+---+---+-----+----+----+----+-----+
+        ||a  |b  |c  |1  |true |b   |c   |1   |true |
+        ||d  |e  |f  |2  |false|null|null|null|null |
+        ||g  |h  |i  |3  |true |null|null|null|null |
+        ||h  |g  |f  |4  |false|null|null|null|null |
+        ||e  |d  |c  |5  |true |null|null|null|null |
+        |+---+---+---+---+-----+----+----+----+-----+
+        |""".stripMargin)
   }
 }

@@ -476,6 +476,61 @@ class SplParserTest extends ParserSuite {
     )
   }
 
+  test("join product_id [search vendors]") {
+    p(join(_),
+      JoinCommand(
+        joinType = "inner",
+        useTime = false,
+        earlier = true,
+        overwrite = false,
+        max = 1,
+        Seq(Value("product_id")),
+        Pipeline(Seq(
+          SearchCommand(Value("vendors"))))
+      )
+    )
+  }
+
+  test("join type=left usetime=true earlier=false overwrite=false product_id, host, name [search vendors]") {
+    p(join(_),
+      JoinCommand(
+        joinType = "left",
+        useTime = true,
+        earlier = false,
+        overwrite = false,
+        max = 1,
+        Seq(
+          Value("product_id"),
+          Value("host"),
+          Value("name")
+        ),
+        Pipeline(Seq(
+          SearchCommand(Value("vendors"))))
+      )
+    )
+  }
+
+  test("join product_id [search vendors | rename pid AS product_id]") {
+    p(join(_),
+      JoinCommand(
+        joinType = "inner",
+        useTime = false,
+        earlier = true,
+        overwrite = false,
+        max = 1,
+        Seq(Value("product_id")),
+        Pipeline(Seq(
+          SearchCommand(Value("vendors")),
+          RenameCommand(Seq(
+            Alias(
+              Value("pid"),
+              "product_id"
+            )))
+        ))
+      )
+    )
+  }
+
   test("regex _raw=\"(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)\"") {
     p(_regex(_), RegexCommand(
       Some((Value("_raw"), "=")),
@@ -492,5 +547,37 @@ class SplParserTest extends ParserSuite {
     p(_regex(_), RegexCommand(
       None,
       "(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)"))
+  }
+
+  test("return 10 $test $env") {
+    p(_return(_), ReturnCommand(
+      Some(IntValue(10)),
+      Seq(
+        Value("test"),
+        Value("env")
+      )
+    ))
+  }
+
+  test("return 10 ip src host port") {
+    p(_return(_), ReturnCommand(
+      Some(IntValue(10)),
+      Seq(
+        Value("ip"),
+        Value("src"),
+        Value("host"),
+        Value("port")
+      )
+    ))
+  }
+
+  test("return 10 ip=src host=port") {
+    p(_return(_), ReturnCommand(
+      Some(IntValue(10)),
+      Seq(
+        (Value("ip"), Value("src")),
+        (Value("host"), Value("port"))
+      )
+    ))
   }
 }
