@@ -8,7 +8,7 @@ object Transpiler {
     parse(search, spl.SplParser.pipeline(_), verboseFailures = true) match {
       case Parsed.Success(value, _) => value
       case f: Parsed.Failure =>
-        throw new AssertionError(f.trace().longMsg)
+        throw new AssertionError(f.trace())
     }
 
   /** Converts SPL AST to Databricks Runtime internal Logical Execution Plan */

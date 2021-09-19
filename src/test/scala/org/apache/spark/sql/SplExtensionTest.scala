@@ -7,7 +7,7 @@ case class Dummy(a: String, b: String, c: String, n: Int, valid: Boolean)
 case class DummyKeyValue(key: String, value: String)
 case class SingleRawField(_raw: String)
 
-class TermExtensionTest extends AnyFunSuite {
+class SplExtensionTest extends AnyFunSuite {
   val dummy = Seq(
     Dummy("a", "b", "c", 1, valid = true),
     Dummy("d", "e", "f", 2, valid = false),
@@ -18,7 +18,7 @@ class TermExtensionTest extends AnyFunSuite {
 
   test("it filters") {
     val spark = SparkSession.builder()
-      .withExtensions(e => new TermExtension().apply(e))
+      .withExtensions(e => new SplExtension().apply(e))
       .master("local[1]")
       .getOrCreate()
     import spark.implicits._

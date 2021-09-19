@@ -120,6 +120,10 @@ class SplToCatalyst extends Logging {
             case field: Value =>
               Column(field.value).named
           }, tree))
+
+        case spl.FillNullCommand(value, fields) =>
+          val fieldsOpt = fields.getOrElse(Seq.empty[Value]).map(_.value).toSet
+          FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
       }
     }
 

@@ -59,5 +59,5 @@ case class JoinCommand(joinType: String = "inner",
                        subSearch: Pipeline) extends Command
 
 case class ReturnCommand(count: Option[IntValue], fields: Seq[Product with Serializable]) extends Command
-
+case class FillNullCommand(value: Option[String], fields: Option[Seq[Value]]) extends Command
 case class Pipeline(commands: Seq[Command])

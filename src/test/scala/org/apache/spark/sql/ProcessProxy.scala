@@ -20,7 +20,7 @@ trait ProcessProxy extends Logging {
 
   lazy val spark = {
     SparkSession.builder()
-      .withExtensions(e => new TermExtension().apply(e))
+      .withExtensions(e => new SplExtension().apply(e))
       .master("local[1]")
       .config("spark.sql.warehouse.dir", s"$folder/warehouse")
       .getOrCreate()
