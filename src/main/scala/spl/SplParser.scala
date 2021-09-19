@@ -195,21 +195,25 @@ object SplParser {
   def _return[_:P]: P[ReturnCommand] = "return" ~ int.? ~ (
       (field ~ "=" ~ expr).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map ReturnCommand.tupled
 
+  def fillNull[_:P]: P[FillNullCommand] = ("fillnull" ~ ("value=" ~~ doubleQuoted|token).?
+                                                      ~ field.rep(1).?) map FillNullCommand.tupled
+
   def command[_:P]: P[Command] = (stats | table
-                                         | where
-                                         | lookup
-                                         | collect
-                                         | convert
-                                         | eval
-                                         | head
-                                         | fields
-                                         | sort
-                                         | rex
-                                         | rename
-                                         | _regex
-                                         | join
-                                         | _return
-                                         | impliedSearch)
+                                        | where
+                                        | lookup
+                                        | collect
+                                        | convert
+                                        | eval
+                                        | head
+                                        | fields
+                                        | sort
+                                        | rex
+                                        | rename
+                                        | _regex
+                                        | join
+                                        | _return
+                                        | fillNull
+                                        | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline

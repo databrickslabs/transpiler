@@ -15,7 +15,7 @@
 | lookup | ✅ | ✅ | ✅ |
 | bin |  |  |  |
 | rename | ✅ | ✅ | ✅ |
-| join |  | ✅ | ✅ | ✅ |
+| join | ✅ | ✅ | ✅ |
 | fields | ✅ | ✅ | ✅ |
 | convert | ✅ |  |  |
 | collect | ✅ | ✅ | ✅ |
@@ -27,7 +27,7 @@
 | inputlookup |  |  |  |
 | head | ✅ | ✅ | ✅ |
 | format |  |  |  |
-| fillnull |  |  |  |
+| fillnull | ✅ | ✅ | ✅ |
 | eventstats |  |  |  |
 | dedup |  |  |  |
  
