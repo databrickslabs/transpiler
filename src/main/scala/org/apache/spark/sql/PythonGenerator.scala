@@ -63,6 +63,13 @@ class PythonGenerator {
       }
       val how = q(tp.sql.replace(" ", "_").toLowerCase)
       s"${fromPlan(left)}\n.join(${fromPlan(right)},\n[${on.map(q).mkString(", ")}], $how)"
+
+    case FillNullShim(value, columns, child) =>
+      val childCode = fromPlan(child)
+      if (columns.isEmpty)
+        s"$childCode\n.na.fill(${q(value)})"
+      else
+        s"$childCode\n.na.fill(${q(value)}, ${toPythonList(columns)})"
   }
 
   private def exprList(exprs: Seq[Expression]) =
@@ -103,5 +110,9 @@ class PythonGenerator {
       "'" + value + "'"
     else
       "\"" + value + "\""
+  }
+
+  private def toPythonList(elements: Set[String]): String = {
+    s"[${elements.map(q).mkString(", ")}]"
   }
 }

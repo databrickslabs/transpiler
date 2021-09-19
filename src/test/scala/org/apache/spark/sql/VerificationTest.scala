@@ -3,12 +3,18 @@ package org.apache.spark.sql
 import org.scalatest.funsuite.AnyFunSuite
 
 class VerificationTest extends AnyFunSuite with ProcessProxy {
+
   val dummy = Seq(
     Dummy("a", "b", "c", 1, valid = true),
     Dummy("d", "e", "f", 2, valid = false),
     Dummy("g", "h", "i", 3, valid = true),
     Dummy("h", "g", "f", 4, valid = false),
     Dummy("e", "d", "c", 5, valid = true),
+  )
+
+  val dummyWithNull = Seq(
+    Dummy("a", null, null, 1, valid = true),
+    Dummy("d", "e", "f", 2, valid = false)
   )
 
   val dummySingleField = Seq(
@@ -171,6 +177,54 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         ||h  |g  |f  |4  |false|null|null|null|null |
         ||e  |d  |c  |5  |true |null|null|null|null |
         |+---+---+---+---+-----+----+----+----+-----+
+        |""".stripMargin)
+  }
+
+  test("fillnull") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("x")
+
+    executes("fillnull",
+      """+---+---+---+---+-----+
+        ||a  |b  |c  |n  |valid|
+        |+---+---+---+---+-----+
+        ||a  |0  |0  |1  |true |
+        ||d  |e  |f  |2  |false|
+        |+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
+  test("fillnull value=NA") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("x")
+
+    executes("fillnull value=NA",
+      """+---+---+---+---+-----+
+        ||a  |b  |c  |n  |valid|
+        |+---+---+---+---+-----+
+        ||a  |NA |NA |1  |true |
+        ||d  |e  |f  |2  |false|
+        |+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
+  test("fillnull value=NA a c n valid") {
+    import spark.implicits._
+
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("x")
+
+    executes("fillnull value=NA a c n valid",
+      """+---+----+---+---+-----+
+        ||a  |b   |c  |n  |valid|
+        |+---+----+---+---+-----+
+        ||a  |null|NA |1  |true |
+        ||d  |e   |f  |2  |false|
+        |+---+----+---+---+-----+
         |""".stripMargin)
   }
 }

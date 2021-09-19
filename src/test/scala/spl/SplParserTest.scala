@@ -580,4 +580,21 @@ class SplParserTest extends ParserSuite {
       )
     ))
   }
+
+  test("fillnull") {
+    p(fillNull(_), FillNullCommand(None, None))
+  }
+
+  test("fillnull value=NA") {
+    p(fillNull(_), FillNullCommand(Some("NA"), None))
+  }
+
+  test("fillnull value=\"NULL\" host port") {
+    p(fillNull(_), FillNullCommand(
+      Some("NULL"),
+      Some(Seq(
+        Value("host"),
+        Value("port")
+      ))))
+  }
 }
