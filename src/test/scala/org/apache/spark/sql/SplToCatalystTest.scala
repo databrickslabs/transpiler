@@ -292,6 +292,31 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("fillnull") {
+        check(spl.FillNullCommand(
+            Some("0"),
+            None
+            ),
+            (_, tree) => {
+                FillNullShim("0", Set.empty[String], tree)
+            }
+        )
+    }
+
+    test("fillnull value=\"NaN\" host port ip") {
+        check(spl.FillNullCommand(
+            Some("NaN"),
+            Some(Seq(
+                spl.Value("host"),
+                spl.Value("port"),
+                spl.Value("ip")
+            ))),
+            (_, tree) => {
+                FillNullShim("NaN", Set("host", "port", "ip"), tree)
+            }
+        )
+    }
+
     test("min(bar)") {
         check(spl.SearchCommand(
             spl.Call("min", Seq(

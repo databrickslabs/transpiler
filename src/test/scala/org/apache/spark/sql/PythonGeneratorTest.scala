@@ -146,6 +146,13 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
+  test(".na.fill('n/a', ['event_type', 'event_id'])") {
+    g(FillNullShim("n/a", Set("event_type", "event_id"), src))
+  }
+
+  test(".na.fill('n/a')") {
+    g(FillNullShim("n/a", Set.empty[String], src))
+  }
 
   private def g(plan: LogicalPlan): Unit = {
     val code = new PythonGenerator().fromPlan(plan)
