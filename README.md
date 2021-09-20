@@ -30,6 +30,22 @@
 | fillnull |  |  |  |
 | eventstats |  |  |  |
 | dedup |  |  |  |
+
+Secondary batch of commands:
+
+| Command/Feature | Parser | Catalyst | Codegen |
+| ---: | :---: | :---: | :---: |
+| makeresults |  |  |  |
+| tstats |  |  |  |
+| mvexpand |  |  |  |
+| chart |  |  |  |
+| timechart |  |  |  |
+| export |  |  |  |
+| streamstats |  |  |  |
+| geom |  |  |  |
+| addtotals |  |  |  |
+| foreach |  |  |  |
+
  
 ## Functions
 
