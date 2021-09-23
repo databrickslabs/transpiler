@@ -292,6 +292,88 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("min(bar)") {
+        check(spl.SearchCommand(
+            spl.Call("min", Seq(
+                spl.Value("bar")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Min(
+                        UnresolvedAttribute("bar")
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("max(bar)") {
+        check(spl.SearchCommand(
+            spl.Call("max", Seq(
+                spl.Value("bar")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Max(
+                        UnresolvedAttribute("bar")
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("round(x)") {
+        check(spl.SearchCommand(
+            spl.Call("round", Seq(
+                spl.Value("x")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Round(
+                        UnresolvedAttribute("x"),
+                        Literal(0)
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("round(x, 2)") {
+        check(spl.SearchCommand(
+            spl.Call("round", Seq(
+                spl.Value("x"),
+                spl.IntValue(2),
+            ))),
+            (_, tree) => {
+                Filter(
+                    Round(
+                        UnresolvedAttribute("x"),
+                        Literal(2)
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("round(min(x))") {
+        check(spl.SearchCommand(
+            spl.Call("round", Seq(
+                spl.Call("min", Seq(
+                    spl.Value("x")
+                )),
+            ))),
+            (_, tree) => {
+                Filter(
+                    Round(
+                        Min(
+                            UnresolvedAttribute("x")
+                        ),
+                        Literal(0)
+                    ),
+                    tree)
+            }
+        )
+    }
 
     private def check(command: spl.Command,
               callback: (spl.Command, LogicalPlan) => LogicalPlan

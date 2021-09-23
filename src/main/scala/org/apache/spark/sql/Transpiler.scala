@@ -11,14 +11,17 @@ object Transpiler {
         throw new AssertionError(f.trace().longMsg)
     }
 
+  /** Converts SPL AST to Databricks Runtime internal Logical Execution Plan */
   private def logicalPlan(search: String): LogicalPlan = {
     val tsc = new SplToCatalyst()
     tsc.process(parsePipeline(search))
   }
 
+  /** Executes SPL query on Databricks Runtime */
   def toDataFrame(spark: SparkSession, search: String): DataFrame =
     Dataset.ofRows(spark, logicalPlan(search))
 
+  /** Generates PySpark code out of SPL search */
   def toPython(search: String): String = {
     val pg = new PythonGenerator()
     "(" + pg.fromPlan(logicalPlan(search)) + ")\n"
