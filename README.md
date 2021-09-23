@@ -51,7 +51,7 @@ Secondary batch of commands:
 
 | Function | Catalyst |
 | ---: | :---: |
-| term() | extension |
+| term() | extension ✅ |
 | [CIDR search](https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/ConditionalFunctions#cidrmatch.28.22X.22.2CY.29) |  |  |  |
 | strftime() |  |
 | values() |  |
@@ -63,15 +63,15 @@ Secondary batch of commands:
 | mvindex() |  |
 | mvappend() |  |
 | null() |  |
-| min() |  |
-| round() |  |
-| max() |  |
+| min() | ✅ |
+| round() | ✅ |
+| max() | ✅ |
 | substr() |  |
 | isnotnull() |  |
 | sum() |  |
 | mvfilter() |  |
 | len() |  |
-| count() |  |
+| count() | ✅ |
 
 ## Developing 
 

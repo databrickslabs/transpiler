@@ -4,8 +4,8 @@ import scala.collection.mutable
 import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.aggregate.Count
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, Literal, NamedExpression, Not, RLike, RegExpExtract, SortOrder}
+import org.apache.spark.sql.catalyst.expressions.aggregate.{Count, Max, Min}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, Literal, NamedExpression, Not, RLike, RegExpExtract, Round, SortOrder}
 import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Join, JoinHint, Limit, LogicalPlan, Project, Sort}
 import org.apache.spark.sql.catalyst.{expressions => e}
@@ -48,7 +48,7 @@ class SplToCatalyst extends Logging {
 
         case spl.HeadCommand(expr, keepLast, nullOption) =>
           // TODO Implement keeplast and null options behaviour
-          logger.debug(s"Adding `HeadCommand` with options: ${expr} to the tree")
+          logger.debug(s"Adding `HeadCommand` with options: $expr to the tree")
           if (expr.isInstanceOf[spl.IntValue])
             Limit(expression(expr), tree)
           else
@@ -61,7 +61,7 @@ class SplToCatalyst extends Logging {
         case spl.FieldsCommand(op, fields) =>
           if (op.getOrElse("+").equals("-")) {
             val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
-            val columnRegex = UnresolvedRegex(s"(?!${fieldsToDiscard}).*", None, false)
+            val columnRegex = UnresolvedRegex(s"(?!$fieldsToDiscard).*", None, caseSensitive = false)
             Project(Seq(columnRegex), tree)
           } else
             selectExpr(fields, tree)
@@ -82,10 +82,9 @@ class SplToCatalyst extends Logging {
             aggregate(by, funcs, tree)
           }
 
-        case spl.RexCommand(field, maxMatch, offsetField, mode, regex) => {
+        case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
           // TODO find a way to implement max_match, offset_field and mode
           rexExtract(field, maxMatch, offsetField, mode, regex, tree)
-        }
 
         case spl.RenameCommand(aliases) =>
           renameColumn(aliases, tree)
@@ -93,7 +92,7 @@ class SplToCatalyst extends Logging {
         case spl.RegexCommand(item, regex) =>
           item match {
             case Some(value) =>
-              val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => (expr)
+              val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => expr
               Filter(catalystOp(RLike(Column(value._1.value).expr, Literal(regex))), tree)
             case None =>
               Filter(RLike(Column("_raw").expr, Literal(regex)), tree)
@@ -118,7 +117,7 @@ class SplToCatalyst extends Logging {
           Limit(countLimit, Project(fields.map {
             case alias: (Value, Expr) =>
               e.Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
-            case field: (Value) =>
+            case field: Value =>
               Column(field.value).named
           }, tree))
       }
@@ -180,15 +179,30 @@ class SplToCatalyst extends Logging {
 
   private def function(call: spl.Call): e.Expression = call.name match {
     case "isnull" =>
-      e.IsNull(expression(call.args.head))
+      e.IsNull(attrOrExpr(call.args.head))
     case "ctime" =>
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
     case "count" =>
       Count(call.args.map(expression))
+    case "min" =>
+      // TODO: would currently fail on wildcard attributes
+      Min(attrOrExpr(call.args.head))
+    case "max" =>
+      // TODO: would currently fail on wildcard attributes
+      Max(attr(call.args.head))
+    case "round" =>
+      val num = attrOrExpr(call.args.head)
+      val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
+      Round(num, scale)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
+  }
+
+  private def attrOrExpr(expr: spl.Expr) = expr match {
+    case spl.Value(value) => UnresolvedAttribute(Seq(value))
+    case _ => expression(expr)
   }
 
   private def expression(expr: spl.Expr): e.Expression = expr match {
@@ -297,10 +311,10 @@ class SplToCatalyst extends Logging {
   private def renameColumn(aliases: Seq[spl.Alias], tree: LogicalPlan): LogicalPlan = {
     val myList = new ListBuffer[NamedExpression]
     val regex = aliases.map(alias => attr(alias.expr).name).mkString("|")
-    myList += UnresolvedRegex(s"(?!${regex}).*", None, false)
+    myList += UnresolvedRegex(s"(?!$regex).*", None, caseSensitive = false)
     aliases foreach {alias => {
       myList += e.Alias(attr(alias.expr), alias.name)()
     }}
-    Project(myList.toSeq, tree)
+    Project(myList, tree)
   }
 }
