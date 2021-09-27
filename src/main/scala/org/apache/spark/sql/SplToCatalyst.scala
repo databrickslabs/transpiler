@@ -228,6 +228,10 @@ class SplToCatalyst extends Logging {
         }
         case spl.Or => e.Or(expression(left), expression(right))
         case spl.And => e.And(expression(left), expression(right))
+        case spl.Add => e.Add(expression(left), expression(right))
+        case spl.Subtract => e.Subtract(expression(left), expression(right))
+        case spl.Multiply => e.Multiply(expression(left), expression(right))
+        case spl.Divide => e.Divide(expression(left), expression(right))
         // TODO: make a failure case
       }
       // TODO: make a failure case
