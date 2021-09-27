@@ -9,7 +9,7 @@ object Main extends App {
         println(pythonCode)
     } catch {
         case err: Exception  =>
-            println(err)
+            println(err.getMessage)
             System.exit(1)
     }
 }
