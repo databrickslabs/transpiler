@@ -70,7 +70,7 @@ case class Term(child: Expression) extends Unevaluable {
  * Given rule replicates the logic of .na.fill()
  */
 class FillNullShimExpansion(spark: SparkSession) extends Rule[LogicalPlan] {
-  override def apply(plan: LogicalPlan): LogicalPlan = plan transform  {
+  override def apply(plan: LogicalPlan): LogicalPlan = plan transform {
     case FillNullShim(value, columns, child) =>
       Project(child.schema map { item =>
         val column = Column(item.name)

@@ -51,7 +51,7 @@ case class SplunkContext(sf: SearchesFile, mf: MacrosFile) {
 
   def getSearchInCatalyst(name: String) = {
     val tsc = new SplToCatalyst()
-    parseSearch(name).map(tsc.process)
+    parseSearch(name).map(tsc.pipeline)
   }
 
   def generatePython(name: String) = {

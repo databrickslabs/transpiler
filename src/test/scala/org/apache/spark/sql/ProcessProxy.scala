@@ -40,7 +40,7 @@ trait ProcessProxy extends Logging {
   def generates(search: String, expectedCode: String) = {
     val generatedCode = Transpiler.toPython(search)
     assert(generatedCode == expectedCode, s"Code generation failed\n================\n"+
-      "EXPECTED: $expectedCode\nGENERATED: $generatedCode")
+      s"EXPECTED: $expectedCode\nGENERATED: $generatedCode")
   }
 
   def executes(search: String, results: String, truncate: Int = 0) = {
