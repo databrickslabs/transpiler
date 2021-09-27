@@ -140,8 +140,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("Rex Command should generate a Project") {
         check(spl.RexCommand(
-            Some(spl.Value("colNameA")),
-            None,
+            Some("colNameA"),
+            1,
             None,
             None,
             "From: <(?<from>.*)> To: <(?<to>.*)>"),
@@ -161,10 +161,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("Rex Command should throw an error") {
         val command = spl.RexCommand(
-            Some(spl.Value("colNameA")),
+            Some("colNameA"),
+            1,
             None,
-            None,
-            Some(spl.Value("sed")),
+            Some("sed"),
             "s/(\\d{4}-){3}/XXXX-XXXX-XXXX-/g")
 
         assertPlanThrows(command, new NotImplementedError)

@@ -51,7 +51,7 @@ object SplParser {
 
   def field[_:P]: P[Value] = fvalue
   def fieldAndValue[_:P]: P[FV] = (fvalue ~ "=" ~ fvalue).map(a => FV(a._1.value, a._2.value))
-  def fieldAndValueList[_: P]: P[Map[String, String]] = (fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap))
+  def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
   def fieldList[_: P]: P[Seq[Value]] = field.rep(sep=",")
   def filename[_: P]: P[String] = term
 
@@ -152,10 +152,15 @@ object SplParser {
     ("dedup_splitvals" ~ "=" ~ bool).?.map(v => v.exists(_.value)))
     .map(StatsCommand.tupled)
 
-  def rex[_:P]: P[RexCommand] = ("rex" ~ ("field=" ~ field).?
-                                                   ~ ("max_match=" ~ int).?
-                                                   ~ ("offset_field=" ~ field).?
-                                                   ~ ("mode=" ~ field).? ~ doubleQuoted) map RexCommand.tupled
+  // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Rex
+  def rex[_:P]: P[RexCommand] = ("rex" ~ fieldAndValueList ~ doubleQuoted) map { case (kv, regex) =>
+    RexCommand(
+      field = kv.get("field"),
+      maxMatch = kv.get("max_match").map(_.toInt).getOrElse(1),
+      offsetField = kv.get("offset_field"),
+      mode = kv.get("mode"),
+      regex = regex)
+  }
 
   def rename[_:P]: P[RenameCommand] = "rename" ~ aliasedField.rep(min = 1, sep = ",") map RenameCommand
   def _regex[_:P]: P[RegexCommand] = "regex" ~ (field ~ ("="|"!=").!).? ~ doubleQuoted map RegexCommand.tupled

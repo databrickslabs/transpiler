@@ -289,15 +289,15 @@ class SplToCatalyst extends Logging {
     }
   }
 
-  private def rexExtract(field: Option[spl.Value],
-                         maxMatch: Option[spl.IntValue],
-                         offsetField: Option[spl.Value],
-                         mode: Option[spl.Value],
+  private def rexExtract(field: Option[String],
+                         maxMatch: Int,
+                         offsetField: Option[String],
+                         mode: Option[String],
                          regex: String,
                          tree: LogicalPlan): Project = {
     // TODO _raw column configurable
     mode match {
-      case Some(value) => throw new NotImplementedError(s"rex mode=${value.value} [...] currently not supported !")
+      case Some(value) => throw new NotImplementedError(s"rex mode=$value [...] currently not supported !")
       case None =>
         val myList = new ListBuffer[NamedExpression]()
         myList += UnresolvedRegex("^.*?", None, caseSensitive = false)
@@ -306,7 +306,7 @@ class SplToCatalyst extends Logging {
             val alias = e.Alias(
               RegExpExtract(
                 field match {
-                  case Some(value) => Column(value.value).expr
+                  case Some(value) => Column(value).expr
                   case None => Column("_raw").expr
                 },
                 Literal(regex),
