@@ -55,7 +55,8 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
 
   def parses[T](input: String, parser: P[_] => P[T], result: T): Unit =
     parse(input, parser/*, instrument=Debugger()*/) match {
-      case Parsed.Success(value, _) => value mustEqual result
+      case Parsed.Success(value, _) =>
+        value mustEqual result
       case Parsed.Failure(_, _, extra) =>
         fail(extra.trace(true).longAggregateMsg)
     }

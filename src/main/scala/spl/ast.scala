@@ -43,10 +43,10 @@ case class StatsCommand(params: Map[String, String],
                         funcs: Seq[Expr],
                         by: Seq[Value] = Seq(),
                         dedupSplitVals: Boolean = false) extends Command
-case class RexCommand(field: Option[Value],
-                      maxMatch: Option[IntValue],
-                      offsetField: Option[Value],
-                      mode: Option[Value],
+case class RexCommand(field: Option[String],
+                      maxMatch: Int,
+                      offsetField: Option[String],
+                      mode: Option[String],
                       regex: String) extends Command
 case class RenameCommand(alias: Seq[Alias]) extends Command
 case class RegexCommand(item: Option[(Value, String)], regex: String) extends Command
