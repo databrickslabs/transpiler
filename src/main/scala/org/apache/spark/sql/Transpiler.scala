@@ -14,7 +14,7 @@ object Transpiler {
   /** Converts SPL AST to Databricks Runtime internal Logical Execution Plan */
   private def logicalPlan(search: String): LogicalPlan = {
     val tsc = new SplToCatalyst()
-    tsc.process(parsePipeline(search))
+    tsc.pipeline(parsePipeline(search))
   }
 
   /** Executes SPL query on Databricks Runtime */

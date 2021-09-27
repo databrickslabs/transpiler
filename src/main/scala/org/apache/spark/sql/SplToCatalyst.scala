@@ -21,7 +21,7 @@ class SplToCatalyst extends Logging {
    */
   private var output = Seq[e.NamedExpression]()
 
-  def process(p: spl.Pipeline): LogicalPlan = p.commands.foldLeft(
+  def pipeline(p: spl.Pipeline): LogicalPlan = p.commands.foldLeft(
       UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) { (tree, command) =>
       command match {
         case spl.EvalCommand(fields) =>
@@ -100,7 +100,7 @@ class SplToCatalyst extends Logging {
 
         case spl.JoinCommand(joinType, useTime, earlier,
                              overwrite, max, fields, subSearch) =>
-          Join(tree, process(subSearch),
+          Join(tree, pipeline(subSearch),
                UsingJoin(joinType match {
                  case "inner" => Inner
                  case "left" => LeftOuter
