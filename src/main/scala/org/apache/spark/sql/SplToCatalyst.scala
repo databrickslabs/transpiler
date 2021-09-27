@@ -138,19 +138,9 @@ class SplToCatalyst extends Logging {
     }
     var right = UnresolvedRelation(Seq(dataset)).asInstanceOf[LogicalPlan]
     if (hasAliases || output.isDefined) {
-      right = Project(fields.map {
-        case spl.Value(fieldName) =>
-          UnresolvedAttribute(fieldName)
-        case spl.AliasedField(spl.Value(fieldName), alias) =>
-          e.Alias(UnresolvedAttribute(fieldName), alias)()
-      } ++ (output match {
+      right = Project(fields.map(fieldOrAlias) ++ (output match {
         case Some(spl.LookupOutput(kv, outputFields)) =>
-          outputFields.map { // hm... this looks like a duplicate logic...
-            case spl.Value(fieldName) =>
-              UnresolvedAttribute(fieldName)
-            case spl.AliasedField(spl.Value(fieldName), alias) =>
-              e.Alias(UnresolvedAttribute(fieldName), alias)()
-          }
+          outputFields.map(fieldOrAlias)
         case None => Seq()
       }), right)
     }
@@ -159,6 +149,15 @@ class SplToCatalyst extends Logging {
         case spl.Value(fieldName) => fieldName
         case spl.AliasedField(_, alias) => alias
       }), None, JoinHint.NONE)
+  }
+
+  private def fieldOrAlias(field: spl.Field): NamedExpression = field match {
+    case spl.Value(fieldName) =>
+      UnresolvedAttribute(fieldName)
+    case spl.AliasedField(spl.Value(fieldName), alias) =>
+      e.Alias(UnresolvedAttribute(fieldName), alias)()
+    case spl.Alias(expr, alias) =>
+      e.Alias(expression(expr), alias)()
   }
 
   private def aggregate(by: Seq[spl.Value], funcs: Seq[spl.Expr], tree: LogicalPlan) =
@@ -199,6 +198,8 @@ class SplToCatalyst extends Logging {
       val num = attrOrExpr(call.args.head)
       val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
       Round(num, scale)
+    case "TERM" =>
+      Term(expression(call.args.head))
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
