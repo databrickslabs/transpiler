@@ -1,6 +1,6 @@
 package spl
 
-import fastparse.SingleLineWhitespace._
+import fastparse.MultiLineWhitespace._
 import fastparse._
 
 /**
