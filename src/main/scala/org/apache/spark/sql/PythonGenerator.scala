@@ -41,9 +41,9 @@ class PythonGenerator {
         val dirStr = if (item.direction == Ascending) "asc()"  else "desc()"
         item.child match {
           case Cast(colExpr, dataType, _) =>
-            s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)}).${dirStr}"
+            s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)}).$dirStr"
           case UnresolvedAttribute(nameParts) =>
-            s"F.col(${q(nameParts.mkString("."))}).${dirStr}"
+            s"F.col(${q(nameParts.mkString("."))}).$dirStr"
         }
       })
       s"${fromPlan(child)}\n.orderBy(${orderBy.mkString(", ")})"
@@ -62,14 +62,14 @@ class PythonGenerator {
         case tp => (tp, Seq())
       }
       val how = q(tp.sql.replace(" ", "_").toLowerCase)
-      s"${fromPlan(left)}\n.join(${fromPlan(right)},\n[${on.map(q).mkString(", ")}], $how)"
+      s"${fromPlan(left)}\n.join(${fromPlan(right)},\n${toPythonList(on)}, $how)"
 
     case FillNullShim(value, columns, child) =>
       val childCode = fromPlan(child)
       if (columns.isEmpty)
         s"$childCode\n.na.fill(${q(value)})"
       else
-        s"$childCode\n.na.fill(${q(value)}, ${toPythonList(columns)})"
+        s"$childCode\n.na.fill(${q(value)}, ${toPythonList(columns.toSeq)})"
   }
 
   private def exprList(exprs: Seq[Expression]) =
@@ -91,28 +91,20 @@ class PythonGenerator {
     case _ => s".where(${q(expression(expr))})"
   }
 
-//  org.apache.spark.sql.catalyst.util.toPrettySQL(expr)
-
   def expression(expr: Expression): String = expr match {
     case UnresolvedAlias(child, aliasFunc) => expression(child)
     case Alias(child, name) => s"${expression(child)} AS $name"
     case RLike(left, right) => s"${left.sql} RLIKE ${right.sql}"
-    case UnresolvedRegex(regexPattern, table, caseSensitive) => s"`${regexPattern}`"
+    case UnresolvedRegex(regexPattern, table, caseSensitive) => s"`$regexPattern`"
     case a: UnresolvedAttribute => a.name
     case _: Any => expr.sql
   }
 
-  /**
-   * Sugar for quoting strings
-   */
-  private def q(value: String) = {
+  /** Sugar for quoting strings */
+  private def q(value: String) =
     if (pattern.findAllIn(value).toList.isEmpty)
-      "'" + value + "'"
-    else
-      "\"" + value + "\""
-  }
+      "'" + value + "'" else "\"" + value + "\""
 
-  private def toPythonList(elements: Set[String]): String = {
+  private def toPythonList(elements: Seq[String]): String =
     s"[${elements.map(q).mkString(", ")}]"
-  }
 }
