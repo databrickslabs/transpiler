@@ -65,7 +65,8 @@ object SplParser {
   def constant[_:P]: P[Constant] = fvalue | bool | int
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
-    | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P)
+    | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P | Add.P | Subtract.P
+    | Multiply.P | Divide.P)
 
   private def binaryOf[_: P](a: => P[Expr], b: => P[OperatorSymbol]): P[Expr] =
     (a ~ (b ~ a).rep).map {

@@ -43,6 +43,7 @@ case object LessEquals extends Relational {
 }
 
 case object Equals extends Relational {
+  override def symbols[_: P]: P[Unit] = "=" | "::"
   override def toString: String = "="
   override val precedence: Int = 7
 }
@@ -56,6 +57,26 @@ case object InList extends Straight {
 case object NotEquals extends Relational {
   override def toString: String = "!="
   override val precedence: Int = 7
+}
+
+case object Add extends Straight {
+  override def toString: String = "+"
+  override val precedence: Int = 4
+}
+
+case object Subtract extends Straight {
+  override def toString: String = "-"
+  override val precedence: Int = 4
+}
+
+case object Multiply extends Straight {
+  override def toString: String = "*"
+  override val precedence: Int = 3
+}
+
+case object Divide extends Straight {
+  override def toString: String = "/"
+  override val precedence: Int = 3
 }
 
 case object UnaryNot extends OperatorSymbol {
