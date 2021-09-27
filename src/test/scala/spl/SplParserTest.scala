@@ -403,11 +403,35 @@ class SplParserTest extends ParserSuite {
     ))
   }
 
+  test("no-comma stats") {
+    val query =
+      """stats allnum=f delim=":" partitions=10 count earliest(_time) as earliest latest(_time) as latest
+        |values(var_2) as var_2
+        |by var_1
+        |""".stripMargin
+    parses(query, stats(_), StatsCommand(
+      Map(
+        "allnum" -> "f",
+        "delim" -> ":",
+        "partitions" -> "10"
+      ),
+      Seq(
+        Call("count"),
+        Alias(Call("earliest", Seq(Value("_time"))), "earliest"),
+        Alias(Call("latest", Seq(Value("_time"))), "latest"),
+        Alias(Call("values", Seq(Value("var_2"))), "var_2"),
+      ),
+      Seq(
+        Value("var_1")
+      )
+    ))
+  }
+
   test("rex field=savedsearch_id max_match=10 \"(?<user>\\w+);(?<app>\\w+);(?<SavedSearchName>\\w+)\"") {
     p(pipeline(_), Pipeline(Seq(
       RexCommand(
-        Some(Value("savedsearch_id")),
-        Some(IntValue(10)),
+        Some("savedsearch_id"),
+        10,
         None,
         None,
         "(?<user>\\w+);(?<app>\\w+);(?<SavedSearchName>\\w+)"
@@ -419,9 +443,9 @@ class SplParserTest extends ParserSuite {
     p(pipeline(_), Pipeline(Seq(
       RexCommand(
         None,
+        1,
         None,
-        None,
-        Some(Value("sed")),
+        Some("sed"),
         "s/(\\d{4}-){3}/XXXX-XXXX-XXXX-/g"
       )
     )))

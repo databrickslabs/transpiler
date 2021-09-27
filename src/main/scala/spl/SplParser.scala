@@ -147,7 +147,7 @@ object SplParser {
   // https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/Stats
   def aliasedCall[_:P] = call ~ W("as") ~ token map Alias.tupled
   def stats[_:P] = ("stats" ~ fieldAndValueList ~
-    (aliasedCall | call).rep(1, ",") ~
+    (aliasedCall | call | token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?) ~
     (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq())) ~
     ("dedup_splitvals" ~ "=" ~ bool).?.map(v => v.exists(_.value)))
     .map(StatsCommand.tupled)
