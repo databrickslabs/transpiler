@@ -1,17 +1,17 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.FunctionIdentifier
+import org.apache.spark.sql.catalyst.analysis.UnresolvedException
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, OrderPreservingUnaryNode}
+import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, OrderPreservingUnaryNode, Project}
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.catalyst.plans.logical.Project
 import org.apache.spark.sql.functions.{coalesce, lit, nanvl}
+import org.apache.spark.sql.types._
 
 class SplExtension extends (SparkSessionExtensions => Unit) {
   override def apply(extensions: SparkSessionExtensions): Unit = {
-    extensions.injectResolutionRule(new TermExpansion(_))
-    extensions.injectResolutionRule(new FillNullShimExpansion((_)))
+    extensions.injectResolutionRule(spark => new TermExpansion(spark))
+    extensions.injectResolutionRule(spark => new FillNullShimExpansion(spark))
 
     val clazz = classOf[Term]
     val df = clazz.getAnnotation(classOf[ExpressionDescription])
@@ -44,28 +44,6 @@ class TermExpansion(spark: SparkSession) extends Rule[LogicalPlan] {
     }
 }
 
-class FillNullShimExpansion(spark: SparkSession) extends Rule[LogicalPlan] {
-
-  override def apply(plan: LogicalPlan): LogicalPlan = {
-    plan transform  {
-      case FillNullShim(value, columns, child) =>
-          Project(child.schema map { item => {
-            val column = Column(item.name)
-            if (columns.isEmpty | columns.contains(item.name)) {
-              coalesce(item.dataType match {
-                case DoubleType | FloatType =>
-                  nanvl(column, lit(null))
-                case _ => column
-              }, lit(value).cast(item.dataType)).alias(item.name).named
-            }
-            else {
-              column.named
-            }
-          }}, child)
-    }
-  }
-}
-
 /**
  * Placeholder function for term expansion
  */
@@ -85,7 +63,32 @@ case class Term(child: Expression) extends Unevaluable {
   override def children: Seq[Expression] = Seq(child)
 }
 
-case class FillNullShim(value: String, columns: Set[String], child: LogicalPlan) extends OrderPreservingUnaryNode {
-  override lazy val resolved: Boolean = true
-  override def output: Seq[Attribute] = ???
+/**
+ * This logical plan is only there to shim Splunk's fillnull command logic, when
+ * SPL is executed on Spark. Generated Python code still refers to .na.fill()
+ *
+ * Given rule replicates the logic of .na.fill()
+ */
+class FillNullShimExpansion(spark: SparkSession) extends Rule[LogicalPlan] {
+  override def apply(plan: LogicalPlan): LogicalPlan = plan transform  {
+    case FillNullShim(value, columns, child) =>
+      Project(child.schema map { item =>
+        val column = Column(item.name)
+        if (columns.isEmpty | columns.contains(item.name)) {
+          coalesce(item.dataType match {
+            case DoubleType | FloatType =>
+              nanvl(column, lit(null))
+            case _ => column
+          }, lit(value).cast(item.dataType)).alias(item.name).named
+        } else {
+          column.named
+        }
+      }, child)
+  }
+}
+
+case class FillNullShim(value: String, columns: Set[String], child: LogicalPlan)
+  extends OrderPreservingUnaryNode {
+  override def output: Seq[Attribute] = throw new UnresolvedException(this, "FillNullShim")
+  override lazy val resolved: Boolean = false
 }
