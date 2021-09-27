@@ -4,8 +4,8 @@ import scala.collection.mutable
 import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{Count, Max, Min}
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, Descending, Expression, Literal, NamedExpression, Not, RLike, RegExpExtract, Round, SortOrder}
+import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectSet, Count, First, Last, Max, Min}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, DateFormatClass, Descending, Expression, Literal, NamedExpression, Not, NullsFirst, RLike, RegExpExtract, Round, SortOrder}
 import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Join, JoinHint, Limit, LogicalPlan, Project, Sort}
 import org.apache.spark.sql.catalyst.{expressions => e}
@@ -161,7 +161,15 @@ class SplToCatalyst extends Logging {
   }
 
   private def aggregate(by: Seq[spl.Value], funcs: Seq[spl.Expr], tree: LogicalPlan) =
-    Aggregate(fieldList(by), aggregates(funcs), tree)
+    Aggregate(fieldList(by), aggregates(funcs), if (hasTimeFunctions(funcs))
+      Sort(Seq(SortOrder(UnresolvedAttribute("_time"), Ascending, NullsFirst, Set.empty)),
+        global = true, tree) else tree)
+
+  private def hasTimeFunctions(funcs: Seq[spl.Expr]) : Boolean = funcs.map {
+    case spl.Call(name, _) => name
+    case spl.Alias(spl.Call(name, _), _) => name
+    case _ => ""
+  } exists(Seq("earliest", "latest").contains(_))
 
   private def fieldList(fields: Seq[spl.Value]): Seq[Expression] = fields.map {
     case spl.Value(value) => Column(value)
@@ -179,6 +187,31 @@ class SplToCatalyst extends Logging {
     output = output :+ e.Alias(expression(expr), name)()
     Project(output, tree)
   }
+
+  // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Commontimeformatvariables
+  // https://spark.apache.org/docs/latest/sql-ref-datetime-pattern.html
+  // and fix whatever is missing...
+  // UNSUPPORTED: %V and %U (week of the year), %w (weekday as decimal), %k, %s	(unix epoch), and others
+  private val stftimeToDateFormat = Map(
+    "%Y" -> "yyyy",
+    "%y" -> "yy",
+    "%m" -> "MM",
+    "%b" -> "MMM",
+    "%B" -> "MMMM",
+    "%d" -> "dd",
+    "%A" -> "EEEE",
+    "%a" -> "EE",
+    "%e" -> "d",
+    "%j" -> "D",
+    "%H" -> "HH",
+    "%l" -> "hh",
+    "%M" -> "mm",
+    "%S" -> "ss",
+    "%p" -> "a",
+    "%T" -> "HH:mm:ss",
+    "%Z" -> "zz",
+    "%%" -> "%"
+  )
 
   private def function(call: spl.Call): e.Expression = call.name match {
     case "isnull" =>
@@ -200,6 +233,19 @@ class SplToCatalyst extends Logging {
       Round(num, scale)
     case "TERM" =>
       Term(expression(call.args.head))
+    case "values" =>
+      CollectSet(expression(call.args.head))
+    case "earliest" =>
+      First(attrOrExpr(call.args.head), ignoreNulls = true)
+    case "latest" =>
+      Last(attrOrExpr(call.args.head), ignoreNulls = true)
+    case "strftime" =>
+      DateFormatClass(attrOrExpr(call.args.head), Literal.create(call.args.lift(1) match {
+        case Some(spl.Value(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
+          case (a, (b, c)) => a.replaceAll(b, c)
+        }
+        case _ => throw new AnalysisException(s"Invalid strftime format given")
+      }))
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
