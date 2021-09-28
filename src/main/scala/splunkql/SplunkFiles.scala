@@ -4,7 +4,7 @@ import java.io.{FileInputStream, InputStream}
 
 import scala.collection.JavaConverters._
 import fastparse.{Parsed, parse}
-import org.apache.spark.sql.{PythonGenerator, SplToCatalyst}
+import org.apache.spark.sql.{PythonGenerator, SplToCatalyst, Transpiler}
 import org.ini4j.Ini
 
 case class SavedSearch(name: String, search: String, cron: String)
@@ -41,21 +41,7 @@ case class SplunkContext(sf: SearchesFile, mf: MacrosFile) {
     sf.get(name).map(savedSearch =>
       mf.expand(savedSearch.search))
 
-  def parseSearch(name: String) =
-    getSearch(name).map { search =>
-      parse(search, spl.SplParser.pipeline(_), verboseFailures = true) match {
-        case Parsed.Success(value, _) => value
-        case f: Parsed.Failure =>
-          throw new AssertionError(f.trace().longMsg)
-    }}
-
-  def getSearchInCatalyst(name: String) = {
-    val tsc = new SplToCatalyst()
-    parseSearch(name).map(tsc.pipeline)
-  }
-
   def generatePython(name: String) = {
-    val pg = new PythonGenerator()
-    getSearchInCatalyst(name).map(pg.fromPlan)
+    getSearch(name).map(Transpiler.toPython)
   }
 }
