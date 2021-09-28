@@ -404,9 +404,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
               callback: (spl.Command, LogicalPlan) => LogicalPlan
               ): Unit = this.synchronized {
         val pipeline = spl.Pipeline(Seq(command))
-        val actualPlan: LogicalPlan = new SplToCatalyst().pipeline(pipeline)
+        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(), pipeline)
         val expectedPlan = pipeline.commands.foldLeft(
-            UnresolvedRelation(Seq("x")).asInstanceOf[LogicalPlan]) {
+            UnresolvedRelation(Seq("main")).asInstanceOf[LogicalPlan]) {
             (tree, cmd) => callback(cmd, tree)
         }
         comparePlans(actualPlan, expectedPlan, checkAnalysis = false)
@@ -415,7 +415,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     private def assertPlanThrows(command: spl.Command, error: Throwable): Unit = {
         val pipeline = spl.Pipeline(Seq(command))
         assertThrows[NotImplementedError] {
-            new SplToCatalyst().pipeline(pipeline)
+            SplToCatalyst.pipeline(new LogicalContext(), pipeline)
         }
     }
 }

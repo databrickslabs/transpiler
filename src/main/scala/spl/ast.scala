@@ -32,10 +32,17 @@ case class FvList(fvs: Seq[FV]) extends Expr {
 
 case class Binary(left: Expr, symbol: OperatorSymbol, right: Expr) extends Expr {
   override def children: Seq[SplNode] = Seq(left, right)
+
+  def isLeftAttr(label: String) = left match {
+    case Value(v) => v.equals(label)
+    case _ => false
+  }
 }
+
 case class Unary(symbol: OperatorSymbol, right: Expr) extends Expr {
   override def children: Seq[SplNode] = Seq(right)
 }
+
 case class Call(name: String, args: Seq[Expr] = Seq()) extends Expr {
   override def children: Seq[SplNode] = args
 }
