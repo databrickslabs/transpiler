@@ -7,34 +7,38 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
 import scala.util.matching.Regex
 
-class PythonGenerator {
-  var prevExprs: Set[ExprId] = Set[ExprId]()
-  val pattern: Regex = "((?<![\\\\])['])".r
+private case class GeneratorContext(maxLineWidth: Int = 120)
 
-  def fromPlan(plan: LogicalPlan): String = plan match {
+object PythonGenerator {
+  private val pattern: Regex = "((?<![\\\\])['])".r
+
+  def fromPlan(ctx: GeneratorContext, plan: LogicalPlan): String = plan match {
     case AppendData(table, query, writeOptions, isByName) =>
-      // TODO enclose in parentheses one level above this
-      s"${fromPlan(query)}\n.write.saveAsTable(${q(table.name)}, mode='append')"
+      s"${fromPlan(ctx, query)}\n.write.saveAsTable(${q(table.name)}, mode='append')"
 
-    case Project(exprs, child) =>
-      val childCode = fromPlan(child)
-      val currExprs = exprs.filter(!_.isInstanceOf[Unevaluable]).map(_.exprId).toSet
-      val newExprs = currExprs.diff(prevExprs)
-      prevExprs = currExprs
-      // Removing withColumn translation here as it has a slight different behaviour than selecting 1 element
-      s"$childCode\n.selectExpr(${exprList(exprs)})"
-//      if (newExprs.size == 1 & exprs.length == 1) {
-//        val withColumn = exprs.filter(_.exprId == newExprs.head).head
-//        s"$childCode\n.withColumn(${q(withColumn.name)}, ${expressionCode(withColumn.children.head)})"
-//      } else {
-//      s"$childCode\n.selectExpr(${exprList(exprs)})"
-//      }
+    case p @ Project(exprs, child) =>
+      val childCode = fromPlan(ctx, child)
+      if (p.expressions.length - child.expressions.length == 1 || exprs.length == 1) {
+        exprs.last match {
+          case _: UnresolvedAttribute =>
+            val columnNames = exprs.map(_.name).map(q).mkString(", ")
+            s"$childCode\n.select($columnNames)"
+          case Alias(child, name) =>
+            s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
+          case ur: UnresolvedRegex =>
+            s"$childCode\n.selectExpr(${q(expression(ur))})"
+          case _ =>
+            throw new UnsupportedOperationException(s"cannot generate column: ${exprs.last}")
+        }
+      } else {
+        s"$childCode\n.selectExpr(${exprList(ctx, exprs)})"
+      }
 
     case Filter(condition, child) =>
-      fromPlan(child) + "\n" + unfoldWheres(condition)
+      fromPlan(ctx, child) + "\n" + unfoldWheres(condition)
 
     case Limit(expr, child) =>
-      s"${fromPlan(child)}\n.limit($expr)"
+      s"${fromPlan(ctx, child)}\n.limit($expr)"
 
     case Sort(order, global, child) =>
       val orderBy = order.map(item => {
@@ -46,14 +50,14 @@ class PythonGenerator {
             s"F.col(${q(nameParts.mkString("."))}).$dirStr"
         }
       })
-      s"${fromPlan(child)}\n.orderBy(${orderBy.mkString(", ")})"
+      s"${fromPlan(ctx, child)}\n.orderBy(${orderBy.mkString(", ")})"
 
     case relation: UnresolvedRelation =>
       s"spark.table(${q(relation.name)})"
 
     case Aggregate(by, agg, child) =>
-      val aggs = agg.map(expressionCode).mkString(", ")
-      s"${fromPlan(child)}\n.groupBy(${exprList(by)})\n.agg($aggs)"
+      val aggs = smartDelimiters(ctx, agg.map(expressionCode))
+      s"${fromPlan(ctx, child)}\n.groupBy(${exprList(ctx, by)})\n.agg($aggs)"
 
     case Join(left, right, joinType, _, _) =>
       // TODO: condition and hints are not yet supported
@@ -62,18 +66,31 @@ class PythonGenerator {
         case tp => (tp, Seq())
       }
       val how = q(tp.sql.replace(" ", "_").toLowerCase)
-      s"${fromPlan(left)}\n.join(${fromPlan(right)},\n${toPythonList(on)}, $how)"
+      s"${fromPlan(ctx, left)}\n.join(${fromPlan(ctx, right)},\n${toPythonList(ctx, on)}, $how)"
 
     case FillNullShim(value, columns, child) =>
-      val childCode = fromPlan(child)
+      val childCode = fromPlan(ctx, child)
       if (columns.isEmpty)
         s"$childCode\n.na.fill(${q(value)})"
       else
-        s"$childCode\n.na.fill(${q(value)}, ${toPythonList(columns.toSeq)})"
+        s"$childCode\n.na.fill(${q(value)}, ${toPythonList(ctx, columns.toSeq)})"
   }
 
-  private def exprList(exprs: Seq[Expression]) =
-    exprs.map(expression).map(q).mkString(", ")
+  private def exprList(ctx: GeneratorContext, exprs: Seq[Expression]) =
+    smartDelimiters(ctx, exprs.map(expression).map(q))
+
+  private def toPythonList(ctx: GeneratorContext, elements: Seq[String]): String =
+    s"[${smartDelimiters(ctx, elements.map(q))}]"
+
+  private def smartDelimiters(ctx: GeneratorContext, seq: Seq[String]) = {
+    val default = seq.mkString(", ")
+    if (default.length < ctx.maxLineWidth) default else seq.mkString(",\n  ")
+  }
+
+  private def unfoldWheres(expr: Expression): String = expr match {
+    case And(left, right) => s"${unfoldWheres(left)}\n${unfoldWheres(right)}"
+    case _ => s".where(${q(expression(expr))})"
+  }
 
   private def expressionCode(expr: Expression): String = expr match {
     case Literal(value, t @ BooleanType) =>
@@ -83,15 +100,17 @@ class PythonGenerator {
       s"F.lit($value)"
     case Literal(value, t @ StringType) =>
       s"F.lit(${q(value.toString)})"
+    case attr: UnresolvedAttribute =>
+      s"F.col(${q(attr.name)})"
     case _ => s"F.expr(${q(expr.sql)})"
   }
 
-  private def unfoldWheres(expr: Expression): String = expr match {
-    case And(left, right) => s"${unfoldWheres(left)}\n.where(${q(expression(right))})"
-    case _ => s".where(${q(expression(expr))})"
-  }
-
+  /** Simplified SQL rendering of Spark expressions */
   def expression(expr: Expression): String = expr match {
+    case EqualTo(attr: UnresolvedAttribute, value) =>
+      s"${attr.name} = ${expression(value)}"
+    case In(attr: UnresolvedAttribute, items) =>
+      s"${attr.name} IN (${items.map(expression).mkString(", ")})"
     case UnresolvedAlias(child, aliasFunc) => expression(child)
     case Alias(child, name) => s"${expression(child)} AS $name"
     case RLike(left, right) => s"${left.sql} RLIKE ${right.sql}"
@@ -104,7 +123,4 @@ class PythonGenerator {
   private def q(value: String) =
     if (pattern.findAllIn(value).toList.isEmpty)
       "'" + value + "'" else "\"" + value + "\""
-
-  private def toPythonList(elements: Seq[String]): String =
-    s"[${elements.map(q).mkString(", ")}]"
 }

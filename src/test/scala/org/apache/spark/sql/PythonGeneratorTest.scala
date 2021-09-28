@@ -5,7 +5,9 @@ import org.apache.spark.sql.catalyst.expressions.{Alias, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
 import org.apache.spark.sql.catalyst.plans.{LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.util.sideBySide
 import org.apache.spark.sql.types.DoubleType
+import org.scalactic.source.Position
 import org.scalatest.Outcome
 import org.scalatest.concurrent.TimeLimits.failAfter
 import org.scalatest.funsuite.AnyFunSuite
@@ -33,7 +35,7 @@ class PythonGeneratorTest extends AnyFunSuite {
   }
 
   // TODO: this test is a bit wrong, fix the logic
-  test(".selectExpr('1 AS a', '1 AS b')\n.selectExpr('1 AS a')") {
+  test(".selectExpr('1 AS a', '1 AS b')\n.withColumn('a', F.lit(1))") {
     g(Project(
       Seq(
         // TODO: make another case with UnresolvedAttribute here
@@ -57,7 +59,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       ), src))
   }
 
-  test(".where('(`a` = 1)')\n.where('(`b` = 2)')") {
+  test(".where('a = 1')\n.where('b = 2')") {
     g(Filter(
       And(
         EqualTo(UnresolvedAttribute("a"), Literal.create(1)),
@@ -89,7 +91,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       src))
   }
 
-  test(".join(spark.table('dst')\n.selectExpr('b AS c'),\n['c'], 'left_outer')") {
+  test(".join(spark.table('dst')\n.withColumn('c', F.col('b')),\n['c'], 'left_outer')") {
     g(Join(src,
       Project(Seq(
         Alias(UnresolvedAttribute("b"), "c")()
@@ -98,7 +100,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       None, JoinHint.NONE))
   }
 
-  test(".selectExpr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1) AS from\")") {
+  test(".withColumn('from', F.expr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1)\"))") {
     g(
       Project(
         Seq(Alias(
@@ -109,8 +111,8 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".selectExpr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1) AS from\", " +
-                   "\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 2) AS to\")") {
+  test(".selectExpr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1) AS from\",\n" +
+                   "  \"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 2) AS to\")") {
     g(
       Project(
         Seq(
@@ -154,11 +156,16 @@ class PythonGeneratorTest extends AnyFunSuite {
     g(FillNullShim("n/a", Set.empty[String], src))
   }
 
-  private def g(plan: LogicalPlan): Unit = {
-    val code = new PythonGenerator().fromPlan(plan)
+  private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
+    val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable
         .replace("spark.table('src')\n", "")
-    assert(code == currentTest)
+    if (code != currentTest) {
+      fail(s"""FAILURE: Code does not match
+              |=======
+              |${sideBySide(code, currentTest).mkString("\n")}
+              |""".stripMargin)
+    }
   }
 
   val timeLimit: Span = 300000 millis

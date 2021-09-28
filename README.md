@@ -76,3 +76,11 @@ Secondary batch of commands:
 ## Developing 
 
 Parsers are implemented using [fastparse](https://github.com/com-lihaoyi/fastparse) (MIT)
+
+Quick installation: `sbt assembly && databricks --profile=demo fs cp target/scala-2.12/spark-spl-assembly-0.1.jar dbfs:/tmp/spark-spl.jar --overwrite`
+
+If you want to use `TERM()` function, you have to enable Spark extension:
+
+```conf
+spark.sql.extensions org.apache.spark.sql.SplExtension
+```
