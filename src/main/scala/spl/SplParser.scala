@@ -89,7 +89,7 @@ object SplParser {
           climb(next, rights.tail, sym.precedence+1))
     }
 
-  def fieldIn[_:P]: P[FieldIn] = token ~ "IN(" ~~ constant.rep(sep=",") ~~ ")" map FieldIn.tupled
+  def fieldIn[_:P]: P[FieldIn] = token ~ "IN" ~ "(" ~ constant.rep(sep=",".?) ~ ")" map FieldIn.tupled
   def call[_: P]: P[Call] = (token ~~ "(" ~~ expr.rep(sep=",") ~~ ")").map(Call.tupled)
   def argu[_: P]: P[Expr] = call | constant
   def parens[_: P]: P[Expr] = "(" ~ expr ~ ")"

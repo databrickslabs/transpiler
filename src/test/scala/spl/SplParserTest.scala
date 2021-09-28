@@ -136,6 +136,14 @@ class SplParserTest extends ParserSuite {
       ))))
   }
 
+  test("var_5 IN (str_2 str_3)") {
+    p(impliedSearch(_), SearchCommand(
+      FieldIn("var_5", Seq(
+        Value("str_2"),
+        Value("str_3"),
+      ))))
+  }
+
   test("NOT code IN(4*, 5*)") {
     p(impliedSearch(_), SearchCommand(
       Unary(UnaryNot,
