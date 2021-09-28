@@ -147,16 +147,24 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             "From: <(?<from>.*)> To: <(?<to>.*)>"),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("^.*?", None, caseSensitive = false),
+                UnresolvedAttribute("_raw"),
                 Alias(RegExpExtract(
-                    Column("colNameA").expr,
+                    UnresolvedAttribute("colNameA"),
                     Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
                     Literal(1)), "from")(),
                 Alias(RegExpExtract(
-                    Column("colNameA").expr,
+                    UnresolvedAttribute("colNameA"),
                     Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
-                    Literal(2)), "to")(),
-        ), tree))
+                    Literal(2)), "to")()
+            ), Project(Seq(
+                UnresolvedAttribute("_raw"),
+                Alias(RegExpExtract(
+                    UnresolvedAttribute("colNameA"),
+                    Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
+                    Literal(1)), "from")(),
+            ), Project(Seq(
+                UnresolvedAttribute("_raw")
+            ), tree))))
     }
 
     test("Rex Command should throw an error") {
