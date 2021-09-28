@@ -222,9 +222,30 @@ object SplToCatalyst extends Logging {
     // TODO: add failure case
   }
 
-  private def withColumn(ctx: LogicalContext, tree: LogicalPlan, name: String, expr: spl.Expr): Project = {
-    ctx.output :+= Alias(expression(expr), name)() // TODO: check if it still works...
+  private def withColumn(ctx: LogicalContext,
+                         tree: LogicalPlan,
+                         name: String,
+                         expr: spl.Expr): Project =
+    withColumn(ctx, tree, name, expression(expr))
+
+  private def withColumn(ctx: LogicalContext,
+                         tree: LogicalPlan,
+                         name: String,
+                         expression: Expression): Project =
+    selectColumn(ctx, tree, Alias(expression, name)())
+
+  private def selectColumn(ctx: LogicalContext,
+                           tree: LogicalPlan,
+                           ne: NamedExpression): Project = {
+    ctx.output :+= ne
     Project(ctx.output, tree)
+  }
+
+  private def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
+    // TODO: replace the logic with select(ctx, tree, ne)?...
+    Project(fields.map {
+      case spl.Value(value) => Column(value)
+    }.map(_.named), tree)
   }
 
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Commontimeformatvariables
@@ -349,12 +370,6 @@ object SplToCatalyst extends Logging {
     namedGroupMap
   }
 
-  private def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
-    Project(fields.map {
-      case spl.Value(value) => Column(value)
-    }.map(_.named), tree)
-  }
-
   private def sortOrder(fields: Seq[(Option[String], spl.Expr)]): Seq[SortOrder] = {
     fields map {
       case Tuple2(a, b) => (b, if (a.getOrElse("+") == "-") Descending else Ascending)
@@ -382,27 +397,19 @@ object SplToCatalyst extends Logging {
                          offsetField: Option[String],
                          mode: Option[String],
                          regex: String,
-                         tree: LogicalPlan): Project = {
-    // TODO _raw column configurable
+                         tree: LogicalPlan): LogicalPlan = {
     mode match {
-      case Some(value) => throw new NotImplementedError(s"rex mode=$value [...] currently not supported !")
+      case Some(value) =>
+        throw new NotImplementedError(s"rex mode=$value [...] currently not supported !")
       case None =>
-        // TODO: replace myList with ctx.output
-        val myList = new ListBuffer[NamedExpression]()
-        myList += UnresolvedRegex("^.*?", None, caseSensitive = false)
-        rexParseNamedGroup(regex) foreach {
-          case (colName, groupIndex)  =>
-            val alias = Alias(
-              RegExpExtract(
-                field match {
-                  case Some(value) => Column(value).expr
-                  case None => Column(ctx.rawFieldName).expr
-                },
-                Literal(regex),
-                Literal(groupIndex)), colName)()
-            myList += alias
+        val raw = selectColumn(ctx, tree, UnresolvedAttribute(ctx.rawFieldName))
+        rexParseNamedGroup(regex).foldLeft(raw) {
+          case (plan, (colName, groupIndex)) =>
+            withColumn(ctx, plan, colName, RegExpExtract(field match {
+              case Some(value) => UnresolvedAttribute(value)
+              case None => UnresolvedAttribute(ctx.rawFieldName)
+            }, Literal(regex), Literal(groupIndex)))
         }
-        Project(myList, tree)
     }
   }
 
