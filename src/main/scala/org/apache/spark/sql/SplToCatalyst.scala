@@ -8,17 +8,149 @@ import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectSet, Count, F
 import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
+import org.apache.spark.sql.types.{DoubleType, LongType, MetadataBuilder, StringType}
 
 import scala.collection.mutable.ListBuffer
 
-
-private class LogicalContext(val indexName: String = "main",
-                             val timeFieldName: String = "_time",
-                             val rawFieldName: String = "_raw",
-                             var output: Seq[NamedExpression] = Seq())
-
 object SplToCatalyst extends Logging {
+  def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
+    val (table, pipe) = determineTable(ctx, p)
+    pipe.commands.foldLeft(table) { (tree, command) => command match {
+      case spl.SearchCommand(expr) =>
+        // probably search is different from where...
+        Filter(expression(expr), tree)
+
+      case spl.WhereCommand(expr) =>
+        Filter(expression(expr), tree)
+
+      case spl.EvalCommand(fields) =>
+        fields.foldLeft(tree) { (plan, field) =>
+          val (spl.Value(name), expr) = field
+          withColumn(ctx, plan, name, expr)
+        }
+
+      case spl.TableCommand(fields) =>
+        selectExpr(fields, tree)
+
+      case spl.ConvertCommand(timeformat, convs) =>
+        convs.foldLeft(tree) { (plan, fc) =>
+          val name = fc.alias.getOrElse(fc.field).value
+          withColumn(ctx, plan, name, spl.Call(fc.func, Seq(fc.field)))
+        }
+
+      case spl.HeadCommand(expr, keepLast, nullOption) =>
+        // TODO Implement keeplast and null options behaviour
+        logger.debug(s"Adding `HeadCommand` with options: $expr to the tree")
+        if (expr.isInstanceOf[spl.IntValue]) Limit(expression(expr), tree)
+        else Filter(expression(expr), tree)
+
+      case spl.SortCommand(fields) =>
+        Sort(sortOrder(fields), global = true, tree)
+
+      case spl.FieldsCommand(op, fields) =>
+        if (op.getOrElse("+").equals("-")) {
+          val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
+          val columnRegex = UnresolvedRegex(s"(?!$fieldsToDiscard).*", None, caseSensitive = false)
+          // TODO: change LogicalContext
+          Project(Seq(columnRegex), tree)
+        } else selectExpr(fields, tree)
+
+      case spl.LookupCommand(dataset, fields, output) =>
+        leftJoinUsing(dataset, fields, output, tree)
+
+      case spl.CollectCommand(args, fields) =>
+        // fields.map(fieldName => Column(fieldName.value))
+        // TODO: add projection if fields is not empty
+        AppendData(UnresolvedRelation(Seq(args("index"))), tree, Map(), isByName = true)
+
+      case spl.StatsCommand(params, funcs, by, dedupSplitVals) =>
+        val agg = aggregate(ctx, by, funcs, tree)
+        if (dedupSplitVals) {
+          Deduplicate(by.map(x => UnresolvedAttribute(x.value)), agg)
+        } else agg
+
+      case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
+        // TODO find a way to implement max_match, offset_field and mode
+        rexExtract(ctx, field, maxMatch, offsetField, mode, regex, tree)
+
+      case spl.RenameCommand(aliases) =>
+        renameColumn(aliases, tree)
+
+      case spl.RegexCommand(item, regex) =>
+        item match {
+          case Some(value) =>
+            val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => expr
+            Filter(catalystOp(RLike(Column(value._1.value).expr, Literal(regex))), tree)
+          case None =>
+            Filter(RLike(Column(ctx.rawFieldName).expr, Literal(regex)), tree)
+        }
+
+      case spl.JoinCommand(joinType, useTime, earlier, overwrite, max, fields, subSearch) =>
+        Join(tree, pipeline(ctx.copy(output = Seq()), subSearch),
+          UsingJoin(joinType match {
+            case "inner" => Inner
+            case "left" => LeftOuter
+            case "outer" => LeftOuter
+            case _ => Inner
+          }, fields.map(_.value)), None, JoinHint.NONE)
+
+      case spl.ReturnCommand(count, fields) =>
+        val countLimit = count match {
+          case Some(item) => Literal(item.value)
+          case None => Literal(1)
+        }
+
+        Limit(countLimit, Project(fields.map {
+          case alias: (spl.Value, spl.Expr) =>
+            // TODO: rewrite to something sensible
+            Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
+          case field: spl.Value =>
+            Column(field.value).named
+        }, tree))
+
+      case spl.FillNullCommand(value, fields) =>
+        val fieldsOpt = fields.getOrElse(Seq.empty[spl.Value]).map(_.value).toSet
+        FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
+    }}
+  }
+
+  private def function(call: spl.Call): Expression = call.name match {
+    case "isnull" =>
+      IsNull(attrOrExpr(call.args.head))
+    case "ctime" =>
+      val field = attr(call.args.head)
+      Column(field).cast("date").as(field.name).named
+    case "count" =>
+      Count(call.args.map(expression))
+    case "min" =>
+      // TODO: would currently fail on wildcard attributes
+      Min(attrOrExpr(call.args.head))
+    case "max" =>
+      // TODO: would currently fail on wildcard attributes
+      Max(attr(call.args.head))
+    case "round" =>
+      val num = attrOrExpr(call.args.head)
+      val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
+      Round(num, scale)
+    case "TERM" =>
+      Term(expression(call.args.head))
+    case "values" =>
+      CollectSet(attrOrExpr(call.args.head))
+    case "earliest" =>
+      First(attrOrExpr(call.args.head), ignoreNulls = true)
+    case "latest" =>
+      Last(attrOrExpr(call.args.head), ignoreNulls = true)
+    case "strftime" =>
+      DateFormatClass(attrOrExpr(call.args.head), Literal.create(call.args.lift(1) match {
+        case Some(spl.Value(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
+          case (a, (b, c)) => a.replaceAll(b, c)
+        }
+        case _ => throw new AnalysisException(s"Invalid strftime format given")
+      }))
+    case _ =>
+      val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
+      throw new AnalysisException(s"Unknown SPL function: $approx")
+  }
 
   private def isFilter(x: spl.Expr, name: String) = x match {
     case spl.Binary(spl.Value(field), spl.Equals, _) if field.equals(name) => true
@@ -62,110 +194,6 @@ object SplToCatalyst extends Logging {
     }))
   }
 
-  def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
-    val (table, pipe) = determineTable(ctx, p)
-    pipe.commands.foldLeft(table) { (tree, command) => command match {
-      case spl.EvalCommand(fields) =>
-        fields.foldLeft(tree) { (plan, field) =>
-          val (spl.Value(name), expr) = field
-          withColumn(ctx, plan, name, expr)
-        }
-
-      case spl.WhereCommand(expr) =>
-        Filter(expression(expr), tree)
-
-      case spl.SearchCommand(expr) =>
-        // probably search is different from where...
-        Filter(expression(expr), tree)
-
-      case spl.TableCommand(fields) =>
-        selectExpr(fields, tree)
-
-      case spl.ConvertCommand(timeformat, convs) =>
-        convs.foldLeft(tree) { (plan, fc) =>
-          val name = fc.alias.getOrElse(fc.field).value
-          withColumn(ctx, plan, name, spl.Call(fc.func, Seq(fc.field)))
-        }
-
-      case spl.HeadCommand(expr, keepLast, nullOption) =>
-        // TODO Implement keeplast and null options behaviour
-        logger.debug(s"Adding `HeadCommand` with options: $expr to the tree")
-        if (expr.isInstanceOf[spl.IntValue])
-          Limit(expression(expr), tree)
-        else
-          Filter(expression(expr), tree)
-
-      case spl.SortCommand(fields) =>
-        val sortOrderSeq: Seq[SortOrder] = sortOrder(fields)
-        Sort(sortOrderSeq, global = true, tree)
-
-      case spl.FieldsCommand(op, fields) =>
-        if (op.getOrElse("+").equals("-")) {
-          val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
-          val columnRegex = UnresolvedRegex(s"(?!$fieldsToDiscard).*", None, caseSensitive = false)
-          Project(Seq(columnRegex), tree)
-        } else selectExpr(fields, tree)
-
-      case spl.LookupCommand(dataset, fields, output) =>
-        leftJoinUsing(dataset, fields, output, tree)
-
-      case spl.CollectCommand(args, fields) =>
-        // fields.map(fieldName => Column(fieldName.value))
-        // TODO: add projection if fields is not empty
-        AppendData(UnresolvedRelation(Seq(args("index"))), tree, Map(), isByName = true)
-
-      case spl.StatsCommand(params, funcs, by, dedupSplitVals) =>
-        val agg = aggregate(ctx, by, funcs, tree)
-        if (dedupSplitVals) {
-          Deduplicate(by.map(x => UnresolvedAttribute(x.value)), agg)
-        } else agg
-
-      case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
-        // TODO find a way to implement max_match, offset_field and mode
-        rexExtract(ctx, field, maxMatch, offsetField, mode, regex, tree)
-
-      case spl.RenameCommand(aliases) =>
-        renameColumn(aliases, tree)
-
-      case spl.RegexCommand(item, regex) =>
-        item match {
-          case Some(value) =>
-            val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => expr
-            Filter(catalystOp(RLike(Column(value._1.value).expr, Literal(regex))), tree)
-          case None =>
-            Filter(RLike(Column(ctx.rawFieldName).expr, Literal(regex)), tree)
-        }
-
-      case spl.JoinCommand(joinType, useTime, earlier,
-      overwrite, max, fields, subSearch) =>
-        Join(tree, pipeline(ctx, subSearch),
-          UsingJoin(joinType match {
-            case "inner" => Inner
-            case "left" => LeftOuter
-            case "outer" => LeftOuter
-            case _ => Inner
-          }, fields.map(_.value)), None, JoinHint.NONE)
-
-      case spl.ReturnCommand(count, fields) =>
-        val countLimit = count match {
-          case Some(item) => Literal(item.value)
-          case None => Literal(1)
-        }
-
-        Limit(countLimit, Project(fields.map {
-          case alias: (spl.Value, spl.Expr) =>
-            // TODO: rewrite to something sensible
-            Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
-          case field: spl.Value =>
-            Column(field.value).named
-        }, tree))
-
-      case spl.FillNullCommand(value, fields) =>
-        val fieldsOpt = fields.getOrElse(Seq.empty[spl.Value]).map(_.value).toSet
-        FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
-    }}
-  }
-
   private def leftJoinUsing(dataset: String,
                             fields: Seq[spl.Field],
                             output: Option[spl.LookupOutput],
@@ -177,6 +205,7 @@ object SplToCatalyst extends Logging {
     }
     var right = UnresolvedRelation(Seq(dataset)).asInstanceOf[LogicalPlan]
     if (hasAliases || output.isDefined) {
+      // TODO: modify LogicalContext output
       right = Project(fields.map(fieldOrAlias) ++ (output match {
         case Some(spl.LookupOutput(kv, outputFields)) =>
           outputFields.map(fieldOrAlias)
@@ -199,10 +228,20 @@ object SplToCatalyst extends Logging {
       Alias(expression(expr), alias)()
   }
 
-  private def aggregate(ctx: LogicalContext, by: Seq[spl.Value], funcs: Seq[spl.Expr], tree: LogicalPlan) =
-    Aggregate(fieldList(by), aggregates(funcs), if (hasTimeFunctions(funcs))
-      Sort(Seq(SortOrder(UnresolvedAttribute(ctx.timeFieldName), Ascending, NullsFirst, Set.empty)),
-        global = true, tree) else tree)
+  private def aggregate(ctx: LogicalContext,
+                        by: Seq[spl.Value],
+                        funcs: Seq[spl.Expr],
+                        tree: LogicalPlan) = {
+    // TODO: select _time
+    val groupBy = by.map(attr)
+    val agg = aggregates(funcs)
+    val child = if (hasTimeFunctions(funcs)) Sort(Seq(
+        SortOrder(UnresolvedAttribute(ctx.timeFieldName), Ascending, NullsFirst, Seq.empty)
+    ), global = true, tree) else tree
+    val plan = Aggregate(groupBy, agg, child)
+    ctx.output = Seq()
+    plan
+  }
 
   private def hasTimeFunctions(funcs: Seq[spl.Expr]) : Boolean = funcs.map {
     case spl.Call(name, _) => name
@@ -210,23 +249,20 @@ object SplToCatalyst extends Logging {
     case _ => ""
   } exists(Seq("earliest", "latest").contains(_))
 
-  private def fieldList(fields: Seq[spl.Value]): Seq[Expression] = fields.map {
-    case spl.Value(value) => Column(value)
-  }.map(_.named)
-
   private def aggregates(funcs: Seq[spl.Expr]): Seq[NamedExpression] = funcs.map {
     case call: spl.Call =>
       Alias(function(call), call.name)()
     case spl.Alias(call: spl.Call, name) =>
       Alias(function(call), name)()
-    // TODO: add failure case
+    case x: spl.Expr =>
+      throw new NotImplementedError(s"cannot convert aggregate: $x")
   }
 
   private def withColumn(ctx: LogicalContext,
                          tree: LogicalPlan,
                          name: String,
                          expr: spl.Expr): Project =
-    withColumn(ctx, tree, name, expression(expr))
+    withColumn(ctx, tree, name, attrOrExpr(expr))
 
   private def withColumn(ctx: LogicalContext,
                          tree: LogicalPlan,
@@ -244,8 +280,19 @@ object SplToCatalyst extends Logging {
   private def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
     // TODO: replace the logic with select(ctx, tree, ne)?...
     Project(fields.map {
-      case spl.Value(value) => Column(value)
-    }.map(_.named), tree)
+      case spl.Value(value) => UnresolvedAttribute(value)
+    }, tree)
+  }
+
+  private def renameColumn(aliases: Seq[spl.Alias], tree: LogicalPlan): LogicalPlan = {
+    // TODO: modify LogicalContext
+    val myList = new ListBuffer[NamedExpression]
+    val regex = aliases.map(alias => attr(alias.expr).name).mkString("|")
+    myList += UnresolvedRegex(s"(?!$regex).*", None, caseSensitive = false)
+    aliases foreach {alias => {
+      myList += Alias(attr(alias.expr), alias.name)()
+    }}
+    Project(myList, tree)
   }
 
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Commontimeformatvariables
@@ -273,45 +320,7 @@ object SplToCatalyst extends Logging {
     "%%" -> "%"
   )
 
-  private def function(call: spl.Call): Expression = call.name match {
-    case "isnull" =>
-      IsNull(attrOrExpr(call.args.head))
-    case "ctime" =>
-      val field = attr(call.args.head)
-      Column(field).cast("date").as(field.name).named
-    case "count" =>
-      Count(call.args.map(expression))
-    case "min" =>
-      // TODO: would currently fail on wildcard attributes
-      Min(attrOrExpr(call.args.head))
-    case "max" =>
-      // TODO: would currently fail on wildcard attributes
-      Max(attr(call.args.head))
-    case "round" =>
-      val num = attrOrExpr(call.args.head)
-      val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
-      Round(num, scale)
-    case "TERM" =>
-      Term(expression(call.args.head))
-    case "values" =>
-      CollectSet(expression(call.args.head))
-    case "earliest" =>
-      First(attrOrExpr(call.args.head), ignoreNulls = true)
-    case "latest" =>
-      Last(attrOrExpr(call.args.head), ignoreNulls = true)
-    case "strftime" =>
-      DateFormatClass(attrOrExpr(call.args.head), Literal.create(call.args.lift(1) match {
-        case Some(spl.Value(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
-          case (a, (b, c)) => a.replaceAll(b, c)
-        }
-        case _ => throw new AnalysisException(s"Invalid strftime format given")
-      }))
-    case _ =>
-      val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
-      throw new AnalysisException(s"Unknown SPL function: $approx")
-  }
-
-  private def attrOrExpr(expr: spl.Expr) = expr match {
+  private def attrOrExpr(expr: spl.Expr): Expression = expr match {
     case spl.Value(value) => UnresolvedAttribute(Seq(value))
     case _ => expression(expr)
   }
@@ -411,15 +420,5 @@ object SplToCatalyst extends Logging {
             }, Literal(regex), Literal(groupIndex)))
         }
     }
-  }
-
-  private def renameColumn(aliases: Seq[spl.Alias], tree: LogicalPlan): LogicalPlan = {
-    val myList = new ListBuffer[NamedExpression]
-    val regex = aliases.map(alias => attr(alias.expr).name).mkString("|")
-    myList += UnresolvedRegex(s"(?!$regex).*", None, caseSensitive = false)
-    aliases foreach {alias => {
-      myList += Alias(attr(alias.expr), alias.name)()
-    }}
-    Project(myList, tree)
   }
 }

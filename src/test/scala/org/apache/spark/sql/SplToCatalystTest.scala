@@ -62,8 +62,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 spl.Value("colB"))),
         (_, tree) =>
             Project(Seq(
-                Column("colA").named,
-                Column("colB").named,
+                UnresolvedAttribute("colA"),
+                UnresolvedAttribute("colB"),
             ), tree))
     }
 
@@ -75,9 +75,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 spl.Value("colC"))),
         (_, tree) =>
             Project(Seq(
-                Column("colA").named,
-                Column("colB").named,
-                Column("colC").named,
+                UnresolvedAttribute("colA"),
+                UnresolvedAttribute("colB"),
+                UnresolvedAttribute("colC"),
             ), tree))
     }
 
@@ -100,7 +100,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             Seq(spl.Value("host"))),
         (_, tree) =>
             Aggregate(
-                Seq(Column("host").named),
+                Seq(UnresolvedAttribute("host")),
                 Seq(Alias(Count(Seq()), "count")()),
                 tree))
     }
@@ -117,7 +117,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         UnresolvedAttribute("host")
                     ),
                     Aggregate(
-                        Seq(Column("host").named),
+                        Seq(UnresolvedAttribute("host")),
                         Seq(Alias(Count(Seq()), "count")()),
                         tree)))
     }
