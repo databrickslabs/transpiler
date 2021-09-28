@@ -5,19 +5,13 @@ import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectSet, Count, First, Last, Max, Min}
-import org.apache.spark.sql.catalyst.expressions.{Ascending, Cast, DateFormatClass, DateSub, Descending, Expression, Literal, NamedExpression, Not, NullsFirst, RLike, RegExpExtract, Round, SortOrder}
 import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
-import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, AppendData, Deduplicate, Filter, Join, JoinHint, Limit, LogicalPlan, Project, Sort}
-import org.apache.spark.sql.catalyst.{expressions => e}
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
-import spl.{Alias, AliasedField, Binary, Call, Expr, FieldIn, FvList, LeafExpr, SearchCommand, SplNode, Unary, Value}
 
 import scala.collection.mutable.ListBuffer
 
-
-case class DirectWrapper(ce: e.Expression) extends spl.SplNode {
-  override def children: Seq[SplNode] = Nil
-}
 
 private class LogicalContext(val indexName: String = "main",
                              val timeFieldName: String = "_time",
@@ -34,16 +28,16 @@ object SplToCatalyst extends Logging {
   /** Finds indices in all of the binary nodes */
   private def findIndices(search: spl.Expr): Set[String] = search match {
     case b @ spl.Binary(_, _, spl.Value(value)) if isFilter(b, "index") => Set(value)
-    case Binary(left, _, right) => findIndices(left) ++ findIndices(right)
+    case spl.Binary(left, _, right) => findIndices(left) ++ findIndices(right)
     case _ => Set()
   }
 
   /** Removes `index` filters, as they are lifted to the top of the tree */
   private def overwriteSplSearch(x: spl.Expr): spl.Expr = x match {
-    case Binary(left, spl.And, right) if isFilter(left, "index") => right
-    case Binary(left, spl.And, right) if isFilter(right, "index") => left
+    case spl.Binary(left, spl.And, right) if isFilter(left, "index") => right
+    case spl.Binary(left, spl.And, right) if isFilter(right, "index") => left
     // TODO: modify "earliest" filter
-    case Binary(left, symbol, right) => Binary(overwriteSplSearch(left),
+    case spl.Binary(left, symbol, right) => spl.Binary(overwriteSplSearch(left),
       symbol, overwriteSplSearch(right))
     case y: spl.Expr => y
   }
@@ -54,7 +48,7 @@ object SplToCatalyst extends Logging {
    */
   private def determineTable(ctx: LogicalContext, p: spl.Pipeline): (LogicalPlan, spl.Pipeline) = {
     val indices = p.commands.flatMap {
-      case SearchCommand(expr) => findIndices(expr)
+      case spl.SearchCommand(expr) => findIndices(expr)
       case _ => Seq()
     }
     if (indices.size > 1) {
@@ -63,7 +57,7 @@ object SplToCatalyst extends Logging {
     val tableName = indices.headOption.getOrElse(ctx.indexName)
     val table = UnresolvedRelation(Seq(tableName)).asInstanceOf[LogicalPlan]
     (table, p.copy(commands = p.commands.map {
-      case s: SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
+      case s: spl.SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
       case c: spl.Command => c
     }))
   }
@@ -159,15 +153,15 @@ object SplToCatalyst extends Logging {
         }
 
         Limit(countLimit, Project(fields.map {
-          case alias: (Value, Expr) =>
+          case alias: (spl.Value, spl.Expr) =>
             // TODO: rewrite to something sensible
-            e.Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
-          case field: Value =>
+            Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
+          case field: spl.Value =>
             Column(field.value).named
         }, tree))
 
       case spl.FillNullCommand(value, fields) =>
-        val fieldsOpt = fields.getOrElse(Seq.empty[Value]).map(_.value).toSet
+        val fieldsOpt = fields.getOrElse(Seq.empty[spl.Value]).map(_.value).toSet
         FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
     }}
   }
@@ -200,9 +194,9 @@ object SplToCatalyst extends Logging {
     case spl.Value(fieldName) =>
       UnresolvedAttribute(fieldName)
     case spl.AliasedField(spl.Value(fieldName), alias) =>
-      e.Alias(UnresolvedAttribute(fieldName), alias)()
+      Alias(UnresolvedAttribute(fieldName), alias)()
     case spl.Alias(expr, alias) =>
-      e.Alias(expression(expr), alias)()
+      Alias(expression(expr), alias)()
   }
 
   private def aggregate(ctx: LogicalContext, by: Seq[spl.Value], funcs: Seq[spl.Expr], tree: LogicalPlan) =
@@ -222,14 +216,14 @@ object SplToCatalyst extends Logging {
 
   private def aggregates(funcs: Seq[spl.Expr]): Seq[NamedExpression] = funcs.map {
     case call: spl.Call =>
-      e.Alias(function(call), call.name)()
+      Alias(function(call), call.name)()
     case spl.Alias(call: spl.Call, name) =>
-      e.Alias(function(call), name)()
+      Alias(function(call), name)()
     // TODO: add failure case
   }
 
   private def withColumn(ctx: LogicalContext, tree: LogicalPlan, name: String, expr: spl.Expr): Project = {
-    ctx.output :+= e.Alias(expression(expr), name)() // TODO: check if it still works...
+    ctx.output :+= Alias(expression(expr), name)() // TODO: check if it still works...
     Project(ctx.output, tree)
   }
 
@@ -258,9 +252,9 @@ object SplToCatalyst extends Logging {
     "%%" -> "%"
   )
 
-  private def function(call: spl.Call): e.Expression = call.name match {
+  private def function(call: spl.Call): Expression = call.name match {
     case "isnull" =>
-      e.IsNull(attrOrExpr(call.args.head))
+      IsNull(attrOrExpr(call.args.head))
     case "ctime" =>
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
@@ -301,33 +295,35 @@ object SplToCatalyst extends Logging {
     case _ => expression(expr)
   }
 
-  private def expression(expr: spl.Expr): e.Expression = expr match {
+  private def expression(expr: spl.Expr): Expression = expr match {
     case constant: spl.Constant => mapConstants(constant)
     case call: spl.Call => function(call)
     case spl.Unary(symbol, right) => symbol match {
-      case spl.UnaryNot => e.Not(expression(right))
+      case spl.UnaryNot => Not(expression(right))
       // TODO: failure modes
     }
+    case spl.FieldIn(field, exprs) =>
+      In(UnresolvedAttribute(field), exprs.map(expression))
     case spl.Binary(left, symbol, right) => symbol match {
       case straight: spl.Straight => straight match {
         case relational: spl.Relational => relational match {
-          case spl.LessThan => e.LessThan(attr(left), expression(right))
-          case spl.GreaterThan => e.GreaterThan(attr(left), expression(right))
-          case spl.GreaterEquals => e.GreaterThanOrEqual(attr(left), expression(right))
-          case spl.LessEquals => e.LessThanOrEqual(attr(left), expression(right))
-          case spl.Equals => e.EqualTo(attr(left), expression(right))
-          case spl.NotEquals => e.Not(e.EqualTo(attr(left), expression(right)))
+          case spl.LessThan => LessThan(attr(left), expression(right))
+          case spl.GreaterThan => GreaterThan(attr(left), expression(right))
+          case spl.GreaterEquals => GreaterThanOrEqual(attr(left), expression(right))
+          case spl.LessEquals => LessThanOrEqual(attr(left), expression(right))
+          case spl.Equals => EqualTo(attr(left), expression(right))
+          case spl.NotEquals => Not(EqualTo(attr(left), expression(right)))
         }
-        case spl.Or => e.Or(expression(left), expression(right))
-        case spl.And => e.And(expression(left), expression(right))
-        case spl.Add => e.Add(expression(left), expression(right))
-        case spl.Subtract => e.Subtract(expression(left), expression(right))
-        case spl.Multiply => e.Multiply(expression(left), expression(right))
-        case spl.Divide => e.Divide(expression(left), expression(right))
+        case spl.Or => Or(expression(left), expression(right))
+        case spl.And => And(expression(left), expression(right))
+        case spl.Add => Add(expression(left), expression(right))
+        case spl.Subtract => Subtract(expression(left), expression(right))
+        case spl.Multiply => Multiply(expression(left), expression(right))
+        case spl.Divide => Divide(expression(left), expression(right))
         // TODO: make a failure case
       }
-      // TODO: make a failure case
     }
+    case _ => throw new AnalysisException(s"Cannot translate $expr")
   }
 
   private def attr(expr: spl.Expr): UnresolvedAttribute = expr match {
@@ -335,11 +331,11 @@ object SplToCatalyst extends Logging {
     // TODO: failure mode
   }
 
-  private def mapConstants(constant: spl.Constant): e.Literal = constant match {
-    case spl.Null() => e.Literal.create(null)
-    case spl.Bool(value) => e.Literal.create(value)
-    case spl.Value(value) => e.Literal.create(value)
-    case spl.IntValue(value) => e.Literal.create(value)
+  private def mapConstants(constant: spl.Constant): Literal = constant match {
+    case spl.Null() => Literal.create(null)
+    case spl.Bool(value) => Literal.create(value)
+    case spl.Value(value) => Literal.create(value)
+    case spl.IntValue(value) => Literal.create(value)
   }
 
   private def rexParseNamedGroup(inputString: String): mutable.Map[String, Int] = {
@@ -396,7 +392,7 @@ object SplToCatalyst extends Logging {
         myList += UnresolvedRegex("^.*?", None, caseSensitive = false)
         rexParseNamedGroup(regex) foreach {
           case (colName, groupIndex)  =>
-            val alias = e.Alias(
+            val alias = Alias(
               RegExpExtract(
                 field match {
                   case Some(value) => Column(value).expr
@@ -415,7 +411,7 @@ object SplToCatalyst extends Logging {
     val regex = aliases.map(alias => attr(alias.expr).name).mkString("|")
     myList += UnresolvedRegex(s"(?!$regex).*", None, caseSensitive = false)
     aliases foreach {alias => {
-      myList += e.Alias(attr(alias.expr), alias.name)()
+      myList += Alias(attr(alias.expr), alias.name)()
     }}
     Project(myList, tree)
   }
