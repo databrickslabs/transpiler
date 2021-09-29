@@ -34,7 +34,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
 
   test("thing") {
     generates("n>2 | stats count() by valid",
-      """(spark.table('x')
+      """(spark.table('main')
         |.where("(`n` > '2')")
         |.groupBy('valid')
         |.agg(F.expr('count() AS `count`')))
@@ -43,7 +43,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
 
   test("thing2") {
     import spark.implicits._
-    spark.createDataset(dummy).createOrReplaceTempView("x")
+    spark.createDataset(dummy).createOrReplaceTempView("main")
     executes("n>2",
       """+---+---+---+---+-----+
         ||a  |b  |c  |n  |valid|
@@ -59,7 +59,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+    spark.createDataset(dummySingleField).createOrReplaceTempView("main")
 
     executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"",
       """+------------------------------+-----------------------+---------------------------+
@@ -77,7 +77,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+    spark.createDataset(dummySingleField).createOrReplaceTempView("main")
 
     executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw",
       """+-----------------------+---------------------------+
@@ -95,7 +95,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummy).createOrReplaceTempView("x")
+    spark.createDataset(dummy).createOrReplaceTempView("main")
 
     executes("rename a as a1",
       """+---+---+---+-----+---+
@@ -114,7 +114,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+    spark.createDataset(dummySingleField).createOrReplaceTempView("main")
 
     executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | rename from AS emailFrom, to AS emailTo",
       """+-----------------------+---------------------------+
@@ -132,7 +132,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummySingleField).createOrReplaceTempView("x")
+    spark.createDataset(dummySingleField).createOrReplaceTempView("main")
 
     executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | return 4 emailFrom=from emailTo=to",
       """+-----------------------+---------------------------+
@@ -150,7 +150,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummy).createOrReplaceTempView("x")
+    spark.createDataset(dummy).createOrReplaceTempView("main")
 
     executes("join type=inner a [search a=\"a\"]",
     """+---+---+---+---+-----+---+---+---+-----+
@@ -165,7 +165,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummy).createOrReplaceTempView("x")
+    spark.createDataset(dummy).createOrReplaceTempView("main")
 
     executes("join type=left a [search a=\"a\"]",
       """+---+---+---+---+-----+----+----+----+-----+
@@ -184,7 +184,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummyWithNull).createOrReplaceTempView("x")
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
 
     executes("fillnull",
       """+---+---+---+---+-----+
@@ -200,7 +200,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummyWithNull).createOrReplaceTempView("x")
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
 
     executes("fillnull value=NA",
       """+---+---+---+---+-----+
@@ -216,7 +216,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     import spark.implicits._
 
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummyWithNull).createOrReplaceTempView("x")
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
 
     executes("fillnull value=NA a c n valid",
       """+---+----+---+---+-----+

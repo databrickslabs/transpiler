@@ -1,7 +1,5 @@
 name := "spark-spl"
-
 version := "0.1"
-
 scalaVersion := "2.12.12"
 
 // Compatible with Databricks Runtime 9.1 LTS
