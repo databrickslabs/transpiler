@@ -168,14 +168,16 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     }
 
     test("Rex Command should throw an error") {
-        val command = spl.RexCommand(
+        check(spl.RexCommand(
             Some("colNameA"),
             1,
             None,
             Some("sed"),
-            "s/(\\d{4}-){3}/XXXX-XXXX-XXXX-/g")
-
-        assertPlanThrows(command, new NotImplementedError)
+            "s/(\\d{4}-){3}/XXXX-XXXX-XXXX-/g"),
+        (_, tree) =>
+            UnknownPlanShim(
+                "Error in rex: scala.NotImplementedError: rex mode=sed currently not supported!",
+                tree))
     }
 
     test("rename command should generate a Project") {
@@ -418,13 +420,6 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (tree, cmd) => callback(cmd, tree)
         }
         comparePlans(actualPlan, expectedPlan, checkAnalysis = false)
-    }
-
-    private def assertPlanThrows(command: spl.Command, error: Throwable): Unit = {
-        val pipeline = spl.Pipeline(Seq(command))
-        assertThrows[NotImplementedError] {
-            SplToCatalyst.pipeline(new LogicalContext(), pipeline)
-        }
     }
 }
 
