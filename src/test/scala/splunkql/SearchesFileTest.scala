@@ -12,20 +12,6 @@ class SearchesFileTest extends AnyFunSuite with Logging {
     val sf = new SearchesFile(res("/savedsearches.conf"))
   }
 
-  ignore("att") {
-    import org.apache.spark.sql.functions._
-    val spark = SparkSession.builder().master("local[1]").getOrCreate()
-    val df = spark.range(10)
-      .withColumn("b", expr("id % 2"))
-      .groupBy("b")
-      .agg(sum("id") as "a")
-      .withColumn("c", lit(1))
-      .withColumn("d", lit(2))
-        .join(spark.table("x"), Seq("a"), "left")
-    logger.info(df.queryExecution.logical)
-    logger.info("printed")
-  }
-
   test("expansion") {
     val sc = SplunkContext(
       new SearchesFile(res("/savedsearches.conf")),

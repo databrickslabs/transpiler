@@ -2,6 +2,15 @@
 
 ![.](spark-spl.png)
 
+## Quickstart
+
+For code-generation mode:
+
+```shell script
+mvn package
+cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.jar > pyspark-equivalent.py
+```
+
 ## Commands
 
 | Command/Feature | Parser | Catalyst | Codegen |
@@ -77,7 +86,7 @@ Secondary batch of commands:
 
 Parsers are implemented using [fastparse](https://github.com/com-lihaoyi/fastparse) (MIT)
 
-Quick installation: `sbt assembly && databricks --profile=demo fs cp target/scala-2.12/spark-spl-assembly-0.1.jar dbfs:/tmp/spark-spl.jar --overwrite`
+Quick installation on Databricks: `sbt assembly && databricks --profile=demo fs cp target/scala-2.12/spark-spl-assembly-0.1.jar dbfs:/tmp/spark-spl.jar --overwrite`
 
 If you want to use `TERM()` function, you have to enable Spark extension:
 
