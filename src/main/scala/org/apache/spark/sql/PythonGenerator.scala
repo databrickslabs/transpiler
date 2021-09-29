@@ -74,6 +74,9 @@ object PythonGenerator {
         s"$childCode\n.na.fill(${q(value)})"
       else
         s"$childCode\n.na.fill(${q(value)}, ${toPythonList(ctx, columns.toSeq)})"
+
+    case UnknownPlanShim(message, child) =>
+      s"${fromPlan(ctx, child)}\n# $message"
   }
 
   private def exprList(ctx: GeneratorContext, exprs: Seq[Expression]) =

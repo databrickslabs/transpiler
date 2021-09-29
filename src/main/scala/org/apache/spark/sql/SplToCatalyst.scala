@@ -11,107 +11,118 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, LongType, MetadataBuilder, StringType}
 
 import scala.collection.mutable.ListBuffer
+import scala.util.control.NonFatal
+
+
+case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
+  override def output: Seq[Attribute] = child.output
+  override def children: Seq[LogicalPlan] = child.children
+}
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
     val (table, pipe) = determineTable(ctx, p)
-    pipe.commands.foldLeft(table) { (tree, command) => command match {
-      case spl.SearchCommand(expr) =>
-        // probably search is different from where...
-        Filter(expression(expr), tree)
+    pipe.commands.foldLeft(table) {
+      wrapCommand(ctx) {
+        (tree, command) => command match {
+          case spl.SearchCommand(expr) =>
+            // probably search is different from where...
+            Filter(expression(expr), tree)
 
-      case spl.WhereCommand(expr) =>
-        Filter(expression(expr), tree)
+          case spl.WhereCommand(expr) =>
+            Filter(expression(expr), tree)
 
-      case spl.EvalCommand(fields) =>
-        fields.foldLeft(tree) { (plan, field) =>
-          val (spl.Value(name), expr) = field
-          withColumn(ctx, plan, name, expr)
+          case spl.EvalCommand(fields) =>
+            fields.foldLeft(tree) { (plan, field) =>
+              val (spl.Value(name), expr) = field
+              withColumn(ctx, plan, name, expr)
+            }
+
+          case spl.TableCommand(fields) =>
+            selectExpr(fields, tree)
+
+          case spl.ConvertCommand(timeformat, convs) =>
+            convs.foldLeft(tree) { (plan, fc) =>
+              val name = fc.alias.getOrElse(fc.field).value
+              withColumn(ctx, plan, name, spl.Call(fc.func, Seq(fc.field)))
+            }
+
+          case spl.HeadCommand(expr, keepLast, nullOption) =>
+            // TODO Implement keeplast and null options behaviour
+            logger.debug(s"Adding `HeadCommand` with options: $expr to the tree")
+            if (expr.isInstanceOf[spl.IntValue]) Limit(expression(expr), tree)
+            else Filter(expression(expr), tree)
+
+          case spl.SortCommand(fields) =>
+            Sort(sortOrder(fields), global = true, tree)
+
+          case spl.FieldsCommand(op, fields) =>
+            if (op.getOrElse("+").equals("-")) {
+              val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
+              val columnRegex = UnresolvedRegex(s"(?!$fieldsToDiscard).*", None, caseSensitive = false)
+              // TODO: change LogicalContext
+              Project(Seq(columnRegex), tree)
+            } else selectExpr(fields, tree)
+
+          case spl.LookupCommand(dataset, fields, output) =>
+            leftJoinUsing(dataset, fields, output, tree)
+
+          case spl.CollectCommand(args, fields) =>
+            // fields.map(fieldName => Column(fieldName.value))
+            // TODO: add projection if fields is not empty
+            AppendData(UnresolvedRelation(Seq(args("index"))), tree, Map(), isByName = true)
+
+          case spl.StatsCommand(params, funcs, by, dedupSplitVals) =>
+            val agg = aggregate(ctx, by, funcs, tree)
+            if (dedupSplitVals) {
+              Deduplicate(by.map(x => UnresolvedAttribute(x.value)), agg)
+            } else agg
+
+          case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
+            // TODO find a way to implement max_match, offset_field and mode
+            rexExtract(ctx, field, maxMatch, offsetField, mode, regex, tree)
+
+          case spl.RenameCommand(aliases) =>
+            renameColumn(aliases, tree)
+
+          case spl.RegexCommand(item, regex) =>
+            item match {
+              case Some(value) =>
+                val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => expr
+                Filter(catalystOp(RLike(Column(value._1.value).expr, Literal(regex))), tree)
+              case None =>
+                Filter(RLike(Column(ctx.rawFieldName).expr, Literal(regex)), tree)
+            }
+
+          case spl.JoinCommand(joinType, useTime, earlier, overwrite, max, fields, subSearch) =>
+            Join(tree, pipeline(ctx.copy(output = Seq()), subSearch),
+              UsingJoin(joinType match {
+                case "inner" => Inner
+                case "left" => LeftOuter
+                case "outer" => LeftOuter
+                case _ => Inner
+              }, fields.map(_.value)), None, JoinHint.NONE)
+
+          case spl.ReturnCommand(count, fields) =>
+            val countLimit = count match {
+              case Some(item) => Literal(item.value)
+              case None => Literal(1)
+            }
+
+            Limit(countLimit, Project(fields.map {
+              case alias: (spl.Value, spl.Expr) =>
+                // TODO: rewrite to something sensible
+                Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
+              case field: spl.Value =>
+                Column(field.value).named
+            }, tree))
+
+          case spl.FillNullCommand(value, fields) =>
+            val fieldsOpt = fields.getOrElse(Seq.empty[spl.Value]).map(_.value).toSet
+            FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
         }
-
-      case spl.TableCommand(fields) =>
-        selectExpr(fields, tree)
-
-      case spl.ConvertCommand(timeformat, convs) =>
-        convs.foldLeft(tree) { (plan, fc) =>
-          val name = fc.alias.getOrElse(fc.field).value
-          withColumn(ctx, plan, name, spl.Call(fc.func, Seq(fc.field)))
-        }
-
-      case spl.HeadCommand(expr, keepLast, nullOption) =>
-        // TODO Implement keeplast and null options behaviour
-        logger.debug(s"Adding `HeadCommand` with options: $expr to the tree")
-        if (expr.isInstanceOf[spl.IntValue]) Limit(expression(expr), tree)
-        else Filter(expression(expr), tree)
-
-      case spl.SortCommand(fields) =>
-        Sort(sortOrder(fields), global = true, tree)
-
-      case spl.FieldsCommand(op, fields) =>
-        if (op.getOrElse("+").equals("-")) {
-          val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
-          val columnRegex = UnresolvedRegex(s"(?!$fieldsToDiscard).*", None, caseSensitive = false)
-          // TODO: change LogicalContext
-          Project(Seq(columnRegex), tree)
-        } else selectExpr(fields, tree)
-
-      case spl.LookupCommand(dataset, fields, output) =>
-        leftJoinUsing(dataset, fields, output, tree)
-
-      case spl.CollectCommand(args, fields) =>
-        // fields.map(fieldName => Column(fieldName.value))
-        // TODO: add projection if fields is not empty
-        AppendData(UnresolvedRelation(Seq(args("index"))), tree, Map(), isByName = true)
-
-      case spl.StatsCommand(params, funcs, by, dedupSplitVals) =>
-        val agg = aggregate(ctx, by, funcs, tree)
-        if (dedupSplitVals) {
-          Deduplicate(by.map(x => UnresolvedAttribute(x.value)), agg)
-        } else agg
-
-      case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
-        // TODO find a way to implement max_match, offset_field and mode
-        rexExtract(ctx, field, maxMatch, offsetField, mode, regex, tree)
-
-      case spl.RenameCommand(aliases) =>
-        renameColumn(aliases, tree)
-
-      case spl.RegexCommand(item, regex) =>
-        item match {
-          case Some(value) =>
-            val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => expr
-            Filter(catalystOp(RLike(Column(value._1.value).expr, Literal(regex))), tree)
-          case None =>
-            Filter(RLike(Column(ctx.rawFieldName).expr, Literal(regex)), tree)
-        }
-
-      case spl.JoinCommand(joinType, useTime, earlier, overwrite, max, fields, subSearch) =>
-        Join(tree, pipeline(ctx.copy(output = Seq()), subSearch),
-          UsingJoin(joinType match {
-            case "inner" => Inner
-            case "left" => LeftOuter
-            case "outer" => LeftOuter
-            case _ => Inner
-          }, fields.map(_.value)), None, JoinHint.NONE)
-
-      case spl.ReturnCommand(count, fields) =>
-        val countLimit = count match {
-          case Some(item) => Literal(item.value)
-          case None => Literal(1)
-        }
-
-        Limit(countLimit, Project(fields.map {
-          case alias: (spl.Value, spl.Expr) =>
-            // TODO: rewrite to something sensible
-            Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
-          case field: spl.Value =>
-            Column(field.value).named
-        }, tree))
-
-      case spl.FillNullCommand(value, fields) =>
-        val fieldsOpt = fields.getOrElse(Seq.empty[spl.Value]).map(_.value).toSet
-        FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
-    }}
+      }
+    }
   }
 
   private def function(call: spl.Call): Expression = call.name match {
@@ -277,6 +288,25 @@ object SplToCatalyst extends Logging {
     Project(ctx.output, tree)
   }
 
+  private def wrapCommand(ctx: LogicalContext)
+                         (mapper: (LogicalPlan, spl.Command) => LogicalPlan)
+                         (plan: LogicalPlan, command: spl.Command): LogicalPlan = {
+    try {
+      mapper(plan, command) match {
+        case project: Project =>
+          //ctx.output = project.output
+          project
+        case result: LogicalPlan =>
+          result
+      }
+    } catch {
+      case NonFatal(e) =>
+        val name = command.getClass.getSimpleName
+          .replace("Command", "").toLowerCase
+        UnknownPlanShim(s"Error in $name: $e", plan)
+    }
+  }
+
   private def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
     // TODO: replace the logic with select(ctx, tree, ne)?...
     Project(fields.map {
@@ -409,7 +439,7 @@ object SplToCatalyst extends Logging {
                          tree: LogicalPlan): LogicalPlan = {
     mode match {
       case Some(value) =>
-        throw new NotImplementedError(s"rex mode=$value [...] currently not supported !")
+        throw new NotImplementedError(s"rex mode=$value currently not supported!")
       case None =>
         val raw = selectColumn(ctx, tree, UnresolvedAttribute(ctx.rawFieldName))
         rexParseNamedGroup(regex).foldLeft(raw) {

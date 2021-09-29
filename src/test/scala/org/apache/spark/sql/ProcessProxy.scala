@@ -3,6 +3,8 @@ package org.apache.spark.sql
 import scala.collection.mutable
 import scala.sys.process.{Process, ProcessLogger}
 import org.apache.logging.log4j.scala.Logging
+import org.apache.spark.sql.catalyst.util.sideBySide
+import org.scalatest.Assertions
 
 
 class Capture extends ProcessLogger {
@@ -39,15 +41,22 @@ trait ProcessProxy extends Logging {
 
   def generates(search: String, expectedCode: String) = {
     val generatedCode = Transpiler.toPython(search)
-    assert(generatedCode == expectedCode, s"Code generation failed\n================\n"+
-      s"EXPECTED: $expectedCode\nGENERATED: $generatedCode")
+    if (generatedCode != expectedCode) {
+      Assertions.fail(s"""FAILURE: Code does not match
+              |=======
+              |${sideBySide(generatedCode, expectedCode).mkString("\n")}
+              |""".stripMargin)
+    }
   }
 
   def executes(search: String, results: String, truncate: Int = 0) = {
     val testVar = Transpiler.toDataFrame(spark, search)
                             .showString(20, truncate)
-    logger.debug(s"Test:\n${testVar}")
-    logger.debug(s"Expected:\n${results}")
-    assert(testVar == results)
+    if (testVar != results) {
+      Assertions.fail(s"""FAILURE: Results do not match
+                         |=======
+                         |${sideBySide(testVar, results).mkString("\n")}
+                         |""".stripMargin)
+    }
   }
 }
