@@ -13,12 +13,6 @@ import org.apache.spark.sql.types.{DoubleType, LongType, MetadataBuilder, String
 import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
 
-
-case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
-  override def output: Seq[Attribute] = child.output
-  override def children: Seq[LogicalPlan] = child.children
-}
-
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
     val (table, pipe) = determineTable(ctx, p)
@@ -380,6 +374,7 @@ object SplToCatalyst extends Logging {
         case spl.Subtract => Subtract(expression(left), expression(right))
         case spl.Multiply => Multiply(expression(left), expression(right))
         case spl.Divide => Divide(expression(left), expression(right))
+        case spl.Concatenate => Concat(Seq(expression(left), expression(right)))
         // TODO: make a failure case
       }
     }
@@ -451,4 +446,9 @@ object SplToCatalyst extends Logging {
         }
     }
   }
+}
+
+case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
+  override def output: Seq[Attribute] = child.output
+  override def children: Seq[LogicalPlan] = child.children
 }

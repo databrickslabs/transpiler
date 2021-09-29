@@ -267,6 +267,33 @@ class SplParserTest extends ParserSuite {
     )
   }
 
+  test("TERM(XXXXX*\\\\XXXXX*)") {
+    p(pipeline(_), Pipeline(Seq(
+      SearchCommand(
+        Call("TERM",List(Value("XXXXX*\\\\XXXXX*")))
+      )
+    )))
+  }
+
+  test("values(eval(mvappend(\"a: \" . a, \"b: \" . b)))") {
+    p(pipeline(_), Pipeline(Seq(
+      SearchCommand(
+        Call("values", Seq(
+          Call("eval", Seq(
+            Call("mvappend",
+              Seq(
+                Binary(
+                  Value("a: "),
+                  Concatenate,
+                  Value("a")
+                ),
+                Binary(
+                  Value("b: "),
+                  Concatenate,
+                  Value("b")
+                )))))))))))
+  }
+
   test("sort A") {
     p(sort(_),
       SortCommand(

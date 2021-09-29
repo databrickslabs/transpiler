@@ -19,10 +19,10 @@ private class LogicalContext(
 
 object Transpiler {
   private def parsePipeline(search: String): spl.Pipeline =
-    parse(search, spl.SplParser.pipeline(_), verboseFailures = true) match {
+    parse(search, spl.SplParser.pipeline(_)) match {
       case Parsed.Success(value, _) => value
       case f: Parsed.Failure =>
-        throw new AssertionError(f.trace().longMsg)
+        throw new AssertionError(f.msg)
     }
 
   /** Converts SPL AST to Databricks Runtime internal Logical Execution Plan */
