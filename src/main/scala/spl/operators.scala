@@ -59,6 +59,11 @@ case object NotEquals extends Relational {
   override val precedence: Int = 7
 }
 
+case object Concatenate extends Straight {
+  override def toString: String = "."
+  override val precedence: Int = 5
+}
+
 case object Add extends Straight {
   override def toString: String = "+"
   override val precedence: Int = 4

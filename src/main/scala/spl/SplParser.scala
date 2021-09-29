@@ -66,7 +66,7 @@ object SplParser {
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
     | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P | Add.P | Subtract.P
-    | Multiply.P | Divide.P)
+    | Multiply.P | Divide.P | Concatenate.P)
 
   private def binaryOf[_: P](a: => P[Expr], b: => P[OperatorSymbol]): P[Expr] =
     (a ~ (b ~ a).rep).map {
@@ -91,7 +91,9 @@ object SplParser {
 
   def fieldIn[_:P]: P[FieldIn] = token ~ "IN" ~ "(" ~ constant.rep(sep=",".?) ~ ")" map FieldIn.tupled
   def call[_: P]: P[Call] = (token ~~ "(" ~~ expr.rep(sep=",") ~~ ")").map(Call.tupled)
-  def argu[_: P]: P[Expr] = call | constant
+
+  def termCall[_: P]: P[Call] = (W("TERM") ~ "(" ~ CharsWhile(!")".contains(_)).! ~ ")").map(term => Call("TERM", Seq(Value(term))))
+  def argu[_: P]: P[Expr] = termCall | call | constant
   def parens[_: P]: P[Expr] = "(" ~ expr ~ ")"
   def primary[_: P]: P[Expr] = unaryOf(expr) | fieldIn | parens | argu
   def expr[_: P]: P[Expr] = binaryOf(primary, ALL)
