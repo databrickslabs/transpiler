@@ -6,6 +6,7 @@ import org.scalatest.funsuite.AnyFunSuite
 class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfterAll {
 
 
+
   val dummy = Seq(
     Dummy("dummy", "a", "b", "c", 1, valid = true),
     Dummy("dummy", "d", "e", "f", 2, valid = false),

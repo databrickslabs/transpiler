@@ -224,7 +224,6 @@ object SplParser {
       "dedup" ~ int.? ~ fieldAndBoolList.? ~ dedupFieldRep ~ ("sortby" ~ (("+"|"-").!.? ~~ field).rep(1)).?) map {
     case (limit, kv, fields, sortByQuery) =>
       val kvOpt = kv.getOrElse(Map[String, Boolean]())
-
       val sortByCommand = sortByQuery match {
         case Some(query) => SortCommand(query)
         case _ => SortCommand(Seq((Some("+"), spl.Field("_no"))))
