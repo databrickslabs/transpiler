@@ -55,6 +55,21 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("n > len(a)") {
+    import spark.implicits._
+    spark.createDataset(dummy).createOrReplaceTempView("main")
+    executes("n > len(a)",
+      """+---+---+---+---+-----+
+        ||a  |b  |c  |n  |valid|
+        |+---+---+---+---+-----+
+        ||d  |e  |f  |2  |false|
+        ||g  |h  |i  |3  |true |
+        ||h  |g  |f  |4  |false|
+        ||e  |d  |c  |5  |true |
+        |+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"") {
     import spark.implicits._
 

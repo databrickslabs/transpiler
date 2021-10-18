@@ -3,6 +3,7 @@ package org.apache.spark.sql
 import org.scalatest.funsuite.AnyFunSuite
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.catalyst.expressions.Length
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
@@ -350,6 +351,21 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) => {
                 Filter(
                     Max(
+                        UnresolvedAttribute("bar")
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("length(bar)") {
+        check(spl.SearchCommand(
+            spl.Call("len", Seq(
+                spl.Value("bar")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Length(
                         UnresolvedAttribute("bar")
                     ),
                     tree)
