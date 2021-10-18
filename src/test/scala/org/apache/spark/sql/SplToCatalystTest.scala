@@ -22,7 +22,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("HeadCommand should generate a Filter") {
         check(spl.HeadCommand(
             spl.Binary(
-                spl.Value("count"),
+                spl.Field("count"),
                 spl.GreaterThan,
                 spl.IntValue(10))),
         (_, tree) =>
@@ -35,9 +35,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("SortCommand command should generate a Sort") {
         check(spl.SortCommand(Seq(
-                Tuple2(Some("+"), spl.Value("A")),
-                Tuple2(Some("-"), spl.Value("B")),
-                Tuple2(Some("+"), spl.Call("num", Seq(spl.Value("C")))))),
+                Tuple2(Some("+"), spl.Field("A")),
+                Tuple2(Some("-"), spl.Field("B")),
+                Tuple2(Some("+"), spl.Call("num", Seq(spl.Field("C")))))),
         (_, tree) =>
             Sort(Seq(
                 SortOrder(UnresolvedAttribute("A"), Ascending),
@@ -48,7 +48,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("SortCommand command should generate another Sort") {
         check(spl.SortCommand(Seq(
-            Tuple2(None, spl.Value("A")))),
+            Tuple2(None, spl.Field("A")))),
         (_, tree) =>
             Sort(Seq(
                 SortOrder(UnresolvedAttribute("A"), Ascending)
@@ -58,8 +58,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("FieldsCommand should generate a Project with UnresolvedAlias") {
         check(spl.FieldsCommand(
             None, Seq(
-                spl.Value("colA"),
-                spl.Value("colB"))),
+                spl.Field("colA"),
+                spl.Field("colB"))),
         (_, tree) =>
             Project(Seq(
                 UnresolvedAttribute("colA"),
@@ -70,9 +70,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("FieldsCommand should generate another Project with with UnresolvedAlias") {
         check(spl.FieldsCommand(
             Some("+"), Seq(
-                spl.Value("colA"),
-                spl.Value("colB"),
-                spl.Value("colC"))),
+                spl.Field("colA"),
+                spl.Field("colB"),
+                spl.Field("colC"))),
         (_, tree) =>
             Project(Seq(
                 UnresolvedAttribute("colA"),
@@ -84,8 +84,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("FieldsCommand should generate a Project with UnresolvedRegex") {
         check(spl.FieldsCommand(
             Some("-"), Seq(
-                spl.Value("colA"),
-                spl.Value("colB"))),
+                spl.Field("colA"),
+                spl.Field("colB"))),
         (_, tree) =>
             Project(Seq(
                 UnresolvedRegex("(?!colA|colB).*",
@@ -97,7 +97,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.StatsCommand(
             Map(),
             Seq(spl.Call("count", Seq())),
-            Seq(spl.Value("host"))),
+            Seq(spl.Field("host"))),
         (_, tree) =>
             Aggregate(
                 Seq(UnresolvedAttribute("host")),
@@ -109,7 +109,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.StatsCommand(
             Map(),
             Seq(spl.Call("count", Seq())),
-            Seq(spl.Value("host")),
+            Seq(spl.Field("host")),
             dedupSplitVals = true),
             (_, tree) =>
                 Deduplicate(
@@ -125,8 +125,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("LookupCommand to Join") {
         check(spl.LookupCommand(
             "dst", Seq(
-                spl.Value("a"),
-                spl.AliasedField(spl.Value("b"), "c")
+                spl.Field("a"),
+                spl.AliasedField(spl.Field("b"), "c")
             ), None),
         (_, tree) =>
             Join(tree,
@@ -183,7 +183,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("rename command should generate a Project") {
         check(spl.RenameCommand(Seq(
             spl.Alias(
-                spl.Value("colNameA"),
+                spl.Field("colNameA"),
                 "colARenamed"))),
         (_, tree) =>
             Project(Seq(
@@ -196,10 +196,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("rename command should generate another Project") {
         check(spl.RenameCommand(Seq(
             spl.Alias(
-                spl.Value("colNameA"),
+                spl.Field("colNameA"),
                 "colARenamed"),
             spl.Alias(
-                spl.Value("colNameB"),
+                spl.Field("colNameB"),
                 "colBRenamed"))),
             (_, tree) =>
                 Project(Seq(
@@ -213,7 +213,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("regex command should generate a Filter") {
         check(spl.RegexCommand(
-            Some((spl.Value("colNameA"), "!=")),
+            Some((spl.Field("colNameA"), "!=")),
             "[0-9]{5}(-[0-9]{4})?"),
             (_, tree) =>
                 Filter(Not(
@@ -227,9 +227,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("return 10 ip host port") {
         check(spl.ReturnCommand(
             Some(spl.IntValue(10)),
-            Seq(spl.Value("ip"),
-                spl.Value("host"),
-                spl.Value("port"))),
+            Seq(spl.Field("ip"),
+                spl.Field("host"),
+                spl.Field("port"))),
         (_, tree) => Limit(Literal(10), Project(Seq(
             Column("ip").named,
             Column("host").named,
@@ -241,8 +241,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("return 10 ip $env $test") {
         check(spl.ReturnCommand(
             Some(spl.IntValue(10)),
-            Seq(spl.Value("env"),
-                spl.Value("test"))),
+            Seq(spl.Field("env"),
+                spl.Field("test"))),
             (_, tree) => Limit(Literal(10), Project(Seq(
                 Column("env").named,
                 Column("test").named)
@@ -253,9 +253,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("return 20 a=ip b=host c=port") {
         check(spl.ReturnCommand(
             Some(spl.IntValue(20)),
-            Seq((spl.Value("a"), spl.Value("ip")),
-                (spl.Value("b"), spl.Value("host")),
-                (spl.Value("c"), spl.Value("port")))),
+            Seq((spl.Field("a"), spl.Field("ip")),
+                (spl.Field("b"), spl.Field("host")),
+                (spl.Field("c"), spl.Field("port")))),
             (_, tree) => Limit(Literal(20), Project(Seq(
                 Alias(Column("ip").named, "a")(),
                 Alias(Column("host").named, "b")(),
@@ -271,9 +271,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             earlier = true,
             overwrite = false,
             max = 1,
-            Seq(spl.Value("product_id")),
+            Seq(spl.Field("product_id")),
             spl.Pipeline(Seq(
-                spl.SearchCommand(spl.Value("vendors"))
+                spl.SearchCommand(spl.Field("vendors"))
             ))),
             (_, tree) => {
                 Join(tree,
@@ -290,9 +290,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             earlier = true,
             overwrite = false,
             max = 1,
-            Seq(spl.Value("product_id"), spl.Value("product_name")),
+            Seq(spl.Field("product_id"), spl.Field("product_name")),
             spl.Pipeline(Seq(
-                spl.SearchCommand(spl.Value("vendors"))
+                spl.SearchCommand(spl.Field("vendors"))
             ))),
             (_, tree) => {
                 Join(tree,
@@ -317,9 +317,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.FillNullCommand(
             Some("NaN"),
             Some(Seq(
-                spl.Value("host"),
-                spl.Value("port"),
-                spl.Value("ip")
+                spl.Field("host"),
+                spl.Field("port"),
+                spl.Field("ip")
             ))),
             (_, tree) => {
                 FillNullShim("NaN", Set("host", "port", "ip"), tree)
@@ -330,7 +330,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("min(bar)") {
         check(spl.SearchCommand(
             spl.Call("min", Seq(
-                spl.Value("bar")
+                spl.Field("bar")
             ))),
             (_, tree) => {
                 Filter(
@@ -345,7 +345,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("max(bar)") {
         check(spl.SearchCommand(
             spl.Call("max", Seq(
-                spl.Value("bar")
+                spl.Field("bar")
             ))),
             (_, tree) => {
                 Filter(
@@ -360,7 +360,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("round(x)") {
         check(spl.SearchCommand(
             spl.Call("round", Seq(
-                spl.Value("x")
+                spl.Field("x")
             ))),
             (_, tree) => {
                 Filter(
@@ -376,7 +376,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("round(x, 2)") {
         check(spl.SearchCommand(
             spl.Call("round", Seq(
-                spl.Value("x"),
+                spl.Field("x"),
                 spl.IntValue(2),
             ))),
             (_, tree) => {
@@ -394,7 +394,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.SearchCommand(
             spl.Call("round", Seq(
                 spl.Call("min", Seq(
-                    spl.Value("x")
+                    spl.Field("x")
                 )),
             ))),
             (_, tree) => {
