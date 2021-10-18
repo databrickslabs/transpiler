@@ -133,6 +133,7 @@ object SplToCatalyst extends Logging {
     case "max" =>
       // TODO: would currently fail on wildcard attributes
       Max(attr(call.args.head))
+    // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/TextFunctions#len.28X.29
     case "len" =>
       Length(attr(call.args.head))
     case "round" =>
