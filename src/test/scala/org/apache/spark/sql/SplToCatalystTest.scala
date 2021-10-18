@@ -410,6 +410,37 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("equal wildcards should convert to LIKE") {
+        check(spl.SearchCommand(
+            spl.Binary(
+                spl.Field("a"),
+                spl.Equals,
+                spl.Wildcard("foo*"))),
+            (_, tree) =>
+                Filter(
+                    Like(
+                        UnresolvedAttribute("a"),
+                        Literal.create("foo%"), '\\'),
+                    tree)
+        )
+    }
+
+    test("not equal wildcards should convert to LIKE") {
+        check(spl.SearchCommand(
+            spl.Binary(
+                spl.Field("a"),
+                spl.NotEquals,
+                spl.Wildcard("foo*"))),
+            (_, tree) =>
+                Filter(
+                    Not(
+                        Like(
+                            UnresolvedAttribute("a"),
+                            Literal.create("foo%"), '\\')),
+                    tree)
+        )
+    }
+
     private def check(command: spl.Command,
               callback: (spl.Command, LogicalPlan) => LogicalPlan
               ): Unit = this.synchronized {
