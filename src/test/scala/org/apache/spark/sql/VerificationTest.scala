@@ -35,7 +35,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   test("thing") {
     generates("n>2 | stats count() by valid",
       """(spark.table('main')
-        |.where("(`n` > '2')")
+        |.where('(`n` > 2)')
         |.groupBy('valid')
         |.agg(F.expr('count() AS `count`')))
         |""".stripMargin)
@@ -43,6 +43,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
 
   test("thing2") {
     import spark.implicits._
+    import org.apache.spark.sql.functions.col
     spark.createDataset(dummy).createOrReplaceTempView("main")
     executes("n>2",
       """+---+---+---+---+-----+
@@ -242,4 +243,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |+---+----+---+---+-----+
         |""".stripMargin)
   }
+
+
+
+
 }

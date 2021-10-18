@@ -28,7 +28,7 @@ object SplToCatalyst extends Logging {
 
           case spl.EvalCommand(fields) =>
             fields.foldLeft(tree) { (plan, field) =>
-              val (spl.Value(name), expr) = field
+              val (spl.Field(name), expr) = field
               withColumn(ctx, plan, name, expr)
             }
 
@@ -89,7 +89,8 @@ object SplToCatalyst extends Logging {
             }
 
           case spl.JoinCommand(joinType, useTime, earlier, overwrite, max, fields, subSearch) =>
-            Join(tree, pipeline(ctx.copy(output = Seq()), subSearch),
+            val right = pipeline(ctx.copy(output = Seq()), subSearch)
+            Join(tree, right,
               UsingJoin(joinType match {
                 case "inner" => Inner
                 case "left" => LeftOuter
@@ -104,15 +105,15 @@ object SplToCatalyst extends Logging {
             }
 
             Limit(countLimit, Project(fields.map {
-              case alias: (spl.Value, spl.Expr) =>
+              case alias: (spl.Field, spl.Expr) =>
                 // TODO: rewrite to something sensible
                 Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
-              case field: spl.Value =>
+              case field: spl.Field =>
                 Column(field.value).named
             }, tree))
 
           case spl.FillNullCommand(value, fields) =>
-            val fieldsOpt = fields.getOrElse(Seq.empty[spl.Value]).map(_.value).toSet
+            val fieldsOpt = fields.getOrElse(Seq.empty[spl.Field]).map(_.value).toSet
             FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
         }
       }
@@ -151,7 +152,7 @@ object SplToCatalyst extends Logging {
       Last(attrOrExpr(call.args.head), ignoreNulls = true)
     case "strftime" =>
       DateFormatClass(attrOrExpr(call.args.head), Literal.create(call.args.lift(1) match {
-        case Some(spl.Value(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
+        case Some(spl.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
           case (a, (b, c)) => a.replaceAll(b, c)
         }
         case _ => throw new AnalysisException(s"Invalid strftime format given")
@@ -162,13 +163,13 @@ object SplToCatalyst extends Logging {
   }
 
   private def isFilter(x: spl.Expr, name: String) = x match {
-    case spl.Binary(spl.Value(field), spl.Equals, _) if field.equals(name) => true
+    case spl.Binary(spl.Field(field), spl.Equals, _) if field.equals(name) => true
     case _ => false
   }
 
   /** Finds indices in all of the binary nodes */
   private def findIndices(search: spl.Expr): Set[String] = search match {
-    case b @ spl.Binary(_, _, spl.Value(value)) if isFilter(b, "index") => Set(value)
+    case b @ spl.Binary(_, _, spl.Field(value)) if isFilter(b, "index") => Set(value)
     case spl.Binary(left, _, right) => findIndices(left) ++ findIndices(right)
     case _ => Set()
   }
@@ -204,11 +205,11 @@ object SplToCatalyst extends Logging {
   }
 
   private def leftJoinUsing(dataset: String,
-                            fields: Seq[spl.Field],
+                            fields: Seq[spl.FieldLike],
                             output: Option[spl.LookupOutput],
                             tree: LogicalPlan): Join = {
     val hasAliases: Boolean = fields exists {
-      case _: spl.Value => false
+      case _: spl.Field => false
       case _: spl.Alias => true
       case _: spl.AliasedField => true
     }
@@ -223,22 +224,22 @@ object SplToCatalyst extends Logging {
     }
     Join(tree, right,
       UsingJoin(LeftOuter, fields.map {
-        case spl.Value(fieldName) => fieldName
+        case spl.Field(fieldName) => fieldName
         case spl.AliasedField(_, alias) => alias
       }), None, JoinHint.NONE)
   }
 
-  private def fieldOrAlias(field: spl.Field): NamedExpression = field match {
-    case spl.Value(fieldName) =>
+  private def fieldOrAlias(field: spl.FieldLike): NamedExpression = field match {
+    case spl.Field(fieldName) =>
       UnresolvedAttribute(fieldName)
-    case spl.AliasedField(spl.Value(fieldName), alias) =>
+    case spl.AliasedField(spl.Field(fieldName), alias) =>
       Alias(UnresolvedAttribute(fieldName), alias)()
     case spl.Alias(expr, alias) =>
       Alias(expression(expr), alias)()
   }
 
   private def aggregate(ctx: LogicalContext,
-                        by: Seq[spl.Value],
+                        by: Seq[spl.Field],
                         funcs: Seq[spl.Expr],
                         tree: LogicalPlan) = {
     // TODO: select _time
@@ -301,14 +302,15 @@ object SplToCatalyst extends Logging {
       case NonFatal(e) =>
         val name = command.getClass.getSimpleName
           .replace("Command", "").toLowerCase
+        logger.warn(s"Error in $name", e)
         UnknownPlanShim(s"Error in $name: $e", plan)
     }
   }
 
-  private def selectExpr(fields: Seq[spl.Value], tree: LogicalPlan) = {
+  private def selectExpr(fields: Seq[spl.Field], tree: LogicalPlan) = {
     // TODO: replace the logic with select(ctx, tree, ne)?...
     Project(fields.map {
-      case spl.Value(value) => UnresolvedAttribute(value)
+      case spl.Field(value) => UnresolvedAttribute(value)
     }, tree)
   }
 
@@ -349,7 +351,7 @@ object SplToCatalyst extends Logging {
   )
 
   private def attrOrExpr(expr: spl.Expr): Expression = expr match {
-    case spl.Value(value) => UnresolvedAttribute(Seq(value))
+    case spl.Field(value) => UnresolvedAttribute(Seq(value))
     case _ => expression(expr)
   }
 
@@ -362,6 +364,10 @@ object SplToCatalyst extends Logging {
     }
     case spl.FieldIn(field, exprs) =>
       In(UnresolvedAttribute(field), exprs.map(expression))
+    case spl.Binary(left, spl.Equals, spl.Wildcard(pattern)) =>
+      like(left, pattern)
+    case spl.Binary(left, spl.NotEquals, spl.Wildcard(pattern)) =>
+      Not(like(left, pattern))
     case spl.Binary(left, symbol, right) => symbol match {
       case straight: spl.Straight => straight match {
         case relational: spl.Relational => relational match {
@@ -385,15 +391,21 @@ object SplToCatalyst extends Logging {
     case _ => throw new AnalysisException(s"Cannot translate $expr")
   }
 
+  private def like(left: spl.Expr, pattern: String): Like = {
+    val regex = Literal.create(pattern.replaceAll("\\*", "%"))
+    Like(attrOrExpr(left), regex, '\\')
+  }
+
   private def attr(expr: spl.Expr): UnresolvedAttribute = expr match {
-    case spl.Value(value) => UnresolvedAttribute(Seq(value))
+    case spl.Field(value) => UnresolvedAttribute(Seq(value))
     // TODO: failure mode
   }
 
   private def mapConstants(constant: spl.Constant): Literal = constant match {
     case spl.Null() => Literal.create(null)
     case spl.Bool(value) => Literal.create(value)
-    case spl.Value(value) => Literal.create(value)
+    case spl.Field(value) => Literal.create(value)
+    case spl.StrValue(value) => Literal.create(value)
     case spl.IntValue(value) => Literal.create(value)
   }
 
@@ -424,7 +436,7 @@ object SplToCatalyst extends Logging {
         case _ =>
           SortOrder(attr(args.head), order)
       }
-      case (spl.Value(value), order) =>
+      case (spl.Field(value), order) =>
         SortOrder(UnresolvedAttribute(value), order)
     }
   }
