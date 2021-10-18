@@ -360,6 +360,10 @@ object SplToCatalyst extends Logging {
     }
     case spl.FieldIn(field, exprs) =>
       In(UnresolvedAttribute(field), exprs.map(expression))
+    case spl.Binary(left, spl.Equals, spl.Wildcard(pattern)) =>
+      like(left, pattern)
+    case spl.Binary(left, spl.NotEquals, spl.Wildcard(pattern)) =>
+      Not(like(left, pattern))
     case spl.Binary(left, symbol, right) => symbol match {
       case straight: spl.Straight => straight match {
         case relational: spl.Relational => relational match {
@@ -381,6 +385,11 @@ object SplToCatalyst extends Logging {
       }
     }
     case _ => throw new AnalysisException(s"Cannot translate $expr")
+  }
+
+  private def like(left: spl.Expr, pattern: String): Like = {
+    val regex = Literal.create(pattern.replaceAll("\\*", "%"))
+    Like(attrOrExpr(left), regex, '\\')
   }
 
   private def attr(expr: spl.Expr): UnresolvedAttribute = expr match {
