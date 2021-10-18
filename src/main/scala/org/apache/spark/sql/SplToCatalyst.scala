@@ -133,6 +133,8 @@ object SplToCatalyst extends Logging {
     case "max" =>
       // TODO: would currently fail on wildcard attributes
       Max(attr(call.args.head))
+    case "len" =>
+      Length(attr(call.args.head))
     case "round" =>
       val num = attrOrExpr(call.args.head)
       val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
