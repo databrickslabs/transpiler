@@ -40,19 +40,23 @@ object SplParser {
     ("true" | "t").map(_ => Bool(true)) |
       ("false" | "f").map(_ => Bool(false))
 
-  def token[_: P]: P[String] = ("_"|"*"|"-"|"@"|letter|digit).repX(1).! // TODO: this is a hack for @15m
-
+  // TODO: this is a hack for earliest=-15m@m
+  def token[_: P]: P[String] = ("_"|"*"|"-"|"@"|letter|digit).repX(1).!
   def doubleQuoted[_: P]: P[String] = P( "\"" ~ (
     CharsWhile(!"\"".contains(_))
       | "\\" ~~ AnyChar
       | !"\""
     ).rep.! ~ "\"" )
-  def fvalue[_:P]: P[Value] = (doubleQuoted|token).map(Value)
 
-  def field[_:P]: P[Value] = fvalue
-  def fieldAndValue[_:P]: P[FV] = (fvalue ~ "=" ~ fvalue).map(a => FV(a._1.value, a._2.value))
+  def wildcard[_:P]: P[Wildcard] = (doubleQuoted.filter(_.contains("*")) | token.filter(_.contains("*"))) map Wildcard
+  def strValue[_:P]: P[StrValue] = doubleQuoted map StrValue
+  def field[_:P]: P[Field] = token.filter(!Seq("t", "f").contains(_)) map Field
+  def byte[_:P]: P[String] = digit.rep(min=1, max=3).!
+  def cidr[_:P]: P[IPv4CIDR] = (byte.rep(sep=".", exactly=4) ~ "/" ~ byte).! map IPv4CIDR
+
+  def fieldAndValue[_:P]: P[FV] = (token ~ "=" ~ (doubleQuoted|token)) map { case (k, v) => FV(k, v) }
   def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
-  def fieldList[_: P]: P[Seq[Value]] = field.rep(sep=",")
+  def fieldList[_: P]: P[Seq[Field]] = field.rep(sep=",")
   def filename[_: P]: P[String] = term
 
   def term[_: P]: P[String] = CharsWhile(!" ".contains(_)).!
@@ -62,7 +66,7 @@ object SplParser {
     case (sign, i) => IntValue(if (sign.equals("-")) -1 * i.toInt else i.toInt)
   }
 
-  def constant[_:P]: P[Constant] = fvalue | bool | int
+  def constant[_:P]: P[Constant] = cidr | wildcard | strValue | int | field | bool
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
     | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P | Add.P | Subtract.P
@@ -92,7 +96,7 @@ object SplParser {
   def fieldIn[_:P]: P[FieldIn] = token ~ "IN" ~ "(" ~ constant.rep(sep=",".?) ~ ")" map FieldIn.tupled
   def call[_: P]: P[Call] = (token ~~ "(" ~~ expr.rep(sep=",") ~~ ")").map(Call.tupled)
 
-  def termCall[_: P]: P[Call] = (W("TERM") ~ "(" ~ CharsWhile(!")".contains(_)).! ~ ")").map(term => Call("TERM", Seq(Value(term))))
+  def termCall[_: P]: P[Call] = (W("TERM") ~ "(" ~ CharsWhile(!")".contains(_)).! ~ ")").map(term => Call("TERM", Seq(Field(term))))
   def argu[_: P]: P[Expr] = termCall | call | constant
   def parens[_: P]: P[Expr] = "(" ~ expr ~ ")"
   def primary[_: P]: P[Expr] = unaryOf(expr) | fieldIn | parens | argu
@@ -111,9 +115,9 @@ object SplParser {
   // lookup <lookup-dataset> (<lookup-field> [AS <event-field>] )...
   //[ (OUTPUT | OUTPUTNEW) ( <lookup-destfield> [AS <event-destfield>] )...]
   def aliasedField[_:P]: P[Alias] = (field ~ W("AS") ~ (token|doubleQuoted) map Alias.tupled)
-  def fieldRep[_:P]: P[Seq[Field]] = (aliasedField | field).filter {
-    case Alias(Value(field), alias) => field.toLowerCase() != "output"
-    case Value(v) => v.toLowerCase != "output"
+  def fieldRep[_:P]: P[Seq[FieldLike]] = (aliasedField | field).filter {
+    case Alias(Field(field), alias) => field.toLowerCase() != "output"
+    case Field(v) => v.toLowerCase != "output"
   }.rep(1)
   def lookupOutput[_:P]: P[LookupOutput] = (W("OUTPUT")|W("OUTPUTNEW")).! ~ fieldRep map LookupOutput.tupled
   def lookup[_:P]: P[LookupCommand] = "lookup" ~ token ~ fieldRep ~ lookupOutput.? map LookupCommand.tupled
