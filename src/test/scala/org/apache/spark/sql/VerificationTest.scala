@@ -35,7 +35,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   test("thing") {
     generates("n>2 | stats count() by valid",
       """(spark.table('main')
-        |.where("(`n` > '2')")
+        |.where('(`n` > 2)')
         |.groupBy('valid')
         |.agg(F.expr('count() AS `count`')))
         |""".stripMargin)

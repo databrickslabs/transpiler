@@ -1,7 +1,8 @@
 package spl
 
 import fastparse.internal.Instrument
-import org.scalatest.Outcome
+import org.apache.spark.sql.catalyst.util.sideBySide
+import org.scalatest.{Assertions, Outcome}
 import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.concurrent.TimeLimits.failAfter
 import org.scalatest.funsuite.AnyFunSuite
@@ -53,9 +54,18 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
     }
   }
 
+  private def pretty(x: Any): String = pprint.apply(x, width = 40).plainText
+
   def parses[T](input: String, parser: P[_] => P[T], result: T): Unit =
     parse(input, parser/*, instrument=Debugger()*/) match {
       case Parsed.Success(value, _) =>
+        if (value != result) {
+          Assertions.fail(s"""FAILURE: ASTs do not match
+                             |=======
+                             |${sideBySide(pretty(value), pretty(result)).mkString("\n")}
+                             |""".stripMargin)
+        }
+
         value mustEqual result
       case Parsed.Failure(_, _, extra) =>
         fail(extra.trace(true).longAggregateMsg)

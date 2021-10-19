@@ -22,5 +22,7 @@ assembly / assemblyOption ~= {
   _.withIncludeScala(false)
 }
 
-//// ScalaTest
+// TEST Dependency: ScalaTest
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.2" % "test"
+// TEST Dependency: A Scala library to pretty-print values and types (MIT)
+libraryDependencies += "com.lihaoyi" %% "pprint" % "0.6.6" % "test"

@@ -3,28 +3,32 @@ package spl
 class SplParserTest extends ParserSuite {
   import spl.SplParser._
 
-  test("f") {
-    p(bool(_), Bool(false))
-  }
-
   test("false") {
     p(bool(_), Bool(false))
   }
 
-  test("t") {
-    p(bool(_), Bool(true))
+  test("f") {
+    p(bool(_), Bool(false))
+  }
+
+  test("from") {
+    p(expr(_), Field("from"))
   }
 
   test("true") {
     p(bool(_), Bool(true))
   }
 
-  test("right") {
-    p(fvalue(_), Value("right"))
+  test("t") {
+    p(bool(_), Bool(true))
+  }
+
+  test("tree") {
+    p(expr(_), Field("tree"))
   }
 
   test("left") {
-    p(field(_), Value("left"))
+    p(field(_), Field("left"))
   }
 
   test("foo   = bar") {
@@ -40,10 +44,10 @@ class SplParserTest extends ParserSuite {
 
   test("a ,   b,c, d") {
     p(fieldList(_), Seq(
-      Value("a"),
-      Value("b"),
-      Value("c"),
-      Value("d"),
+      Field("a"),
+      Field("b"),
+      Field("c"),
+      Field("d"),
     ))
   }
 
@@ -57,40 +61,40 @@ class SplParserTest extends ParserSuite {
 
   test("a OR b") {
     p(expr(_), Binary(
-      Value("a"),
+      Field("a"),
       Or,
-      Value("b")
+      Field("b")
     ))
   }
 
   // TODO: add wildcard AST transformation
   test("productID=\"S*G01\"") {
     p(expr(_), Binary(
-      Value("productID"),
+      Field("productID"),
       Equals,
-      Value("S*G01")
+      Wildcard("S*G01")
     ))
   }
 
   test("(event_id=12 OR event_id=13 OR event_id=14)") {
     p(expr(_), Binary(
       Binary(
-        Value("event_id"),
+        Field("event_id"),
         Equals,
-        Value("12")
+        IntValue(12)
       ),
       Or,
       Binary(
         Binary(
-          Value("event_id"),
+          Field("event_id"),
           Equals,
-          Value("13")
+          IntValue(13)
         ),
         Or,
         Binary(
-          Value("event_id"),
+          Field("event_id"),
           Equals,
-          Value("14")
+          IntValue(14)
         )
       )
     ))
@@ -100,29 +104,29 @@ class SplParserTest extends ParserSuite {
     p(impliedSearch(_), SearchCommand(Binary(
       Binary(
         Binary(
-          Value("a"),
+          Field("a"),
           Equals,
-          Value("b")
+          Field("b")
         ),
         And,
         Binary(
-          Value("b"),
+          Field("b"),
           Equals,
-          Value("c")
+          Field("c")
         )
       ),
       And,
       Binary(
         Binary(
-          Value("c"),
+          Field("c"),
           Equals,
-          Value("f")
+          Bool(false)
         ),
         Or,
         Binary(
-          Value("d"),
+          Field("d"),
           Equals,
-          Value("t")
+          Bool(true)
         )
       )
     )))
@@ -131,16 +135,16 @@ class SplParserTest extends ParserSuite {
   test("code IN(4*, 5*)") {
     p(impliedSearch(_), SearchCommand(
       FieldIn("code", Seq(
-        Value("4*"),
-        Value("5*")
+        Wildcard("4*"),
+        Wildcard("5*")
       ))))
   }
 
   test("var_5 IN (str_2 str_3)") {
     p(impliedSearch(_), SearchCommand(
       FieldIn("var_5", Seq(
-        Value("str_2"),
-        Value("str_3"),
+        Field("str_2"),
+        Field("str_3"),
       ))))
   }
 
@@ -148,8 +152,8 @@ class SplParserTest extends ParserSuite {
     p(impliedSearch(_), SearchCommand(
       Unary(UnaryNot,
         FieldIn("code", Seq(
-          Value("4*"),
-          Value("5*"))))
+          Wildcard("4*"),
+          Wildcard("5*"))))
     ))
   }
 
@@ -157,19 +161,22 @@ class SplParserTest extends ParserSuite {
     p(impliedSearch(_), SearchCommand(
       Binary(
         Binary(
-          FieldIn("code", Seq(Value("10"), Value("29"), Value("43"))),
+          FieldIn("code", Seq(
+            IntValue(10),
+            IntValue(29),
+            IntValue(43))),
           And,
           Binary(
-            Value("host"),
+            Field("host"),
             NotEquals,
-            Value("localhost")
+            StrValue("localhost")
           )
         ),
         And,
         Binary(
-          Value("xqp"),
+          Field("xqp"),
           GreaterThan,
-          Value("5")
+          IntValue(5)
         )
       )
     ))
@@ -208,9 +215,9 @@ class SplParserTest extends ParserSuite {
     p(head(_),
       HeadCommand(
         Binary(
-          Value("count"),
+          Field("count"),
           GreaterThan,
-          Value("10")
+          IntValue(10)
         ),
         Bool(false),
         Bool(false)
@@ -223,9 +230,9 @@ class SplParserTest extends ParserSuite {
       FieldsCommand(
         None,
         Seq(
-          Value("column_a"),
-          Value("column_b"),
-          Value("column_c")
+          Field("column_a"),
+          Field("column_b"),
+          Field("column_c")
         )
       )
     )
@@ -236,8 +243,8 @@ class SplParserTest extends ParserSuite {
       FieldsCommand(
         Option("+"),
         Seq(
-          Value("column_a"),
-          Value("column_b")
+          Field("column_a"),
+          Field("column_b")
         )
       )
     )
@@ -248,8 +255,8 @@ class SplParserTest extends ParserSuite {
       FieldsCommand(
         Option("-"),
         Seq(
-          Value("column_a"),
-          Value("column_b")
+          Field("column_a"),
+          Field("column_b")
         )
       )
     )
@@ -259,9 +266,9 @@ class SplParserTest extends ParserSuite {
     p(sort(_),
       SortCommand(
         Seq(
-          (None, Value("A")),
-          (Some("-"), Value("B")),
-          (Some("+"), Call("num", Seq(Value("C"))))
+          (None, Field("A")),
+          (Some("-"), Field("B")),
+          (Some("+"), Call("num", Seq(Field("C"))))
         )
       )
     )
@@ -270,7 +277,7 @@ class SplParserTest extends ParserSuite {
   test("TERM(XXXXX*\\\\XXXXX*)") {
     p(pipeline(_), Pipeline(Seq(
       SearchCommand(
-        Call("TERM",List(Value("XXXXX*\\\\XXXXX*")))
+        Call("TERM",List(Field("XXXXX*\\\\XXXXX*")))
       )
     )))
   }
@@ -283,14 +290,14 @@ class SplParserTest extends ParserSuite {
             Call("mvappend",
               Seq(
                 Binary(
-                  Value("a: "),
+                  StrValue("a: "),
                   Concatenate,
-                  Value("a")
+                  Field("a")
                 ),
                 Binary(
-                  Value("b: "),
+                  StrValue("b: "),
                   Concatenate,
-                  Value("b")
+                  Field("b")
                 )))))))))))
   }
 
@@ -298,7 +305,7 @@ class SplParserTest extends ParserSuite {
     p(sort(_),
       SortCommand(
         Seq(
-          (None, Value("A")),
+          (None, Field("A")),
         )
       )
     )
@@ -306,20 +313,20 @@ class SplParserTest extends ParserSuite {
 
   test("eval mitre_category=\"Discovery\"") {
     p(eval(_), EvalCommand(Seq(
-      (Value("mitre_category"), Value("Discovery"))
+      (Field("mitre_category"), StrValue("Discovery"))
     )))
   }
 
   test("eval hash_sha256= lower(hash_sha256), b=c") {
     p(eval(_), EvalCommand(Seq(
-      (Value("hash_sha256"), Call("lower", Seq(Value("hash_sha256")))),
-      (Value("b"), Value("c"))
+      (Field("hash_sha256"), Call("lower", Seq(Field("hash_sha256")))),
+      (Field("b"), Field("c"))
     )))
   }
 
   test("convert ctime(indextime)") {
     p(convert(_), ConvertCommand(None, Seq(
-      FieldConversion("ctime", Value("indextime"), None)
+      FieldConversion("ctime", Field("indextime"), None)
     )))
   }
 
@@ -329,9 +336,9 @@ class SplParserTest extends ParserSuite {
         "index" -> "threathunting",
         "a" -> "b"
       ), Seq(
-        Value("x"),
-        Value("y"),
-        Value("z"),
+        Field("x"),
+        Field("y"),
+        Field("z"),
       ))
     )))
   }
@@ -341,20 +348,20 @@ class SplParserTest extends ParserSuite {
       SearchCommand(
         Binary(
           Binary(
-            Value("index"),
+            Field("index"),
             Equals,
-            Value("foo")
+            Field("foo")
           ),
           And,
           Binary(
-            Value("bar"),
+            Field("bar"),
             Equals,
-            Value("baz")
+            Field("baz")
           )
         )
       ),
       EvalCommand(Seq(
-        (Value("foo"),Value("bar"))
+        (Field("foo"),Field("bar"))
       )),
       CollectCommand(Map(
         "index" -> "newer"
@@ -367,14 +374,14 @@ class SplParserTest extends ParserSuite {
       LookupCommand(
         "process_create_whitelist",
         Seq(
-          Value("a"),
-          Value("b")
+          Field("a"),
+          Field("b")
         ),
         Some(
           LookupOutput(
             "output",
             Seq(
-              Value("reason")
+              Field("reason")
             )
           )
         )
@@ -387,7 +394,7 @@ class SplParserTest extends ParserSuite {
       WhereCommand(
         Call(
           "isnull",Seq(
-            Value("reason")
+            Field("reason")
           )
         )
       )
@@ -397,9 +404,9 @@ class SplParserTest extends ParserSuite {
   test("table foo bar baz*") {
     p(pipeline(_), Pipeline(Seq(
       TableCommand(Seq(
-        Value("foo"),
-        Value("bar"),
-        Value("baz*"),
+        Field("foo"),
+        Field("bar"),
+        Field("baz*"),
       ))
     )))
   }
@@ -409,17 +416,17 @@ class SplParserTest extends ParserSuite {
       StatsCommand(Map(),Seq(
         Alias(
           Call("first",Seq(
-            Value("startTime")
+            Field("startTime")
           )),
           "startTime"),
         Alias(
           Call("last",Seq(
-            Value("histID")
+            Field("histID")
           )),
           "lastPassHistId")
       ),
       Seq(
-        Value("testCaseId")
+        Field("testCaseId")
       ))
     )))
   }
@@ -430,9 +437,9 @@ class SplParserTest extends ParserSuite {
         Call("count",Seq(
           Call("eval",Seq(
             Binary(
-              Value("status"),
+              Field("status"),
               Equals,
-              Value("404")
+              IntValue(404)
             ))))))
       ))
     ))
@@ -452,12 +459,12 @@ class SplParserTest extends ParserSuite {
       ),
       Seq(
         Call("count"),
-        Alias(Call("earliest", Seq(Value("_time"))), "earliest"),
-        Alias(Call("latest", Seq(Value("_time"))), "latest"),
-        Alias(Call("values", Seq(Value("var_2"))), "var_2"),
+        Alias(Call("earliest", Seq(Field("_time"))), "earliest"),
+        Alias(Call("latest", Seq(Field("_time"))), "latest"),
+        Alias(Call("values", Seq(Field("var_2"))), "var_2"),
       ),
       Seq(
-        Value("var_1")
+        Field("var_1")
       )
     ))
   }
@@ -490,7 +497,7 @@ class SplParserTest extends ParserSuite {
     p(rename(_),
       RenameCommand(
         Seq(Alias(
-          Value("_ip"),
+          Field("_ip"),
           "IPAddress"
         )))
     )
@@ -500,15 +507,15 @@ class SplParserTest extends ParserSuite {
     p(rename(_),
       RenameCommand(Seq(
         Alias(
-          Value("_ip"),
+          Field("_ip"),
           "IPAddress"
         ),
         Alias(
-          Value("_host"),
+          Field("_host"),
           "host"
         ),
         Alias(
-          Value("_port"),
+          Field("_port"),
           "port"
         )))
     )
@@ -519,7 +526,7 @@ class SplParserTest extends ParserSuite {
     p(rename(_),
       RenameCommand(
         Seq(Alias(
-          Value("foo*"),
+          Field("foo*"),
           "bar*"
         )))
     )
@@ -529,7 +536,7 @@ class SplParserTest extends ParserSuite {
     p(rename(_),
       RenameCommand(
         Seq(Alias(
-          Value("count"),
+          Field("count"),
           "Count of Events"
         )))
     )
@@ -543,9 +550,9 @@ class SplParserTest extends ParserSuite {
         earlier = true,
         overwrite = false,
         max = 1,
-        Seq(Value("product_id")),
+        Seq(Field("product_id")),
         Pipeline(Seq(
-          SearchCommand(Value("vendors"))))
+          SearchCommand(Field("vendors"))))
       )
     )
   }
@@ -559,12 +566,12 @@ class SplParserTest extends ParserSuite {
         overwrite = false,
         max = 1,
         Seq(
-          Value("product_id"),
-          Value("host"),
-          Value("name")
+          Field("product_id"),
+          Field("host"),
+          Field("name")
         ),
         Pipeline(Seq(
-          SearchCommand(Value("vendors"))))
+          SearchCommand(Field("vendors"))))
       )
     )
   }
@@ -577,12 +584,12 @@ class SplParserTest extends ParserSuite {
         earlier = true,
         overwrite = false,
         max = 1,
-        Seq(Value("product_id")),
+        Seq(Field("product_id")),
         Pipeline(Seq(
-          SearchCommand(Value("vendors")),
+          SearchCommand(Field("vendors")),
           RenameCommand(Seq(
             Alias(
-              Value("pid"),
+              Field("pid"),
               "product_id"
             )))
         ))
@@ -592,13 +599,13 @@ class SplParserTest extends ParserSuite {
 
   test("regex _raw=\"(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)\"") {
     p(_regex(_), RegexCommand(
-      Some((Value("_raw"), "=")),
+      Some((Field("_raw"), "=")),
       "(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)"))
   }
 
   test("regex _raw!=\"(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)\"") {
     p(_regex(_), RegexCommand(
-      Some((Value("_raw"), "!=")),
+      Some((Field("_raw"), "!=")),
       "(?<!\\d)10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?!\\d)"))
   }
 
@@ -612,8 +619,8 @@ class SplParserTest extends ParserSuite {
     p(_return(_), ReturnCommand(
       Some(IntValue(10)),
       Seq(
-        Value("test"),
-        Value("env")
+        Field("test"),
+        Field("env")
       )
     ))
   }
@@ -622,10 +629,10 @@ class SplParserTest extends ParserSuite {
     p(_return(_), ReturnCommand(
       Some(IntValue(10)),
       Seq(
-        Value("ip"),
-        Value("src"),
-        Value("host"),
-        Value("port")
+        Field("ip"),
+        Field("src"),
+        Field("host"),
+        Field("port")
       )
     ))
   }
@@ -634,8 +641,8 @@ class SplParserTest extends ParserSuite {
     p(_return(_), ReturnCommand(
       Some(IntValue(10)),
       Seq(
-        (Value("ip"), Value("src")),
-        (Value("host"), Value("port"))
+        (Field("ip"), Field("src")),
+        (Field("host"), Field("port"))
       )
     ))
   }
@@ -652,8 +659,8 @@ class SplParserTest extends ParserSuite {
     p(fillNull(_), FillNullCommand(
       Some("NULL"),
       Some(Seq(
-        Value("host"),
-        Value("port")
+        Field("host"),
+        Field("port")
       ))))
   }
 }
