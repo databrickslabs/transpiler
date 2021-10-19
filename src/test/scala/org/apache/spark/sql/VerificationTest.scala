@@ -71,7 +71,6 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
-
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"") {
     import spark.implicits._
 

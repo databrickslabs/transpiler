@@ -373,8 +373,6 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
-
-
     test("round(x)") {
         check(spl.SearchCommand(
             spl.Call("round", Seq(
