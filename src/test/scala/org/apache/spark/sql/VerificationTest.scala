@@ -43,7 +43,6 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
 
   test("thing2") {
     import spark.implicits._
-    import org.apache.spark.sql.functions.col
     spark.createDataset(dummy).createOrReplaceTempView("main")
     executes("n>2",
       """+---+---+---+---+-----+
@@ -243,8 +242,4 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |+---+----+---+---+-----+
         |""".stripMargin)
   }
-
-
-
-
 }
