@@ -99,6 +99,7 @@ object SplToCatalyst extends Logging {
               }, fields.map(_.value)), None, JoinHint.NONE)
 
           case spl.ReturnCommand(count, fields) =>
+            // Adding a comment
             val countLimit = count match {
               case Some(item) => Literal(item.value)
               case None => Literal(1)
