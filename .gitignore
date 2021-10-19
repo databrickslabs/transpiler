@@ -1,6 +1,5 @@
 *.class
 *.log
-
 .idea
 target
 project
