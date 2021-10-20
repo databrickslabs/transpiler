@@ -7,7 +7,6 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
-import spl.SortCommand
 
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
