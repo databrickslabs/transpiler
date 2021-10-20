@@ -361,7 +361,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("length(bar)") {
         check(spl.SearchCommand(
             spl.Call("len", Seq(
-                spl.Value("bar")
+                spl.Field("bar")
             ))),
             (_, tree) => {
                 Filter(
