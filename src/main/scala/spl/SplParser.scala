@@ -57,6 +57,8 @@ object SplParser {
   def fieldAndValue[_:P]: P[FV] = (token ~ "=" ~ (doubleQuoted|token)) map { case (k, v) => FV(k, v) }
   def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
   def fieldList[_: P]: P[Seq[Field]] = field.rep(sep=",")
+  def fieldAndBool[_:P]: P[FB] = (token ~ "=" ~ bool).map { case (k, v) => FB(k, v.value)}
+  def fieldAndBoolList[_: P]: P[Map[String, Boolean]] = fieldAndBool.rep map(x => x.map(y => y.field -> y.value).toMap)
   def filename[_: P]: P[String] = term
 
   def term[_: P]: P[String] = CharsWhile(!" ".contains(_)).!
@@ -210,6 +212,34 @@ object SplParser {
   def fillNull[_:P]: P[FillNullCommand] = ("fillnull" ~ ("value=" ~~ (doubleQuoted|token)).?
                                                       ~ field.rep(1).?) map FillNullCommand.tupled
 
+  /**
+   * Specific field repetition which exclude the term sortby
+   * to avoid any conflict with the sortby command during the parsing
+   */
+  def dedupFieldRep[_:P]: P[Seq[Field]] =  field.filter {
+    case Field(myVal) => !myVal.toLowerCase.equals("sortby")
+  }.rep(1)
+
+  def dedup[_:P]: P[DedupCommand] = (
+      "dedup" ~ int.? ~ fieldAndBoolList.? ~ dedupFieldRep ~ ("sortby" ~ (("+"|"-").!.? ~~ field).rep(1)).?) map {
+    case (limit, kv, fields, sortByQuery) =>
+      val kvOpt = kv.getOrElse(Map[String, Boolean]())
+
+      val sortByCommand = sortByQuery match {
+        case Some(query) => SortCommand(query)
+        case _ => SortCommand(Seq((Some("+"), spl.Field("_no"))))
+      }
+
+      DedupCommand(
+        numResults = limit.getOrElse(IntValue(1)),
+        fields = fields,
+        keepEvents = kvOpt.getOrElse("keepevents", false),
+        keepEmpty = kvOpt.getOrElse("keepEmpty", false),
+        consecutive = kvOpt.getOrElse("consecutive", false),
+        sortByCommand
+      )
+  }
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -225,6 +255,7 @@ object SplParser {
                                         | join
                                         | _return
                                         | fillNull
+                                        | dedup
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline

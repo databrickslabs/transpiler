@@ -24,6 +24,8 @@ case class FV(field: String, value: String) extends LeafExpr
 
 case class AliasedField(field: Field, alias: String) extends Expr with FieldLike
 
+case class FB(field: String, value: Boolean) extends LeafExpr
+
 case class FvList(fvs: Seq[FV]) extends Expr
 
 case class Binary(left: Expr, symbol: OperatorSymbol, right: Expr) extends Expr
@@ -90,10 +92,18 @@ case class JoinCommand(joinType: String = "inner",
                        fields: Seq[Field],
                        subSearch: Pipeline) extends Command
 
+
 // TODO: replace "Product with Serializable" with "Field" and refactor things
 case class ReturnCommand(count: Option[IntValue], fields: Seq[Product with Serializable]) extends Command
 
 // TODO: Option[Seq[Value]] -> Seq[Value] = Seq()
 case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) extends Command
+
+case class DedupCommand(numResults: IntValue,
+                        fields: Seq[Field],
+                        keepEvents: Boolean,
+                        keepEmpty: Boolean,
+                        consecutive: Boolean,
+                        sortBy: SortCommand) extends Command
 
 case class Pipeline(commands: Seq[Command])

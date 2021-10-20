@@ -3,17 +3,17 @@ package org.apache.spark.sql
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.must.Matchers._
 
-case class Dummy(a: String, b: String, c: String, n: Int, valid: Boolean)
-case class DummyKeyValue(key: String, value: String)
-case class SingleRawField(_raw: String)
+case class Dummy(index: String, a: String, b: String, c: String, n: Int, valid: Boolean)
+case class DummyKeyValue(index: String, key: String, value: String)
+case class SingleRawField(index: String, _raw: String)
 
 class SplExtensionTest extends AnyFunSuite {
   val dummy = Seq(
-    Dummy("a", "b", "c", 1, valid = true),
-    Dummy("d", "e", "f", 2, valid = false),
-    Dummy("g", "h", "i", 3, valid = true),
-    Dummy("h", "g", "f", 4, valid = false),
-    Dummy("e", "d", "c", 5, valid = true),
+    Dummy("dummy", "a", "b", "c", 1, valid = true),
+    Dummy("dummy", "d", "e", "f", 2, valid = false),
+    Dummy("dummy", "g", "h", "i", 3, valid = true),
+    Dummy("dummy", "h", "g", "f", 4, valid = false),
+    Dummy("dummy", "e", "d", "c", 5, valid = true),
   )
 
   test("it filters") {

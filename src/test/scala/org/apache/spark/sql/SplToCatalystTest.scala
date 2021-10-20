@@ -7,6 +7,7 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
+import spl.SortCommand
 
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
@@ -441,11 +442,120 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("dedup host") {
+        check(spl.DedupCommand(
+            spl.IntValue(1),
+            Seq(spl.Field("host")),
+            keepEvents = false,
+            keepEmpty = false,
+            consecutive = false,
+            spl.SortCommand(Seq((Some("+"), spl.Field("_no"))))
+        ),
+            (_, tree) => {
+                Project(
+                    Seq(
+                        UnresolvedAttribute("host"),
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port"),
+                    ),
+                    Filter(
+                        LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(1)),
+                        Project(Seq(
+                            UnresolvedAttribute("host"),
+                            UnresolvedAttribute("ip"),
+                            UnresolvedAttribute("port"),
+                            Alias(MonotonicallyIncreasingID(), "_no")(),
+                            Alias(WindowExpression(
+                                RowNumber(),
+                                WindowSpecDefinition(
+                                    Seq(UnresolvedAttribute("host")),
+                                    Seq(SortOrder(UnresolvedAttribute("_no"), Ascending)),
+                                    SpecifiedWindowFrame(RowFrame,
+                                        UnboundedPreceding,
+                                        CurrentRow
+                                    )
+                                )
+                            ), "_rn")()
+                        ), Project(Seq(
+                            UnresolvedAttribute("host"),
+                            UnresolvedAttribute("ip"),
+                            UnresolvedAttribute("port"),
+                            Alias(MonotonicallyIncreasingID(), "_no")()
+                        ), tree))
+                    )
+                )
+            },
+            Seq(
+                UnresolvedAttribute("host"),
+                UnresolvedAttribute("ip"),
+                UnresolvedAttribute("port")
+            )
+        )
+    }
+
+    test("dedup 10 keepevents=true ip port sortby +host -ip") {
+        check(spl.DedupCommand(
+            spl.IntValue(10),
+            Seq(
+                spl.Field("ip"),
+                spl.Field("port")
+            ),
+            keepEvents = true,
+            keepEmpty = false,
+            consecutive = false,
+            spl.SortCommand(Seq(
+                (Some("+"), spl.Field("host")),
+                (Some("-"), spl.Field("ip"))))
+        ),
+            (_, tree) => {
+                Project(
+                    Seq(
+                        UnresolvedAttribute("host"),
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port"),
+                    ),
+                    Filter(
+                        LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(10)),
+                        Project(Seq(
+                            UnresolvedAttribute("host"),
+                            UnresolvedAttribute("ip"),
+                            UnresolvedAttribute("port"),
+                            Alias(MonotonicallyIncreasingID(), "_no")(),
+                            Alias(WindowExpression(
+                                RowNumber(),
+                                WindowSpecDefinition(
+                                    Seq(UnresolvedAttribute("ip"),
+                                        UnresolvedAttribute("port")),
+                                    Seq(SortOrder(UnresolvedAttribute("host"), Ascending),
+                                        SortOrder(UnresolvedAttribute("ip"), Descending)),
+                                    SpecifiedWindowFrame(RowFrame,
+                                        UnboundedPreceding,
+                                        CurrentRow
+                                    )
+                                )
+                            ), "_rn")()
+                        ), Project(Seq(
+                            UnresolvedAttribute("host"),
+                            UnresolvedAttribute("ip"),
+                            UnresolvedAttribute("port"),
+                            Alias(MonotonicallyIncreasingID(), "_no")()
+                        ), tree))
+                    )
+                )
+            },
+            Seq(
+                UnresolvedAttribute("host"),
+                UnresolvedAttribute("ip"),
+                UnresolvedAttribute("port")
+            )
+        )
+    }
+
     private def check(command: spl.Command,
-              callback: (spl.Command, LogicalPlan) => LogicalPlan
-              ): Unit = this.synchronized {
+              callback: (spl.Command, LogicalPlan) => LogicalPlan,
+              output: Seq[NamedExpression] = Seq()): Unit = this.synchronized {
         val pipeline = spl.Pipeline(Seq(command))
-        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(), pipeline)
+        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(output = output), pipeline)
         val expectedPlan = pipeline.commands.foldLeft(
             UnresolvedRelation(Seq("main")).asInstanceOf[LogicalPlan]) {
             (tree, cmd) => callback(cmd, tree)

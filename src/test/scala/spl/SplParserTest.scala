@@ -663,4 +663,51 @@ class SplParserTest extends ParserSuite {
         Field("port")
       ))))
   }
+
+  test("dedup host") {
+    p(dedup(_), DedupCommand(
+      spl.IntValue(1),
+      Seq(spl.Field("host")),
+      keepEvents = false,
+      keepEmpty = false,
+      consecutive = false,
+      SortCommand(Seq((Some("+"), spl.Field("_no"))))
+    ))
+  }
+
+  test("dedup 10 keepevents=true keepempty=false consecutive=true host ip port") {
+    p(dedup(_), DedupCommand(
+      spl.IntValue(10),
+      Seq(
+        spl.Field("host"),
+        spl.Field("ip"),
+        spl.Field("port")
+      ),
+      keepEvents = true,
+      keepEmpty = false,
+      consecutive = true,
+      SortCommand(Seq((Some("+"), spl.Field("_no"))))
+    ))
+  }
+
+  test("dedup 10 keepevents=true host ip port sortby +host -ip") {
+    p(dedup(_), DedupCommand(
+      spl.IntValue(10),
+      Seq(
+        spl.Field("host"),
+        spl.Field("ip"),
+        spl.Field("port")
+      ),
+      keepEvents = true,
+      keepEmpty = false,
+      consecutive = false,
+      SortCommand(
+        Seq(
+          (Some("+"), Field("host")),
+          (Some("-"), Field("ip")),
+        )
+      )
+    ))
+  }
+
 }
