@@ -87,6 +87,18 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("substr neg index") {
+    import spark.implicits._
+    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
+    executes("b = substr(a,-3)",
+      """+-----+---+-----+---+-----+
+        ||a    |b  |c    |n  |valid|
+        |+-----+---+-----+---+-----+
+        ||a_abc|abc|a_ghi|1  |true |
+        |+-----+---+-----+---+-----+
+        |""".stripMargin)
+  }
+
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"") {
     import spark.implicits._
 
