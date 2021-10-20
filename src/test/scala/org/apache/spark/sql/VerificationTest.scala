@@ -75,7 +75,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
-  test("substr(a)") {
+  test("b = substr(a,3)") {
     import spark.implicits._
     spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
     executes("b = substr(a,3)",
@@ -87,7 +87,19 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
-  test("substr neg index") {
+  test("b = substr(a,3,6)") {
+    import spark.implicits._
+    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
+    executes("b = substr(a,3,6)",
+      """+-----+---+-----+---+-----+
+        ||a    |b  |c    |n  |valid|
+        |+-----+---+-----+---+-----+
+        ||a_abc|abc|a_ghi|1  |true |
+        |+-----+---+-----+---+-----+
+        |""".stripMargin)
+  }
+
+  test("b = substr(a,-3)") {
     import spark.implicits._
     spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
     executes("b = substr(a,-3)",
