@@ -377,14 +377,14 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("substr(foobar,4,3)") {
         check(spl.SearchCommand(
             spl.Call("substr", Seq(
-                spl.StrValue("foobar"),
+                spl.Field("foobar"),
                 spl.IntValue(4),
                 spl.IntValue(3)
             ))),
             (_, tree) => {
                 Filter(
                     Substring(
-                        Literal("foobar"),
+                        UnresolvedAttribute("foobar"),
                         Literal(4),
                         Literal(3)
                     ),
@@ -396,13 +396,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("substr(foobar,4)") {
         check(spl.SearchCommand(
             spl.Call("substr", Seq(
-                spl.StrValue("foobar"),
+                spl.Field("foobar"),
                 spl.IntValue(4)
             ))),
             (_, tree) => {
                 Filter(
                     Substring(
-                        Literal("foobar"),
+                        UnresolvedAttribute("foobar"),
                         Literal(4),
                         Literal(Integer.MAX_VALUE)
                     ),
@@ -414,13 +414,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("substr(foobar,-3)") {
         check(spl.SearchCommand(
             spl.Call("substr", Seq(
-                spl.StrValue("foobar"),
+                spl.Field("foobar"),
                 spl.IntValue(-3)
             ))),
             (_, tree) => {
                 Filter(
                     Substring(
-                        Literal("foobar"),
+                        UnresolvedAttribute("foobar"),
                         Literal(-3),
                         Literal(Integer.MAX_VALUE)
                     ),
