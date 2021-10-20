@@ -4,6 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.expressions.Length
+import org.apache.spark.sql.catalyst.expressions.Substring
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
@@ -367,6 +368,61 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Filter(
                     Length(
                         UnresolvedAttribute("bar")
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("substr(foobar,4,3)") {
+        check(spl.SearchCommand(
+            spl.Call("substr", Seq(
+                spl.StrValue("foobar"),
+                spl.IntValue(4),
+                spl.IntValue(3)
+            ))),
+            (_, tree) => {
+                Filter(
+                    Substring(
+                        Literal("foobar"),
+                        Literal(4),
+                        Literal(3)
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("substr(foobar,4)") {
+        check(spl.SearchCommand(
+            spl.Call("substr", Seq(
+                spl.StrValue("foobar"),
+                spl.IntValue(4)
+            ))),
+            (_, tree) => {
+                Filter(
+                    Substring(
+                        Literal("foobar"),
+                        Literal(4),
+                        Literal(Integer.MAX_VALUE)
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("substr(foobar,-3)") {
+        check(spl.SearchCommand(
+            spl.Call("substr", Seq(
+                spl.StrValue("foobar"),
+                spl.IntValue(-3)
+            ))),
+            (_, tree) => {
+                Filter(
+                    Substring(
+                        Literal("foobar"),
+                        Literal(-3),
+                        Literal(Integer.MAX_VALUE)
                     ),
                     tree)
             }
