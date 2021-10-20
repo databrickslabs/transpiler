@@ -32,6 +32,11 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
                    "Not accepting messages at this time ('421', ['4.3.2 try again later'])")
   )
 
+  val dummySubstrings = Seq(
+    Dummy("a_abc", "abc", "a_ghi", 1, valid = true),
+    Dummy("b_abc", "b_def", "b_ghi", 2, valid = false)
+  )
+
   test("thing") {
     generates("n>2 | stats count() by valid",
       """(spark.table('main')
@@ -67,6 +72,18 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         ||h  |g  |f  |4  |false|
         ||e  |d  |c  |5  |true |
         |+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
+  test("substr(a)") {
+    import spark.implicits._
+    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
+    executes("b = substr(a,3)",
+      """+-----+---+-----+---+-----+
+        ||a    |b  |c    |n  |valid|
+        |+-----+---+-----+---+-----+
+        ||a_abc|abc|a_ghi|1  |true |
+        |+-----+---+-----+---+-----+
         |""".stripMargin)
   }
 
