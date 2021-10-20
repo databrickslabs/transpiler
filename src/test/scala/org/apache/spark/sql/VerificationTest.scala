@@ -34,7 +34,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
 
   val dummySubstrings = Seq(
     Dummy("a_abc", "abc", "a_ghi", 1, valid = true),
-    Dummy("b_abc", "b_def", "b_ghi", 2, valid = false)
+    Dummy("a_abc_d", "abc", "a_ghi", 2, valid = false)
   )
 
   test("thing") {
@@ -87,15 +87,16 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
-  test("b = substr(a,3,6)") {
+  test("b = substr(a,3,3)") {
     import spark.implicits._
     spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
-    executes("b = substr(a,3,6)",
-      """+-----+---+-----+---+-----+
-        ||a    |b  |c    |n  |valid|
-        |+-----+---+-----+---+-----+
-        ||a_abc|abc|a_ghi|1  |true |
-        |+-----+---+-----+---+-----+
+    executes("b = substr(a,3,3)",
+      """+-------+---+-----+---+-----+
+        ||a      |b  |c    |n  |valid|
+        |+-------+---+-----+---+-----+
+        ||a_abc  |abc|a_ghi|1  |true |
+        ||a_abc_d|abc|a_ghi|2  |false|
+        |+-------+---+-----+---+-----+
         |""".stripMargin)
   }
 
