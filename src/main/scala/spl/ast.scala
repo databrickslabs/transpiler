@@ -12,6 +12,7 @@ case class Null() extends Constant
 case class Bool(value: Boolean) extends Constant
 case class IntValue(value: Int) extends Constant
 case class StrValue(value: String) extends Constant
+//case class Field(value: String) extends Expr with FieldLike
 case class Field(value: String) extends Constant with FieldLike
 case class Wildcard(value: String) extends Constant with FieldLike
 case class IPv4CIDR(value: String) extends Constant {

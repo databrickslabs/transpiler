@@ -356,6 +356,7 @@ object SplToCatalyst extends Logging {
   }
 
   private def expression(expr: spl.Expr): Expression = expr match {
+    case field: spl.Field => attr(field)
     case constant: spl.Constant => mapConstants(constant)
     case call: spl.Call => function(call)
     case spl.Unary(symbol, right) => symbol match {
@@ -371,12 +372,12 @@ object SplToCatalyst extends Logging {
     case spl.Binary(left, symbol, right) => symbol match {
       case straight: spl.Straight => straight match {
         case relational: spl.Relational => relational match {
-          case spl.LessThan => LessThan(attr(left), expression(right))
-          case spl.GreaterThan => GreaterThan(attr(left), expression(right))
-          case spl.GreaterEquals => GreaterThanOrEqual(attr(left), expression(right))
-          case spl.LessEquals => LessThanOrEqual(attr(left), expression(right))
-          case spl.Equals => EqualTo(attr(left), expression(right))
-          case spl.NotEquals => Not(EqualTo(attr(left), expression(right)))
+          case spl.LessThan => LessThan(expression(left), expression(right))
+          case spl.GreaterThan => GreaterThan(expression(left), expression(right))
+          case spl.GreaterEquals => GreaterThanOrEqual(expression(left), expression(right))
+          case spl.LessEquals => LessThanOrEqual(expression(left), expression(right))
+          case spl.Equals => EqualTo(expression(left), expression(right))
+          case spl.NotEquals => Not(EqualTo(expression(left), expression(right)))
         }
         case spl.Or => Or(expression(left), expression(right))
         case spl.And => And(expression(left), expression(right))
@@ -404,7 +405,6 @@ object SplToCatalyst extends Logging {
   private def mapConstants(constant: spl.Constant): Literal = constant match {
     case spl.Null() => Literal.create(null)
     case spl.Bool(value) => Literal.create(value)
-    case spl.Field(value) => Literal.create(value)
     case spl.StrValue(value) => Literal.create(value)
     case spl.IntValue(value) => Literal.create(value)
   }

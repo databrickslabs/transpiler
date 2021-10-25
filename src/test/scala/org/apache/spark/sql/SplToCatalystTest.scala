@@ -278,7 +278,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ))),
             (_, tree) => {
                 Join(tree,
-                     Filter(Literal("vendors"), tree),
+                     Filter(UnresolvedAttribute("vendors"), tree),
                      UsingJoin(Inner, List("product_id")), None, JoinHint.NONE)
             }
         )
@@ -297,7 +297,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ))),
             (_, tree) => {
                 Join(tree,
-                    Filter(Literal("vendors"), tree),
+                    Filter(UnresolvedAttribute("vendors"), tree),
                     UsingJoin(LeftOuter, List("product_id", "product_name")), None, JoinHint.NONE)
             }
         )

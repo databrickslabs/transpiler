@@ -66,6 +66,7 @@ object SplParser {
     case (sign, i) => IntValue(if (sign.equals("-")) -1 * i.toInt else i.toInt)
   }
 
+  //def constant[_:P]: P[Constant] = cidr | wildcard | strValue | int | bool
   def constant[_:P]: P[Constant] = cidr | wildcard | strValue | int | field | bool
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
@@ -97,6 +98,7 @@ object SplParser {
   def call[_: P]: P[Call] = (token ~~ "(" ~~ expr.rep(sep=",") ~~ ")").map(Call.tupled)
 
   def termCall[_: P]: P[Call] = (W("TERM") ~ "(" ~ CharsWhile(!")".contains(_)).! ~ ")").map(term => Call("TERM", Seq(Field(term))))
+  //def argu[_: P]: P[Expr] = termCall | call | field | constant
   def argu[_: P]: P[Expr] = termCall | call | constant
   def parens[_: P]: P[Expr] = "(" ~ expr ~ ")"
   def primary[_: P]: P[Expr] = unaryOf(expr) | fieldIn | parens | argu
