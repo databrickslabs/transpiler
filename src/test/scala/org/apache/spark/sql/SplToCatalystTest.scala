@@ -123,6 +123,34 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         tree)))
     }
 
+    test("EvalCommand to check conditions") {
+        check(spl.EvalCommand(
+            Seq(
+                (spl.Field("a_eq_b"),
+                  spl.Call("if",
+                      Seq(spl.Binary(spl.Field("a"), spl.Equals, spl.StrValue("b")),
+                          spl.IntValue(1),
+                          spl.IntValue(0)
+                      )
+                  )
+                )
+            )
+        ),
+            (_, tree) =>
+                Project(
+                    Seq(Alias(
+                        If(
+                            EqualTo(UnresolvedAttribute("a"), Literal("b")),
+                                Literal(1),
+                                Literal(0)
+                            ),
+                        "a_eq_b"
+                        )()
+                    )
+                , tree)
+        )
+    }
+
     test("LookupCommand to Join") {
         check(spl.LookupCommand(
             "dst", Seq(
