@@ -96,6 +96,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("eval coalesced=coalesce(b,c)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
+    generates("eval coalesced=coalesce(b,c)",
+      """(spark.table('main')
+        |.withColumn('coalesced', F.expr('coalesce(`b`, `c`)')))
+        |""".stripMargin)
+  }
+
   test("n > len(a)") {
     import spark.implicits._
     spark.createDataset(dummy).createOrReplaceTempView("main")
