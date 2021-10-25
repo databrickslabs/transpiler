@@ -41,6 +41,33 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("stats sum test w/ groupBy") {
+    generates("n>2 | stats sum(n) by valid",
+      """(spark.table('main')
+        |.where('(`n` > 2)')
+        |.groupBy('valid')
+        |.agg(F.expr('sum(`n`) AS `sum`')))
+        |""".stripMargin)
+  }
+
+  test("stats sum test w/o groupBy") {
+    generates("n>2 | stats sum(n)",
+      """(spark.table('main')
+        |.where('(`n` > 2)')
+        |.groupBy()
+        |.agg(F.expr('sum(`n`) AS `sum`')))
+        |""".stripMargin)
+  }
+
+  test("stats sum test w/o groupBy, w/ AS stmt") {
+    generates("n>2 | stats sum(n) AS total_sum",
+      """(spark.table('main')
+        |.where('(`n` > 2)')
+        |.groupBy()
+        |.agg(F.expr('sum(`n`) AS `total_sum`')))
+        |""".stripMargin)
+  }
+
   test("thing2") {
     import spark.implicits._
     spark.createDataset(dummy).createOrReplaceTempView("main")

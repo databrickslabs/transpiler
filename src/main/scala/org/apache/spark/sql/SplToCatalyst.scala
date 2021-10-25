@@ -4,7 +4,7 @@ import scala.collection.mutable
 import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectSet, Count, First, Last, Max, Min}
+import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectSet, Count, Sum, First, Last, Max, Min}
 import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
@@ -128,6 +128,8 @@ object SplToCatalyst extends Logging {
       Column(field).cast("date").as(field.name).named
     case "count" =>
       Count(call.args.map(expression))
+    case "sum" =>
+      Sum(attr(call.args.head))
     case "min" =>
       // TODO: would currently fail on wildcard attributes
       Min(attrOrExpr(call.args.head))
