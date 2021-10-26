@@ -31,6 +31,6 @@ jobs:
       - name: Run Tests with Maven
         run: mvn -B test --file pom.xml --fail-at-end
 
-      - name: Publish Tests Report
-        if: ${{ always() }}
-        uses: scacap/action-surefire-report@v1
+#      - name: Publish Tests Report
+#        if: ${{ always() }}
+#        uses: scacap/action-surefire-report@v1
