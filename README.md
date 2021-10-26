@@ -79,7 +79,7 @@ Secondary batch of commands:
 | isnotnull() |  |
 | sum() |  |
 | mvfilter() |  |
-| len() |  |
+| len() | ✅ |
 | count() | ✅ |
 
 ## Developing 

@@ -134,6 +134,10 @@ object SplToCatalyst extends Logging {
     case "max" =>
       // TODO: would currently fail on wildcard attributes
       Max(attr(call.args.head))
+    case "len" =>
+      // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/TextFunctions#len.28X.29
+      // This function returns the character length of a string X
+      Length(attrOrExpr(call.args.head))
     case "round" =>
       val num = attrOrExpr(call.args.head)
       val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
