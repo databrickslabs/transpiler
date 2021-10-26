@@ -107,6 +107,18 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 tree))
     }
 
+    test("sum(connection_time)") {
+        check(spl.StatsCommand(
+            Map(),
+            Seq(spl.Call("sum", Seq(spl.Field("connection_time")))),
+            Seq(spl.Field("host"))),
+            (_, tree) =>
+                Aggregate(
+                    Seq(UnresolvedAttribute("host")),
+                    Seq(Alias(Sum(UnresolvedAttribute("connection_time")), "sum")()),
+                    tree))
+    }
+
     test("StatsCommand to Deduplicate Aggregate") {
         check(spl.StatsCommand(
             Map(),

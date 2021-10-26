@@ -77,7 +77,7 @@ Secondary batch of commands:
 | max() | ✅ |
 | substr() | ✅ |
 | isnotnull() |  |
-| sum() |  |
+| sum() | ✅ |
 | mvfilter() |  |
 | len() | ✅ |
 | count() | ✅ |
