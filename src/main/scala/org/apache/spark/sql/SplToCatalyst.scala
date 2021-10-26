@@ -123,6 +123,8 @@ object SplToCatalyst extends Logging {
   private def function(call: spl.Call): Expression = call.name match {
     case "isnull" =>
       IsNull(attrOrExpr(call.args.head))
+    case "if" =>
+      If(attrOrExpr(call.args.head), attrOrExpr(call.args(1)),attrOrExpr(call.args(2)))
     case "ctime" =>
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
