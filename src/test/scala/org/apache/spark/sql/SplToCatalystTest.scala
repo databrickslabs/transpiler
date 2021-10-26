@@ -154,13 +154,43 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     Seq(Alias(
                         If(
                             EqualTo(UnresolvedAttribute("a"), Literal("b")),
-                                Literal(1),
-                                Literal(0)
-                            ),
+                            Literal(1),
+                            Literal(0)
+                        ),
                         "a_eq_b"
-                        )()
+                    )()
                     )
-                , tree)
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check coalesce functionality") {
+        check(spl.EvalCommand(
+            Seq(
+                (spl.Field("coalesced"),
+                  spl.Call("coalesce",
+                      Seq(spl.Field("a"),
+                          spl.Field("b"),
+                          spl.Field("c")
+                      )
+                  )
+                )
+            )
+        ),
+            (_, tree) =>
+                Project(
+                    Seq(Alias(
+                        Coalesce(
+                            Seq(
+                                UnresolvedAttribute("a"),
+                                UnresolvedAttribute("b"),
+                                UnresolvedAttribute("c")
+                            )
+                        ),
+                        "coalesced"
+                    )()
+                    )
+                    , tree)
         )
     }
 
