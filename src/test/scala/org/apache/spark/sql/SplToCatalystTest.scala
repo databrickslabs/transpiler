@@ -85,13 +85,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("FieldsCommand should generate a Project with UnresolvedRegex") {
         check(spl.FieldsCommand(
-            Some("-"), Seq(
+            Some("+"), Seq(
                 spl.Field("colA"),
                 spl.Field("colB"))),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("(?!colA|colB).*",
-                    None, caseSensitive = false)
+                UnresolvedAttribute("colA"),
+                UnresolvedAttribute("colB"),
             ), tree))
     }
 
@@ -204,9 +204,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     UnresolvedAttribute("colNameA"),
                     Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
                     Literal(1)), "from")(),
-            ), Project(Seq(
+            ), tree)),
+            injectOutput = Seq(
                 UnresolvedAttribute("_raw")
-            ), tree))))
+            ))
     }
 
     test("Rex Command should throw an error") {
@@ -229,10 +230,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 "colARenamed"))),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("(?!colNameA).*", None, caseSensitive = false),
                 Alias(Column("colNameA").expr, "colARenamed")()
             ), tree)
-        )
+        , injectOutput = Seq(
+            UnresolvedAttribute("colNameA")
+        ))
     }
 
     test("rename command should generate another Project") {
@@ -245,10 +247,12 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 "colBRenamed"))),
             (_, tree) =>
                 Project(Seq(
-                    UnresolvedRegex("(?!colNameA|colNameB).*", None, caseSensitive = false),
                     Alias(Column("colNameA").expr, "colARenamed")(),
                     Alias(Column("colNameB").expr, "colBRenamed")()
                 ), tree)
+        , injectOutput = Seq(
+            UnresolvedAttribute("colNameA"),
+            UnresolvedAttribute("colNameB"))
         )
     }
 
@@ -554,10 +558,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     }
 
     private def check(command: spl.Command,
-              callback: (spl.Command, LogicalPlan) => LogicalPlan
-              ): Unit = this.synchronized {
+                      callback: (spl.Command, LogicalPlan) => LogicalPlan,
+                      injectOutput: Seq[NamedExpression] = Seq()): Unit = this.synchronized {
         val pipeline = spl.Pipeline(Seq(command))
-        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(), pipeline)
+        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(output = injectOutput), pipeline)
         val expectedPlan = pipeline.commands.foldLeft(
             UnresolvedRelation(Seq("main")).asInstanceOf[LogicalPlan]) {
             (tree, cmd) => callback(cmd, tree)
