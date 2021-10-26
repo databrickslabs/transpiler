@@ -60,6 +60,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("eval n_large=if(n > 3, 1, 0)") {
+    import spark.implicits._
+    spark.createDataset(dummy).createOrReplaceTempView("main")
+    generates("eval n_large=if(n > 3, 1, 0)",
+      """(spark.table('main')
+        |.withColumn('n_large', F.expr('(IF((`n` > 3), 1, 0))')))
+        |""".stripMargin)
+  }
+
   test("n > len(a)") {
     import spark.implicits._
     spark.createDataset(dummy).createOrReplaceTempView("main")
