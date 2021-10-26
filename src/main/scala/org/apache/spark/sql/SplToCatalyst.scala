@@ -297,7 +297,6 @@ object SplToCatalyst extends Logging {
 
   private def renameColumn(ctx: LogicalContext, tree: LogicalPlan, aliases: Seq[spl.Alias]): LogicalPlan = {
     val aliasByName = aliases.map(alias => (attr(alias.expr).name) -> alias).toMap
-    println(ctx.output)
     Project(ctx.output.map(namedExpr => {
       if (aliasByName.keySet.contains(namedExpr.name)) {
         aliasByName.get(namedExpr.name) match {
