@@ -149,6 +149,8 @@ object SplToCatalyst extends Logging {
       val pos = expression(call.args(1))
       val len = call.args.lift(2).map(expression).getOrElse(Literal(Integer.MAX_VALUE))
       Substring(str,pos,len)
+    case "coalesce" =>
+      Coalesce(call.args.map(attrOrExpr))
     case "round" =>
       val num = attrOrExpr(call.args.head)
       val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
