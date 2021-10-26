@@ -4,6 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.expressions.Length
+import org.apache.spark.sql.catalyst.expressions.Substring
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
@@ -121,6 +122,34 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         Seq(UnresolvedAttribute("host")),
                         Seq(Alias(Count(Seq()), "count")()),
                         tree)))
+    }
+
+    test("EvalCommand to check conditions") {
+        check(spl.EvalCommand(
+            Seq(
+                (spl.Field("a_eq_b"),
+                  spl.Call("if",
+                      Seq(spl.Binary(spl.Field("a"), spl.Equals, spl.StrValue("b")),
+                          spl.IntValue(1),
+                          spl.IntValue(0)
+                      )
+                  )
+                )
+            )
+        ),
+            (_, tree) =>
+                Project(
+                    Seq(Alias(
+                        If(
+                            EqualTo(UnresolvedAttribute("a"), Literal("b")),
+                                Literal(1),
+                                Literal(0)
+                            ),
+                        "a_eq_b"
+                        )()
+                    )
+                , tree)
+        )
     }
 
     test("LookupCommand to Join") {
@@ -367,6 +396,61 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Filter(
                     Length(
                         UnresolvedAttribute("bar")
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("substr(foobar,4,3)") {
+        check(spl.SearchCommand(
+            spl.Call("substr", Seq(
+                spl.Field("foobar"),
+                spl.IntValue(4),
+                spl.IntValue(3)
+            ))),
+            (_, tree) => {
+                Filter(
+                    Substring(
+                        UnresolvedAttribute("foobar"),
+                        Literal(4),
+                        Literal(3)
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("substr(foobar,4)") {
+        check(spl.SearchCommand(
+            spl.Call("substr", Seq(
+                spl.Field("foobar"),
+                spl.IntValue(4)
+            ))),
+            (_, tree) => {
+                Filter(
+                    Substring(
+                        UnresolvedAttribute("foobar"),
+                        Literal(4),
+                        Literal(Integer.MAX_VALUE)
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("substr(foobar,-3)") {
+        check(spl.SearchCommand(
+            spl.Call("substr", Seq(
+                spl.Field("foobar"),
+                spl.IntValue(-3)
+            ))),
+            (_, tree) => {
+                Filter(
+                    Substring(
+                        UnresolvedAttribute("foobar"),
+                        Literal(-3),
+                        Literal(Integer.MAX_VALUE)
                     ),
                     tree)
             }

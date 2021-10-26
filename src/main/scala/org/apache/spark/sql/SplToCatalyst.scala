@@ -123,6 +123,8 @@ object SplToCatalyst extends Logging {
   private def function(call: spl.Call): Expression = call.name match {
     case "isnull" =>
       IsNull(attrOrExpr(call.args.head))
+    case "if" =>
+      If(attrOrExpr(call.args.head), attrOrExpr(call.args(1)),attrOrExpr(call.args(2)))
     case "ctime" =>
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
@@ -138,6 +140,13 @@ object SplToCatalyst extends Logging {
       // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/TextFunctions#len.28X.29
       // This function returns the character length of a string X
       Length(attrOrExpr(call.args.head))
+    case "substr" =>
+      //https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/TextFunctions#substr.28X.2CY.2CZ.29
+      //substr(X,Y,Z) -> Returns a substring of X, starting at the index specified by Y with the number of characters specified by Z
+      val str = attrOrExpr(call.args.head)
+      val pos = expression(call.args(1))
+      val len = call.args.lift(2).map(expression).getOrElse(Literal(Integer.MAX_VALUE))
+      Substring(str,pos,len)
     case "round" =>
       val num = attrOrExpr(call.args.head)
       val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))

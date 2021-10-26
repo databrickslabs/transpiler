@@ -32,6 +32,11 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
                    "Not accepting messages at this time ('421', ['4.3.2 try again later'])")
   )
 
+  val dummySubstrings = Seq(
+    Dummy("a_abc", "abc", "a_ghi", 1, valid = true),
+    Dummy("a_abc_d", "abc", "a_ghi", 2, valid = false)
+  )
+
   test("thing") {
     generates("n>2 | stats count() by valid",
       """(spark.table('main')
@@ -55,6 +60,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("eval n_large=if(n > 3, 1, 0)") {
+    import spark.implicits._
+    spark.createDataset(dummy).createOrReplaceTempView("main")
+    generates("eval n_large=if(n > 3, 1, 0)",
+      """(spark.table('main')
+        |.withColumn('n_large', F.expr('(IF((`n` > 3), 1, 0))')))
+        |""".stripMargin)
+  }
+
   test("n > len(a)") {
     import spark.implicits._
     spark.createDataset(dummy).createOrReplaceTempView("main")
@@ -67,6 +81,43 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         ||h  |g  |f  |4  |false|
         ||e  |d  |c  |5  |true |
         |+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
+  test("b = substr(a,3)") {
+    import spark.implicits._
+    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
+    executes("b = substr(a,3)",
+      """+-----+---+-----+---+-----+
+        ||a    |b  |c    |n  |valid|
+        |+-----+---+-----+---+-----+
+        ||a_abc|abc|a_ghi|1  |true |
+        |+-----+---+-----+---+-----+
+        |""".stripMargin)
+  }
+
+  test("b = substr(a,3,3)") {
+    import spark.implicits._
+    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
+    executes("b = substr(a,3,3)",
+      """+-------+---+-----+---+-----+
+        ||a      |b  |c    |n  |valid|
+        |+-------+---+-----+---+-----+
+        ||a_abc  |abc|a_ghi|1  |true |
+        ||a_abc_d|abc|a_ghi|2  |false|
+        |+-------+---+-----+---+-----+
+        |""".stripMargin)
+  }
+
+  test("b = substr(a,-3)") {
+    import spark.implicits._
+    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
+    executes("b = substr(a,-3)",
+      """+-----+---+-----+---+-----+
+        ||a    |b  |c    |n  |valid|
+        |+-----+---+-----+---+-----+
+        ||a_abc|abc|a_ghi|1  |true |
+        |+-----+---+-----+---+-----+
         |""".stripMargin)
   }
 

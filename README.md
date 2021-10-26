@@ -66,7 +66,7 @@ Secondary batch of commands:
 | values() | ✅ |
 | latest() | ✅ |
 | earliest() | ✅ |
-| if() |  |
+| if() | ✅ |
 | [mvcount()](https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/MultivalueEvalFunctions#mvcount.28MVFIELD.29) |  |
 | coalesce() |  |
 | mvindex() |  |
@@ -75,7 +75,7 @@ Secondary batch of commands:
 | min() | ✅ |
 | round() | ✅ |
 | max() | ✅ |
-| substr() |  |
+| substr() | ✅ |
 | isnotnull() |  |
 | sum() |  |
 | mvfilter() |  |
