@@ -15,6 +15,14 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     Dummy("e", "d", "c", 5, valid = true),
   )
 
+  val dummyWithArray = Seq(
+    DummyWithArray("a", "b", "c", Seq("a", "b", "c"), 1, valid = true),
+    DummyWithArray("d", "e", "f", Seq("d", "e"), 2, valid = false),
+    DummyWithArray("g", "h", "i", Seq("g", "h", "i"), 3, valid = true),
+    DummyWithArray("h", "g", "f", Seq("h"), 4, valid = false),
+    DummyWithArray("e", "d", "c", Seq("e", "d", "c"), 5, valid = true),
+  )
+
   val dummyWithNull = Seq(
     Dummy("a", null, null, 1, valid = true),
     Dummy("d", "e", "f", 2, valid = false)
@@ -158,6 +166,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     generates("index=main | eval coalesced=coalesce(b,c)",
       """(spark.table('main')
         |.withColumn('coalesced', F.expr('coalesce(`b`, `c`)')))
+        |""".stripMargin)
+  }
+
+  test("eval count=mvcount(d)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
+    generates("eval count=mvcount(d)",
+      """(spark.table('main')
+        |.withColumn('count', F.expr('size(`d`)')))
         |""".stripMargin)
   }
 

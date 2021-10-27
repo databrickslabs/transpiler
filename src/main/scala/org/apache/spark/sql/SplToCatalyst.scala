@@ -170,6 +170,8 @@ object SplToCatalyst extends Logging {
         }
         case _ => throw new AnalysisException(s"Invalid strftime format given")
       }))
+    case "mvcount" =>
+      Size(attrOrExpr(call.args.head))
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")

@@ -4,6 +4,7 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
 import org.apache.spark.sql.types.DoubleType
 import org.scalatest.funsuite.AnyFunSuite
@@ -174,6 +175,27 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                             Literal(0)
                         ),
                         "a_eq_b"
+                    )()
+                    )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvcount function") {
+        check(spl.EvalCommand(
+            Seq(
+                (spl.Field("count"),
+                  spl.Call("mvcount",
+                      Seq(spl.Field("mvfield"))
+                  )
+                )
+            )
+        ),
+            (_, tree) =>
+                Project(
+                    Seq(Alias(
+                        Size(UnresolvedAttribute("mvfield")),
+                        "count"
                     )()
                     )
                     , tree)
