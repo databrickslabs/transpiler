@@ -63,7 +63,7 @@ case class HeadCommand(evalExpr: Expr,
                        keepLast: Bool = Bool(false),
                        nullOption: Bool = Bool(false)) extends Command
 
-case class FieldsCommand(op: Option[String], fields: Seq[Field]) extends Command
+case class FieldsCommand(removeFields: Boolean, fields: Seq[Field]) extends Command
 
 case class SortCommand(fieldsToSort: Seq[(Option[String], Expr)]) extends Command
 

@@ -57,11 +57,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), global =  true, tree))
     }
 
-    test("FieldsCommand should generate a Project with UnresolvedAlias") {
+    test("FieldsCommand should generate a Project") {
         check(spl.FieldsCommand(
-            None, Seq(
+            removeFields = false,
+            Seq(
                 spl.Field("colA"),
-                spl.Field("colB"))),
+                spl.Field("colB"))
+            ),
         (_, tree) =>
             Project(Seq(
                 UnresolvedAttribute("colA"),
@@ -69,9 +71,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), tree))
     }
 
-    test("FieldsCommand should generate another Project with with UnresolvedAlias") {
+    test("FieldsCommand should generate another Project 3 columns") {
         check(spl.FieldsCommand(
-            Some("+"), Seq(
+            removeFields = false,
+            Seq(
                 spl.Field("colA"),
                 spl.Field("colB"),
                 spl.Field("colC"))),
@@ -83,9 +86,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), tree))
     }
 
-    test("FieldsCommand should generate a Project with UnresolvedRegex") {
+    test("FieldsCommand should generate another Project with 2 columns") {
         check(spl.FieldsCommand(
-            Some("+"), Seq(
+            removeFields = false,
+            Seq(
                 spl.Field("colA"),
                 spl.Field("colB"))),
         (_, tree) =>
@@ -204,7 +208,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     UnresolvedAttribute("colNameA"),
                     Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
                     Literal(1)), "from")(),
-            ), tree)),
+            ), Project(
+                Seq(
+                    UnresolvedAttribute("_raw")
+                ), tree)
+            )),
             injectOutput = Seq(
                 UnresolvedAttribute("_raw")
             ))

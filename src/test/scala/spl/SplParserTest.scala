@@ -228,7 +228,7 @@ class SplParserTest extends ParserSuite {
   test("fields column_a, column_b, column_c") {
     p(fields(_),
       FieldsCommand(
-        None,
+        removeFields = false,
         Seq(
           Field("column_a"),
           Field("column_b"),
@@ -241,7 +241,7 @@ class SplParserTest extends ParserSuite {
   test("fields + column_a, column_b") {
     p(fields(_),
       FieldsCommand(
-        Option("+"),
+        removeFields = false,
         Seq(
           Field("column_a"),
           Field("column_b")
@@ -253,7 +253,7 @@ class SplParserTest extends ParserSuite {
   test("fields - column_a, column_b") {
     p(fields(_),
       FieldsCommand(
-        Option("-"),
+        removeFields = true,
         Seq(
           Field("column_a"),
           Field("column_b")

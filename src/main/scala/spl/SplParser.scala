@@ -138,7 +138,13 @@ object SplParser {
    * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Fields
    * Function is missing wildcard fields (except when discarding fields ie. fields - myField, ...)
    */
-  def fields[_:P]: P[FieldsCommand] = "fields" ~ ("+" | "-").!.? ~ field.rep(min = 1, sep = ",") map FieldsCommand.tupled
+  def fields[_:P]: P[FieldsCommand] = "fields" ~ ("+" | "-").!.? ~ field.rep(min = 1, sep = ",") map {
+    case (op, fields) =>
+      if (op.getOrElse("+").equals("-"))
+        FieldsCommand(removeFields = true, fields)
+      else
+        FieldsCommand(removeFields = false, fields)
+  }
 
   /**
    * https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Sort

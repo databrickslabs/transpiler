@@ -12,8 +12,8 @@ import org.apache.spark.sql.types.{DoubleType, LongType, MetadataBuilder, String
 import scala.util.control.NonFatal
 
 object SplToCatalyst extends Logging {
-  def pipeline(context: LogicalContext, p: spl.Pipeline): LogicalPlan = {
-    val (ctx, table, pipe) = determineTable(context, p)
+  def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
+    val (table, pipe) = determineTable(ctx, p)
     pipe.commands.foldLeft(table) {
       wrapCommand(ctx) {
         (tree, command) => command match {
@@ -48,8 +48,8 @@ object SplToCatalyst extends Logging {
           case spl.SortCommand(fields) =>
             Sort(sortOrder(fields), global = true, tree)
 
-          case spl.FieldsCommand(op, fields) =>
-            applyFields(ctx, tree, op, fields)
+          case spl.FieldsCommand(rmFields, fields) =>
+            applyFields(ctx, tree, rmFields, fields)
 
           case spl.LookupCommand(dataset, fields, output) =>
             leftJoinUsing(dataset, fields, output, tree)
@@ -70,7 +70,7 @@ object SplToCatalyst extends Logging {
             applyRex(ctx, field, maxMatch, offsetField, mode, regex, tree)
 
           case spl.RenameCommand(aliases) =>
-            renameColumn(ctx, tree, aliases)
+            applyRename(ctx, tree, aliases)
 
           case spl.RegexCommand(item, regex) =>
             applyRegex(ctx, tree, item, regex)
@@ -148,6 +148,7 @@ object SplToCatalyst extends Logging {
   }
 
   /** Finds indices in all of the binary nodes */
+  //
   private def findIndices(search: spl.Expr): Set[String] = search match {
     case b @ spl.Binary(_, _, spl.Field(value)) if isFilter(b, "index") => Set(value)
     case spl.Binary(left, _, right) => findIndices(left) ++ findIndices(right)
@@ -168,7 +169,7 @@ object SplToCatalyst extends Logging {
    * Index maps directly on Spark's table. Any filters on index are removed.
    * If no index is specified, the value is taken from the context
    */
-  private def determineTable(ctx: LogicalContext, p: spl.Pipeline): (LogicalContext, LogicalPlan, spl.Pipeline) = {
+  private def determineTable(ctx: LogicalContext, p: spl.Pipeline): (LogicalPlan, spl.Pipeline) = {
     val indices = p.commands.flatMap {
       case spl.SearchCommand(expr) => findIndices(expr)
       case _ => Seq()
@@ -179,10 +180,17 @@ object SplToCatalyst extends Logging {
     val tableName = indices.headOption.getOrElse(ctx.indexName)
     val table = UnresolvedRelation(Seq(tableName)).asInstanceOf[LogicalPlan]
     ctx.output ++= ctx.analyzePlan(table)
-    (ctx, table, p.copy(commands = p.commands.map {
-      case s: spl.SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
-      case c: spl.Command => c
-    }))
+    (table, p.copy(commands = p.commands
+      .filterNot {
+        case s: spl.SearchCommand => isFilter(s.expr, "index")
+        case _ => false
+      }
+      .map {
+        case s: spl.SearchCommand =>
+          s.copy(expr = overwriteSplSearch(s.expr))
+        case c: spl.Command => c
+      }
+    ))
   }
 
   private def leftJoinUsing(dataset: String,
@@ -261,10 +269,25 @@ object SplToCatalyst extends Logging {
                          expression: Expression): Project =
     selectColumn(ctx, tree, Alias(expression, name)())
 
+  private def removeColumnsByName(ctx: LogicalContext,
+                                  tree: LogicalPlan,
+                                  columns: Seq[String]): Project = {
+    selectColumns(ctx, tree, ctx.output.filter(item => !columns.contains(item.name)))
+  }
+
   private def selectColumn(ctx: LogicalContext,
                            tree: LogicalPlan,
                            ne: NamedExpression): Project = {
-    ctx.output :+= ne
+    // To avoid duplicate column
+    if (!ctx.output.map(_.name).contains(ne.name))
+      ctx.output :+= ne
+    Project(ctx.output, tree)
+  }
+
+  private def selectColumns(ctx: LogicalContext,
+                            tree: LogicalPlan,
+                            namedExprs: Seq[NamedExpression]): Project = {
+    ctx.output = namedExprs
     Project(ctx.output, tree)
   }
 
@@ -295,15 +318,16 @@ object SplToCatalyst extends Logging {
     }, tree)
   }
 
-  private def renameColumn(ctx: LogicalContext, tree: LogicalPlan, aliases: Seq[spl.Alias]): LogicalPlan = {
-    val aliasByName = aliases.map(alias => (attr(alias.expr).name) -> alias).toMap
-    Project(ctx.output.map(namedExpr => {
-      if (aliasByName.keySet.contains(namedExpr.name)) {
-        aliasByName.get(namedExpr.name) match {
-          case Some(alias) => Alias(attr(alias.expr), alias.name)()
-        }
-      } else namedExpr
-    }), tree)
+  private def applyRename(ctx: LogicalContext,
+                          tree: LogicalPlan,
+                          aliases: Seq[spl.Alias]): LogicalPlan = {
+    val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
+    Project(ctx.output.map(item => {
+      aliasMap.get(item.name) match {
+        case Some(alias) => Alias(attr(alias.expr), alias.name)()
+        case _ => item
+      }}
+    ), tree)
   }
 
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Commontimeformatvariables
@@ -424,13 +448,12 @@ object SplToCatalyst extends Logging {
 
   def applyFields(ctx: LogicalContext,
                   tree: LogicalPlan,
-                  op: Option[String],
+                  removeFields: Boolean,
                   fields: Seq[spl.Field]): LogicalPlan = {
-    if (op.getOrElse("+").equals("-")) {
-      ctx.output = ctx.output.filter(namedExpr =>
-        !fields.map(_.value).contains(namedExpr.name))
-      Project(ctx.output, tree)
-    } else selectExpr(fields, tree)
+    if (removeFields)
+      removeColumnsByName(ctx, tree, fields.map(_.value))
+    else
+      selectExpr(fields, tree)
   }
 
   private def applyRex(ctx: LogicalContext,
@@ -444,9 +467,8 @@ object SplToCatalyst extends Logging {
       case Some(value) =>
         throw new NotImplementedError(s"rex mode=$value currently not supported!")
       case None =>
-        if (!ctx.output.map(_.name).contains(ctx.rawFieldName))
-          throw new AnalysisException("`_raw` field required for rex command when no `field` option is set !")
-        rexParseNamedGroup(regex).foldLeft(tree) {
+        val raw = selectColumn(ctx, tree, UnresolvedAttribute(ctx.rawFieldName))
+        rexParseNamedGroup(regex).foldLeft(raw) {
           case (plan, (colName, groupIndex)) =>
             withColumn(ctx, plan, colName, RegExpExtract(field match {
               case Some(value) => UnresolvedAttribute(value)
@@ -478,7 +500,7 @@ object SplToCatalyst extends Logging {
   private def applyRegex(ctx: LogicalContext,
                          tree: LogicalPlan,
                          item: Option[(spl.Field, String)],
-                         regex: String) = {
+                         regex: String) =
     item match {
       case Some(value) =>
         val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => expr
@@ -486,7 +508,6 @@ object SplToCatalyst extends Logging {
       case None =>
         Filter(RLike(Column(ctx.rawFieldName).expr, Literal(regex)), tree)
     }
-  }
 
   private def applyReturn(ctx: LogicalContext,
                           tree: LogicalPlan,
@@ -506,6 +527,7 @@ object SplToCatalyst extends Logging {
     }, tree))
   }
 }
+
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
   override def output: Seq[Attribute] = child.output
