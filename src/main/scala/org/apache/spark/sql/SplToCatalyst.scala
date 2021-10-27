@@ -186,8 +186,7 @@ object SplToCatalyst extends Logging {
         case _ => false
       }
       .map {
-        case s: spl.SearchCommand =>
-          s.copy(expr = overwriteSplSearch(s.expr))
+        case s: spl.SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
         case c: spl.Command => c
       }
     ))
@@ -322,11 +321,11 @@ object SplToCatalyst extends Logging {
                           tree: LogicalPlan,
                           aliases: Seq[spl.Alias]): LogicalPlan = {
     val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
-    Project(ctx.output.map(item => {
+    Project(ctx.output.map(item =>
       aliasMap.get(item.name) match {
         case Some(alias) => Alias(attr(alias.expr), alias.name)()
         case _ => item
-      }}
+      }
     ), tree)
   }
 
