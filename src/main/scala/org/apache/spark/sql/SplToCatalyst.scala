@@ -1,5 +1,7 @@
 package org.apache.spark.sql
 
+import org.apache.commons.net.util.SubnetUtils
+
 import scala.collection.mutable
 import scala.util.matching.Regex
 import org.apache.logging.log4j.scala.Logging
@@ -364,6 +366,19 @@ object SplToCatalyst extends Logging {
       like(left, pattern)
     case spl.Binary(left, spl.NotEquals, spl.Wildcard(pattern)) =>
       Not(like(left, pattern))
+    case spl.Binary(left, spl.Equals, ip @ spl.IPv4CIDR(network)) =>
+      val add
+
+      val subnet = new SubnetUtils(network)
+      subnet.getInfo.getNetmask match {
+        case "255.255.255.0" =>
+      }
+
+//      subnet.getInfo.getNetmask
+      val low = subnet.getInfo.getLowAddress
+      val high = subnet.getInfo.getHighAddress
+      And(GreaterThanOrEqual(attrOrExpr(left), Literal.create(low)),
+        LessThanOrEqual(attrOrExpr(left), Literal.create(high)))
     case spl.Binary(left, symbol, right) => symbol match {
       case straight: spl.Straight => straight match {
         case relational: spl.Relational => relational match {

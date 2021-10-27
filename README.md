@@ -84,6 +84,8 @@ Secondary batch of commands:
 
 ## Developing 
 
+* Environment: JDK 1.8
+
 Parsers are implemented using [fastparse](https://github.com/com-lihaoyi/fastparse) (MIT)
 
 Quick installation on Databricks: `sbt assembly && databricks --profile=demo fs cp target/scala-2.12/spark-spl-assembly-0.1.jar dbfs:/tmp/spark-spl.jar --overwrite`

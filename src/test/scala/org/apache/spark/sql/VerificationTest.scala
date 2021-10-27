@@ -41,6 +41,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  // TODO: this is not correct!!! parse & type-cast IP addresses
+  test("cidr search") {
+    generates("src = 8.8.8.0/24",
+      """(spark.table('main')
+        |.where("(`src` >= '8.8.8.1')")
+        |.where("(`src` <= '8.8.8.254')"))
+        |""".stripMargin)
+  }
+
   test("thing2") {
     import spark.implicits._
     spark.createDataset(dummy).createOrReplaceTempView("main")

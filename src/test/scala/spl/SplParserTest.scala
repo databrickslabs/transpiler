@@ -663,4 +663,13 @@ class SplParserTest extends ParserSuite {
         Field("port")
       ))))
   }
+
+  // TODO: this is not fully correct!!! parse & type-cast IP addresses
+  test("src = 8.8.8.0/24") {
+    p(expr(_), Binary(
+      Field("src"),
+      Equals,
+      IPv4CIDR("8.8.8.0/24")
+    ))
+  }
 }

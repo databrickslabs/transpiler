@@ -14,11 +14,7 @@ case class IntValue(value: Int) extends Constant
 case class StrValue(value: String) extends Constant
 case class Field(value: String) extends Constant with FieldLike
 case class Wildcard(value: String) extends Constant with FieldLike
-case class IPv4CIDR(value: String) extends Constant {
-  private val subnet = new SubnetUtils(value)
-  def low: String = subnet.getInfo.getLowAddress
-  def high: String = subnet.getInfo.getHighAddress
-}
+case class IPv4CIDR(value: String) extends Constant
 
 case class FV(field: String, value: String) extends LeafExpr
 

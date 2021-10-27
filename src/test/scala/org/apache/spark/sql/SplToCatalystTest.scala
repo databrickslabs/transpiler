@@ -441,6 +441,21 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    // TODO: this is not fully correct!!! parse & type-cast IP addresses
+    test("cidr search") {
+        check(spl.SearchCommand(
+            spl.Binary(
+                spl.Field("src"),
+                spl.Equals,
+                spl.IPv4CIDR("8.8.8.0/24")
+            )),
+            (_, tree) => Filter(
+                And(
+                    GreaterThanOrEqual(UnresolvedAttribute("src"), Literal.create("8.8.8.1")),
+                    LessThanOrEqual(UnresolvedAttribute("src"), Literal.create("8.8.8.254"))
+                ), tree))
+    }
+
     private def check(command: spl.Command,
               callback: (spl.Command, LogicalPlan) => LogicalPlan
               ): Unit = this.synchronized {
