@@ -55,9 +55,11 @@ object PythonGenerator {
     case relation: UnresolvedRelation =>
       s"spark.table(${q(relation.name)})"
 
-    case Aggregate(by, agg, child) =>
-      val aggs = smartDelimiters(ctx, agg.map(expressionCode))
-      s"${fromPlan(ctx, child)}\n.groupBy(${exprList(ctx, by)})\n.agg($aggs)"
+    case a: Aggregate =>
+      // matching against class name, as not all Spark implementations have compatible ABI
+      val aggs = smartDelimiters(ctx, a.aggregateExpressions.map(expressionCode))
+      val groupBy = exprList(ctx, a.groupingExpressions)
+      s"${fromPlan(ctx, a.child)}\n.groupBy($groupBy)\n.agg($aggs)"
 
     case Join(left, right, joinType, _, _) =>
       // TODO: condition and hints are not yet supported

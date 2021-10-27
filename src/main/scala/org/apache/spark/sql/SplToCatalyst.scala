@@ -1,17 +1,17 @@
 package org.apache.spark.sql
 
-import scala.collection.mutable
-import scala.util.matching.Regex
-import org.apache.logging.log4j.scala.Logging
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectSet, Count, Sum, First, Last, Max, Min}
-import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
-import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{DoubleType, LongType, MetadataBuilder, StringType}
+import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
+import org.apache.spark.sql.types.{DoubleType, StringType}
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
+import scala.util.matching.Regex
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
@@ -43,7 +43,7 @@ object SplToCatalyst extends Logging {
 
           case spl.HeadCommand(expr, keepLast, nullOption) =>
             // TODO Implement keeplast and null options behaviour
-            logger.debug(s"Adding `HeadCommand` with options: $expr to the tree")
+            log.debug(s"Adding `HeadCommand` with options: $expr to the tree")
             if (expr.isInstanceOf[spl.IntValue]) Limit(expression(expr), tree)
             else Filter(expression(expr), tree)
 
@@ -129,6 +129,7 @@ object SplToCatalyst extends Logging {
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
     case "count" =>
+      // TODO: if count is empty, make the Count(Literal.create(1))
       Count(call.args.map(expression))
     case "sum" =>
       Sum(attr(call.args.head))
@@ -261,9 +262,29 @@ object SplToCatalyst extends Logging {
     val child = if (hasTimeFunctions(funcs)) Sort(Seq(
         SortOrder(UnresolvedAttribute(ctx.timeFieldName), Ascending, NullsFirst, Seq.empty)
     ), global = true, tree) else tree
-    val plan = Aggregate(groupBy, agg, child)
     ctx.output = Seq()
-    plan
+    // new Aggregate(groupBy, agg, child) translates to
+    // INVOKESPECIAL Aggregate.<init> (LSeq;Seq;LLogicalPlan;)V
+    // and it's not filling in default arguments
+    newAggregateIgnoringABI(groupBy, agg, child)
+  }
+
+  // we're using Spark Catalyst's private APIs, so there are absolutely no guarantees
+  // on binary compatibility of different Spark implementations. This is a hack to
+  // make one of the most important SPL commands to be runnable in Databricks Runtime.
+  private def newAggregateIgnoringABI(groupingExpressions: Seq[Expression],
+              aggregateExpressions: Seq[NamedExpression],
+              child: LogicalPlan): Aggregate = aggregateConstructorArgCountABI match {
+    case 3 => Aggregate(groupingExpressions, aggregateExpressions, child)
+    case 4 => aggregateConstructorReflection
+      .newInstance(groupingExpressions, aggregateExpressions, child, None)
+      .asInstanceOf[Aggregate]
+    case _ => throw new AnalysisException(s"Incompatible runtime detected")
+  }
+
+  private val (aggregateConstructorReflection, aggregateConstructorArgCountABI) = {
+    val firstConstructor = classOf[Aggregate].getConstructors.head
+    (firstConstructor, firstConstructor.getParameterCount)
   }
 
   private def hasTimeFunctions(funcs: Seq[spl.Expr]) : Boolean = funcs.map {
@@ -315,7 +336,7 @@ object SplToCatalyst extends Logging {
       case NonFatal(e) =>
         val name = command.getClass.getSimpleName
           .replace("Command", "").toLowerCase
-        logger.warn(s"Error in $name", e)
+        log.warn(s"Error in $name", e)
         UnknownPlanShim(s"Error in $name: $e", plan)
     }
   }

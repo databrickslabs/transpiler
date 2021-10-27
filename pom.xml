@@ -9,6 +9,20 @@
     <artifactId>spark-spl</artifactId>
     <version>0.1</version>
 
+    <developers>
+        <developer>
+            <name>Serge Smertin</name>
+            <email>serge.smertin@databricks.com</email>
+            <roles>
+                <role>Project Lead</role>
+            </roles>
+        </developer>
+        <developer>
+            <name>Vincent Tourniaire</name>
+            <email>vincent.tourniaire@databricks.com</email>
+        </developer>
+    </developers>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scala.version>2.12.12</scala.version>
@@ -28,16 +42,19 @@
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
             <version>${scala.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
@@ -70,14 +87,16 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-api-scala_${scala.binary.version}</artifactId>
-            <version>12.0</version>
+            <groupId>log4j</groupId>
+            <artifactId>apache-log4j-extras</artifactId>
+            <version>1.2.17</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-core</artifactId>
-            <version>2.13.0</version>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.17</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -88,6 +107,7 @@
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.3.0</version>
                 <configuration>
+                    <appendAssemblyId>false</appendAssemblyId>
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
@@ -190,4 +210,38 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>local</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/main/resources/local.xml</descriptor>
+                            </descriptors>
+                            <archive>
+                                <manifest>
+                                    <mainClass>Main</mainClass>
+                                </manifest>
+                            </archive>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>make-assembly</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
