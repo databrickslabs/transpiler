@@ -69,7 +69,7 @@ Secondary batch of commands:
 | if() | ✅ |
 | [mvcount()](https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/MultivalueEvalFunctions#mvcount.28MVFIELD.29) | ✅ |
 | coalesce() | ✅ |
-| mvindex() |  |
+| mvindex() | ✅ |
 | mvappend() |  |
 | null() |  |
 | min() | ✅ |

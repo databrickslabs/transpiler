@@ -178,6 +178,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("eval mvsubset=mvindex(d,0,1)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
+    generates("eval count=mvindex(d,0,1)",
+      """(spark.table('main')
+        |.withColumn('count', F.expr('slice(`d`, 1, 2)')))
+        |""".stripMargin)
+  }
+
   test("n > len(a)") {
     import spark.implicits._
     spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
