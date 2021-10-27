@@ -65,9 +65,9 @@ object SplToCatalyst extends Logging {
               Deduplicate(by.map(x => UnresolvedAttribute(x.value)), agg)
             } else agg
 
-          case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
+          case rc: spl.RexCommand =>
             // TODO find a way to implement max_match, offset_field and mode
-            applyRex(ctx, field, maxMatch, offsetField, mode, regex, tree)
+            applyRex(ctx, tree, rc)
 
           case spl.RenameCommand(aliases) =>
             applyRename(ctx, tree, aliases)
@@ -75,8 +75,8 @@ object SplToCatalyst extends Logging {
           case spl.RegexCommand(item, regex) =>
             applyRegex(ctx, tree, item, regex)
 
-          case spl.JoinCommand(joinType, useTime, earlier, overwrite, max, fields, subSearch) =>
-            applyJoin(ctx, tree, joinType, useTime, earlier, overwrite, max, fields, subSearch)
+          case jc: spl.JoinCommand =>
+            applyJoin(ctx, tree, jc)
 
           case spl.ReturnCommand(count, fields) =>
             applyReturn(ctx, tree, count, fields)
@@ -148,7 +148,6 @@ object SplToCatalyst extends Logging {
   }
 
   /** Finds indices in all of the binary nodes */
-  //
   private def findIndices(search: spl.Expr): Set[String] = search match {
     case b @ spl.Binary(_, _, spl.Field(value)) if isFilter(b, "index") => Set(value)
     case spl.Binary(left, _, right) => findIndices(left) ++ findIndices(right)
@@ -180,12 +179,10 @@ object SplToCatalyst extends Logging {
     val tableName = indices.headOption.getOrElse(ctx.indexName)
     val table = UnresolvedRelation(Seq(tableName)).asInstanceOf[LogicalPlan]
     ctx.output ++= ctx.analyzePlan(table)
-    (table, p.copy(commands = p.commands
-      .filterNot {
+    (table, p.copy(commands = p.commands.filterNot {
         case s: spl.SearchCommand => isFilter(s.expr, "index")
         case _ => false
-      }
-      .map {
+      }.map {
         case s: spl.SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
         case c: spl.Command => c
       }
@@ -268,12 +265,6 @@ object SplToCatalyst extends Logging {
                          expression: Expression): Project =
     selectColumn(ctx, tree, Alias(expression, name)())
 
-  private def removeColumnsByName(ctx: LogicalContext,
-                                  tree: LogicalPlan,
-                                  columns: Seq[String]): Project = {
-    selectColumns(ctx, tree, ctx.output.filter(item => !columns.contains(item.name)))
-  }
-
   private def selectColumn(ctx: LogicalContext,
                            tree: LogicalPlan,
                            ne: NamedExpression): Project = {
@@ -317,9 +308,7 @@ object SplToCatalyst extends Logging {
     }, tree)
   }
 
-  private def applyRename(ctx: LogicalContext,
-                          tree: LogicalPlan,
-                          aliases: Seq[spl.Alias]): LogicalPlan = {
+  private def applyRename(ctx: LogicalContext, tree: LogicalPlan, aliases: Seq[spl.Alias]): LogicalPlan = {
     val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
     Project(ctx.output.map(item =>
       aliasMap.get(item.name) match {
@@ -445,55 +434,41 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  def applyFields(ctx: LogicalContext,
-                  tree: LogicalPlan,
-                  removeFields: Boolean,
-                  fields: Seq[spl.Field]): LogicalPlan = {
-    if (removeFields)
-      removeColumnsByName(ctx, tree, fields.map(_.value))
+  private def applyFields(ctx: LogicalContext,
+                          tree: LogicalPlan,
+                          removeFields: Boolean,
+                          fields: Seq[spl.Field]): LogicalPlan =
+    if (removeFields) {
+      val columns = fields.map(_.value)
+      selectColumns(ctx, tree, ctx.output.filter(item => !columns.contains(item.name)))
+    }
     else
       selectExpr(fields, tree)
-  }
 
-  private def applyRex(ctx: LogicalContext,
-                       field: Option[String],
-                       maxMatch: Int,
-                       offsetField: Option[String],
-                       mode: Option[String],
-                       regex: String,
-                       tree: LogicalPlan): LogicalPlan = {
-    mode match {
+  private def applyRex(ctx: LogicalContext, tree: LogicalPlan, rc: spl.RexCommand): LogicalPlan =
+    rc.mode match {
       case Some(value) =>
         throw new NotImplementedError(s"rex mode=$value currently not supported!")
       case None =>
         val raw = selectColumn(ctx, tree, UnresolvedAttribute(ctx.rawFieldName))
-        rexParseNamedGroup(regex).foldLeft(raw) {
+        rexParseNamedGroup(rc.regex).foldLeft(raw) {
           case (plan, (colName, groupIndex)) =>
-            withColumn(ctx, plan, colName, RegExpExtract(field match {
+            withColumn(ctx, plan, colName, RegExpExtract(rc.field match {
               case Some(value) => UnresolvedAttribute(value)
               case None => UnresolvedAttribute(ctx.rawFieldName)
-            }, Literal(regex), Literal(groupIndex)))
+            }, Literal(rc.regex), Literal(groupIndex)))
         }
     }
-  }
 
-  private def applyJoin(ctx: LogicalContext,
-                        tree: LogicalPlan,
-                        joinType: String = "inner",
-                        useTime: Boolean = false,
-                        earlier: Boolean = true,
-                        overwrite: Boolean = true,
-                        max: Int = 1,
-                        fields: Seq[spl.Field],
-                        subSearch: spl.Pipeline) = {
-    val right = pipeline(ctx.copy(output = Seq()), subSearch)
+  private def applyJoin(ctx: LogicalContext, tree: LogicalPlan, jc: spl.JoinCommand) = {
+    val right = pipeline(ctx.copy(output = Seq()), jc.subSearch)
     Join(tree, right,
-      UsingJoin(joinType match {
+      UsingJoin(jc.joinType match {
         case "inner" => Inner
         case "left" => LeftOuter
         case "outer" => LeftOuter
         case _ => Inner
-      }, fields.map(_.value)), None, JoinHint.NONE)
+      }, jc.fields.map(_.value)), None, JoinHint.NONE)
   }
 
   private def applyRegex(ctx: LogicalContext,
@@ -526,7 +501,6 @@ object SplToCatalyst extends Logging {
     }, tree))
   }
 }
-
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
   override def output: Seq[Attribute] = child.output
