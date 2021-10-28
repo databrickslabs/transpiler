@@ -173,42 +173,26 @@ object SplToCatalyst extends Logging {
     case "mvcount" =>
       Size(attrOrExpr(call.args.head))
     case "mvindex" =>
-      //Splunk's mvindex function takes 3 arguments (mvfield, start_index, stop_index)
-      //Spark's slice function takes 3 arguments (mvfield, start_index, length)
-      //We calculate the length as follows: (stop_index - start_index + 1)
-      //Known issue: A negative start and a positive stop index or vice versa is not supported and an Exception will be thrown in that case.
+      // Splunk's mvindex function takes 3 arguments (mvfield, start_index, stop_index)
+      // Spark's slice function takes 3 arguments (mvfield, start_index, length)
+      // We calculate the length as follows: (stop_index - start_index + 1)
+      // Known issue: A negative start and a positive stop index or vice versa is not supported and an Exception will be thrown in that case.
       val mvfield = attrOrExpr(call.args.head)
-      val start : spl.IntValue =  call.args(1) match {
-        case index: spl.IntValue =>
-          if (index.value >= 0) {
-            //Splunk: indices start at 0 <=> Spark: indices start at 1
-            spl.IntValue(index.value + 1)
-          }
-          else {
-            //Negative index: start from the end of the array
-            index
-          }
-        case _ => throw new AnalysisException("start index is not of type spl.IntValue")
+      val start : Int = extractIndex(call.args(1), 1)
+      val stop : Int = extractIndex(call.args(call.args.size - 1), 1)
+      if (start * stop< 0) {
+        throw new AnalysisException(s"A combination of negative and positive start and stop indices is not supported. start_index: ${start} stop_index: ${stop}")
       }
-      val stop : spl.IntValue = call.args(call.args.size - 1) match {
-        case index: spl.IntValue =>
-        if (index.value >= 0) {
-          spl.IntValue(index.value + 1)
-        }
-        else {
-          index
-        }
-        case _ => throw new AnalysisException("stop index is not of type spl.IntValue")
-      }
-      if (start.value * stop.value < 0) {
-        throw new AnalysisException(s"A combination of negative and positive start and stop indices is not supported. start_index: ${start.value} stop_index: ${stop.value}")
-      }
-
-      val length : spl.IntValue = spl.IntValue(stop.value - start.value + 1)
-      Slice(mvfield, expression(start), expression(length))
+      val length : Int = stop - start + 1
+      Slice(mvfield, Literal.create(start), Literal.create(length))
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
+  }
+
+  private def extractIndex(x: spl.Expr, offset: Int) : Int = x match {
+    case spl.IntValue(index) => if (index >= 0) index + offset else index
+    case _ => throw new AnalysisException("int expected")
   }
 
   private def isFilter(x: spl.Expr, name: String) = x match {

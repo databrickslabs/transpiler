@@ -182,120 +182,115 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     }
 
     test("EvalCommand to check mvcount function") {
-        check(spl.EvalCommand(
-            Seq(
-                (spl.Field("count"),
-                  spl.Call("mvcount",
-                      Seq(spl.Field("mvfield"))
-                  )
-                )
+        check(spl.EvalCommand(Seq(
+            (spl.Field("count"),
+              spl.Call("mvcount",
+                  Seq(spl.Field("mvfield"))
+              )
             )
+        )
         ),
             (_, tree) =>
-                Project(
-                    Seq(Alias(
+                Project(Seq(
+                    Alias(
                         Size(UnresolvedAttribute("mvfield")),
                         "count"
                     )()
-                    )
+                )
                     , tree)
         )
     }
 
     test("EvalCommand to check mvindex function w/ stop index") {
-        check(spl.EvalCommand(
-            Seq(
-                (spl.Field("mvsubset"),
-                  spl.Call("mvindex",
-                      Seq(
-                          spl.Field("mvfield"),
-                          spl.IntValue(0),
-                          spl.IntValue(1)
-                      )
+        check(spl.EvalCommand(Seq(
+            (spl.Field("mvsubset"),
+              spl.Call("mvindex",
+                  Seq(
+                      spl.Field("mvfield"),
+                      spl.IntValue(0),
+                      spl.IntValue(1)
                   )
-                )
+              )
             )
+        )
         ),
             (_, tree) =>
-                Project(
-                    Seq(Alias(
+                Project(Seq(
+                    Alias(
                         Slice(UnresolvedAttribute("mvfield"), Literal(1), Literal(2)),
                         "mvsubset"
                     )()
-                    )
+                )
                     , tree)
         )
     }
 
     test("EvalCommand to check mvindex function w/o stop index") {
-        check(spl.EvalCommand(
-            Seq(
-                (spl.Field("mvsubset"),
-                  spl.Call("mvindex",
-                      Seq(
-                          spl.Field("mvfield"),
-                          spl.IntValue(0),
-                      )
+        check(spl.EvalCommand(Seq(
+            (spl.Field("mvsubset"),
+              spl.Call("mvindex",
+                  Seq(
+                      spl.Field("mvfield"),
+                      spl.IntValue(0),
                   )
-                )
+              )
             )
+        )
         ),
             (_, tree) =>
-                Project(
-                    Seq(Alias(
+                Project(Seq(
+                    Alias(
                         Slice(UnresolvedAttribute("mvfield"), Literal(1), Literal(1)),
                         "mvsubset"
                     )()
-                    )
+                )
                     , tree)
         )
     }
 
     test("EvalCommand to check mvindex function w/ neg start and stop index") {
-        check(spl.EvalCommand(
-            Seq(
-                (spl.Field("mvsubset"),
-                  spl.Call("mvindex",
-                      Seq(
-                          spl.Field("mvfield"),
-                          spl.IntValue(-3),
-                          spl.IntValue(-2),
-                      )
+        check(spl.EvalCommand(Seq(
+            (spl.Field("mvsubset"),
+              spl.Call("mvindex",
+                  Seq(
+                      spl.Field("mvfield"),
+                      spl.IntValue(-3),
+                      spl.IntValue(-2),
                   )
-                )
+              )
             )
+        )
         ),
             (_, tree) =>
-                Project(
-                    Seq(Alias(
+                Project(Seq(
+                    Alias(
                         Slice(UnresolvedAttribute("mvfield"), Literal(-3), Literal(2)),
                         "mvsubset"
                     )()
-                    )
+                )
                     , tree)
         )
     }
 
     test("EvalCommand to check mvindex function w/ neg start index") {
-        check(spl.EvalCommand(
-            Seq(
-                (spl.Field("mvsubset"),
-                  spl.Call("mvindex",
-                      Seq(
-                          spl.Field("mvfield"),
-                          spl.IntValue(-3)
-                      )
+        check(spl.EvalCommand(Seq(
+            (spl.Field("mvsubset"),
+              spl.Call("mvindex",
+                  Seq(
+                      spl.Field("mvfield"),
+                      spl.IntValue(-3)
                   )
-                )
+              )
             )
+        )
         ),
             (_, tree) =>
-                Project(
-                    Seq(Alias(
+                Project(Seq(
+                    Alias(
                         Slice(UnresolvedAttribute("mvfield"), Literal(-3), Literal(1)),
                         "mvsubset"
                     )()
-                    )
+                )
                     , tree)
         )
     }
