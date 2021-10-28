@@ -1,15 +1,15 @@
 package org.apache.spark.sql
 
-import scala.collection.mutable
-import scala.util.matching.Regex
-import org.apache.logging.log4j.scala.Logging
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectSet, Count, First, Last, Max, Min, Sum}
-import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
-import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{DoubleType, LongType, MetadataBuilder, StringType}
+import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
+import org.apache.spark.sql.types.{DoubleType, StringType}
+import scala.collection.mutable
 import scala.util.control.NonFatal
+import scala.util.matching.Regex
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
@@ -41,7 +41,7 @@ object SplToCatalyst extends Logging {
 
           case spl.HeadCommand(expr, keepLast, nullOption) =>
             // TODO Implement keeplast and null options behaviour
-            logger.debug(s"Adding `HeadCommand` with options: $expr to the tree")
+            log.debug(s"Adding `HeadCommand` with options: $expr to the tree")
             if (expr.isInstanceOf[spl.IntValue]) Limit(expression(expr), tree)
             else Filter(expression(expr), tree)
 
@@ -78,8 +78,8 @@ object SplToCatalyst extends Logging {
           case jc: spl.JoinCommand =>
             applyJoin(ctx, tree, jc)
 
-          case spl.ReturnCommand(count, fields) =>
-            applyReturn(ctx, tree, count, fields)
+          case spl.ReturnCommand(count, fieldsOrAliases) =>
+            applyReturn(ctx, tree, count, fieldsOrAliases)
 
           case spl.FillNullCommand(value, fields) =>
             val fieldsOpt = fields.getOrElse(Seq.empty[spl.Field]).map(_.value).toSet
@@ -98,6 +98,7 @@ object SplToCatalyst extends Logging {
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
     case "count" =>
+      // TODO: if count is empty, make the Count(Literal.create(1))
       Count(call.args.map(expression))
     case "sum" =>
       Sum(attr(call.args.head))
@@ -118,6 +119,8 @@ object SplToCatalyst extends Logging {
       val pos = expression(call.args(1))
       val len = call.args.lift(2).map(expression).getOrElse(Literal(Integer.MAX_VALUE))
       Substring(str,pos,len)
+    case "coalesce" =>
+      Coalesce(call.args.map(attrOrExpr))
     case "round" =>
       val num = attrOrExpr(call.args.head)
       val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
@@ -179,6 +182,8 @@ object SplToCatalyst extends Logging {
     val tableName = indices.headOption.getOrElse(ctx.indexName)
     val table = UnresolvedRelation(Seq(tableName)).asInstanceOf[LogicalPlan]
     ctx.output ++= ctx.analyzePlan(table)
+    // `filterNot` is being used here to filter out a `SearchCommand` that only contains `index`.
+    // The idea is to remove the `index` filters, as they are lifted to the top of the tree
     (table, p.copy(commands = p.commands.filterNot {
         case s: spl.SearchCommand => isFilter(s.expr, "index")
         case _ => false
@@ -233,9 +238,29 @@ object SplToCatalyst extends Logging {
     val child = if (hasTimeFunctions(funcs)) Sort(Seq(
         SortOrder(UnresolvedAttribute(ctx.timeFieldName), Ascending, NullsFirst, Seq.empty)
     ), global = true, tree) else tree
-    val plan = Aggregate(groupBy, agg, child)
     ctx.output = Seq()
-    plan
+    // new Aggregate(groupBy, agg, child) translates to
+    // INVOKESPECIAL Aggregate.<init> (LSeq;Seq;LLogicalPlan;)V
+    // and it's not filling in default arguments
+    newAggregateIgnoringABI(groupBy, agg, child)
+  }
+
+  // we're using Spark Catalyst's private APIs, so there are absolutely no guarantees
+  // on binary compatibility of different Spark implementations. This is a hack to
+  // make one of the most important SPL commands to be runnable in Databricks Runtime.
+  private def newAggregateIgnoringABI(groupingExpressions: Seq[Expression],
+              aggregateExpressions: Seq[NamedExpression],
+              child: LogicalPlan): Aggregate = aggregateConstructorArgCountABI match {
+    case 3 => Aggregate(groupingExpressions, aggregateExpressions, child)
+    case 4 => aggregateConstructorReflection
+      .newInstance(groupingExpressions, aggregateExpressions, child, None)
+      .asInstanceOf[Aggregate]
+    case _ => throw new AnalysisException(s"Incompatible runtime detected")
+  }
+
+  private val (aggregateConstructorReflection, aggregateConstructorArgCountABI) = {
+    val firstConstructor = classOf[Aggregate].getConstructors.head
+    (firstConstructor, firstConstructor.getParameterCount)
   }
 
   private def hasTimeFunctions(funcs: Seq[spl.Expr]) : Boolean = funcs.map {
@@ -287,7 +312,7 @@ object SplToCatalyst extends Logging {
     try {
       mapper(plan, command) match {
         case project: Project =>
-          //ctx.output = project.output
+          ctx.output = project.output
           project
         case result: LogicalPlan =>
           result
@@ -296,7 +321,7 @@ object SplToCatalyst extends Logging {
       case NonFatal(e) =>
         val name = command.getClass.getSimpleName
           .replace("Command", "").toLowerCase
-        logger.warn(s"Error in $name", e)
+        log.warn(s"Error in $name", e)
         UnknownPlanShim(s"Error in $name: $e", plan)
     }
   }
@@ -446,6 +471,7 @@ object SplToCatalyst extends Logging {
       selectExpr(fields, tree)
 
   private def applyRex(ctx: LogicalContext, tree: LogicalPlan, rc: spl.RexCommand): LogicalPlan =
+  // TODO find a way to implement max_match, offset_field and mode
     rc.mode match {
       case Some(value) =>
         throw new NotImplementedError(s"rex mode=$value currently not supported!")
@@ -476,28 +502,20 @@ object SplToCatalyst extends Logging {
                          item: Option[(spl.Field, String)],
                          regex: String) =
     item match {
-      case Some(value) =>
-        val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => expr
-        Filter(catalystOp(RLike(Column(value._1.value).expr, Literal(regex))), tree)
+      case Some((spl.Field(field), exclude)) =>
+        val catalystOp = if (exclude.contains("!")) Not else (expr: Expression) => expr
+        Filter(catalystOp(RLike(Column(field).expr, Literal(regex))), tree)
       case None =>
         Filter(RLike(Column(ctx.rawFieldName).expr, Literal(regex)), tree)
     }
 
   private def applyReturn(ctx: LogicalContext,
                           tree: LogicalPlan,
-                          count: Option[spl.IntValue],
-                          fields: Seq[Product with Serializable]) = {
-    val countLimit = count match {
-      case Some(item) => Literal(item.value)
-      case None => Literal(1)
-    }
-
-    Limit(countLimit, Project(fields.map {
-      case alias: (spl.Field, spl.Expr) =>
-        // TODO: rewrite to something sensible
-        Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
-      case field: spl.Field =>
-        Column(field.value).named
+                          count: spl.IntValue,
+                          fieldsOrAliases: Seq[spl.FieldOrAlias]) = {
+    Limit(Literal(count.value), Project(fieldsOrAliases.map {
+      case field: spl.Field => UnresolvedAttribute(field.value)
+      case alias: spl.Alias => Alias(attr(alias.expr), alias.name)()
     }, tree))
   }
 }

@@ -158,13 +158,43 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     Seq(Alias(
                         If(
                             EqualTo(UnresolvedAttribute("a"), Literal("b")),
-                                Literal(1),
-                                Literal(0)
-                            ),
+                            Literal(1),
+                            Literal(0)
+                        ),
                         "a_eq_b"
-                        )()
+                    )()
                     )
-                , tree)
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check coalesce functionality") {
+        check(spl.EvalCommand(
+            Seq(
+                (spl.Field("coalesced"),
+                  spl.Call("coalesce",
+                      Seq(spl.Field("a"),
+                          spl.Field("b"),
+                          spl.Field("c")
+                      )
+                  )
+                )
+            )
+        ),
+            (_, tree) =>
+                Project(
+                    Seq(Alias(
+                        Coalesce(
+                            Seq(
+                                UnresolvedAttribute("a"),
+                                UnresolvedAttribute("b"),
+                                UnresolvedAttribute("c")
+                            )
+                        ),
+                        "coalesced"
+                    )()
+                    )
+                    , tree)
         )
     }
 
@@ -280,40 +310,42 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("return 10 ip host port") {
         check(spl.ReturnCommand(
-            Some(spl.IntValue(10)),
+            spl.IntValue(10),
             Seq(spl.Field("ip"),
                 spl.Field("host"),
                 spl.Field("port"))),
         (_, tree) => Limit(Literal(10), Project(Seq(
-            Column("ip").named,
-            Column("host").named,
-            Column("port").named)
+            UnresolvedAttribute("ip"),
+            UnresolvedAttribute("host"),
+            UnresolvedAttribute("port"))
         , tree))
         )
     }
 
     test("return 10 ip $env $test") {
         check(spl.ReturnCommand(
-            Some(spl.IntValue(10)),
+            spl.IntValue(10),
             Seq(spl.Field("env"),
                 spl.Field("test"))),
             (_, tree) => Limit(Literal(10), Project(Seq(
-                Column("env").named,
-                Column("test").named)
+                UnresolvedAttribute("env"),
+                UnresolvedAttribute("test"))
             , tree))
         )
     }
 
     test("return 20 a=ip b=host c=port") {
         check(spl.ReturnCommand(
-            Some(spl.IntValue(20)),
-            Seq((spl.Field("a"), spl.Field("ip")),
-                (spl.Field("b"), spl.Field("host")),
-                (spl.Field("c"), spl.Field("port")))),
+            spl.IntValue(20),
+            Seq(
+                spl.Alias(spl.Field("ip"), "a"),
+                spl.Alias(spl.Field("host"), "b"),
+                spl.Alias(spl.Field("port"), "c")
+            )),
             (_, tree) => Limit(Literal(20), Project(Seq(
-                Alias(Column("ip").named, "a")(),
-                Alias(Column("host").named, "b")(),
-                Alias(Column("port").named, "c")())
+                Alias(UnresolvedAttribute("ip"), "a")(),
+                Alias(UnresolvedAttribute("host"), "b")(),
+                Alias(UnresolvedAttribute("port"), "c")())
             , tree))
         )
     }

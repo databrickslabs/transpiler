@@ -2,7 +2,7 @@ package org.apache.spark.sql
 
 import scala.collection.mutable
 import scala.sys.process.{Process, ProcessLogger}
-import org.apache.logging.log4j.scala.Logging
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.util.sideBySide
 import org.scalatest.Assertions
 

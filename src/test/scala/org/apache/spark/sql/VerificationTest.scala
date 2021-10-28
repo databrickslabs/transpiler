@@ -103,6 +103,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("eval coalesced=coalesce(b,c)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
+    generates("eval coalesced=coalesce(b,c)",
+      """(spark.table('main')
+        |.withColumn('coalesced', F.expr('coalesce(`b`, `c`)')))
+        |""".stripMargin)
+  }
+
   test("n > len(a)") {
     executes("index=dummy | n > len(a)",
       """+---+---+---+---+-----+
@@ -174,7 +183,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("rename a as a1") {
-    executes("index=dummy | rename a as a1",
+    executes("index=dummy | rename a as a1 | rename a1 as a | rename a as a1",
       """+---+---+---+---+-----+
         || a1|  b|  c|  n|valid|
         |+---+---+---+---+-----+

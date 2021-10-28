@@ -211,7 +211,13 @@ object SplParser {
   }
 
   def _return[_:P]: P[ReturnCommand] = "return" ~ int.? ~ (
-      (field ~ "=" ~ expr).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map ReturnCommand.tupled
+      (fieldAndValue).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map {
+    case (maybeValue, exprs) =>
+      ReturnCommand(maybeValue.getOrElse(IntValue(1)), exprs map {
+        case fv: FV => Alias(Field(fv.value), fv.field).asInstanceOf[FieldOrAlias]
+        case field: Field => field.asInstanceOf[FieldOrAlias]
+      })
+  }
 
   def fillNull[_:P]: P[FillNullCommand] = ("fillnull" ~ ("value=" ~~ (doubleQuoted|token)).?
                                                       ~ field.rep(1).?) map FillNullCommand.tupled

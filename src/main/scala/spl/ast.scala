@@ -8,11 +8,13 @@ sealed trait LeafExpr extends Expr
 sealed trait FieldLike
 sealed trait Constant extends LeafExpr
 
+trait FieldOrAlias
+
 case class Null() extends Constant
 case class Bool(value: Boolean) extends Constant
 case class IntValue(value: Int) extends Constant
 case class StrValue(value: String) extends Constant
-case class Field(value: String) extends Constant with FieldLike
+case class Field(value: String) extends Constant with FieldLike with FieldOrAlias
 case class Wildcard(value: String) extends Constant with FieldLike
 case class IPv4CIDR(value: String) extends Constant {
   private val subnet = new SubnetUtils(value)
@@ -34,7 +36,7 @@ case class Call(name: String, args: Seq[Expr] = Seq()) extends Expr
 
 case class FieldIn(field: String, exprs: Seq[Expr]) extends Expr
 
-case class Alias(expr: Expr, name: String) extends Expr with FieldLike
+case class Alias(expr: Expr, name: String) extends Expr with FieldLike with FieldOrAlias
 
 sealed trait Command
 
@@ -91,7 +93,7 @@ case class JoinCommand(joinType: String = "inner",
                        subSearch: Pipeline) extends Command
 
 // TODO: replace "Product with Serializable" with "Field" and refactor things
-case class ReturnCommand(count: Option[IntValue], fields: Seq[Product with Serializable]) extends Command
+case class ReturnCommand(count: IntValue, fields: Seq[FieldOrAlias]) extends Command
 
 // TODO: Option[Seq[Value]] -> Seq[Value] = Seq()
 case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) extends Command

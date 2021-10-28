@@ -1,7 +1,6 @@
 package splunkql
 
-import org.apache.logging.log4j.scala.Logging
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.internal.Logging
 import org.scalatest.funsuite.AnyFunSuite
 
 class SearchesFileTest extends AnyFunSuite with Logging {
@@ -18,6 +17,6 @@ class SearchesFileTest extends AnyFunSuite with Logging {
       new MacrosFile(res("/macros.conf")))
 
     val plan = sc.generatePython("[T1101] Security Support Provider")
-    logger.info(s"Generated code: \n${plan}")
+    log.info(s"Generated code: \n${plan}")
   }
 }

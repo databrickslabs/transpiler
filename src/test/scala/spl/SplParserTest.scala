@@ -617,7 +617,7 @@ class SplParserTest extends ParserSuite {
 
   test("return 10 $test $env") {
     p(_return(_), ReturnCommand(
-      Some(IntValue(10)),
+      IntValue(10),
       Seq(
         Field("test"),
         Field("env")
@@ -627,7 +627,7 @@ class SplParserTest extends ParserSuite {
 
   test("return 10 ip src host port") {
     p(_return(_), ReturnCommand(
-      Some(IntValue(10)),
+      IntValue(10),
       Seq(
         Field("ip"),
         Field("src"),
@@ -639,10 +639,10 @@ class SplParserTest extends ParserSuite {
 
   test("return 10 ip=src host=port") {
     p(_return(_), ReturnCommand(
-      Some(IntValue(10)),
+      IntValue(10),
       Seq(
-        (Field("ip"), Field("src")),
-        (Field("host"), Field("port"))
+        Alias(Field("src"), "ip"),
+        Alias(Field("port"), "host"),
       )
     ))
   }
