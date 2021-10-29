@@ -1,6 +1,7 @@
 package org.apache.spark.sql
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.SplToCatalyst.applyEventStats
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
