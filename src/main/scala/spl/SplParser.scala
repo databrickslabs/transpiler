@@ -138,7 +138,13 @@ object SplParser {
    * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Fields
    * Function is missing wildcard fields (except when discarding fields ie. fields - myField, ...)
    */
-  def fields[_:P]: P[FieldsCommand] = "fields" ~ ("+" | "-").!.? ~ field.rep(min = 1, sep = ",") map FieldsCommand.tupled
+  def fields[_:P]: P[FieldsCommand] = "fields" ~ ("+" | "-").!.? ~ field.rep(min = 1, sep = ",") map {
+    case (op, fields) =>
+      if (op.getOrElse("+").equals("-"))
+        FieldsCommand(removeFields = true, fields)
+      else
+        FieldsCommand(removeFields = false, fields)
+  }
 
   /**
    * https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Sort
@@ -205,7 +211,13 @@ object SplParser {
   }
 
   def _return[_:P]: P[ReturnCommand] = "return" ~ int.? ~ (
-      (field ~ "=" ~ expr).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map ReturnCommand.tupled
+      (fieldAndValue).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map {
+    case (maybeValue, exprs) =>
+      ReturnCommand(maybeValue.getOrElse(IntValue(1)), exprs map {
+        case fv: FV => Alias(Field(fv.value), fv.field).asInstanceOf[FieldOrAlias]
+        case field: Field => field.asInstanceOf[FieldOrAlias]
+      })
+  }
 
   def fillNull[_:P]: P[FillNullCommand] = ("fillnull" ~ ("value=" ~~ (doubleQuoted|token)).?
                                                       ~ field.rep(1).?) map FillNullCommand.tupled
