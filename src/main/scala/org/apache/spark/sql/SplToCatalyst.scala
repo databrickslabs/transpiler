@@ -1,7 +1,6 @@
 package org.apache.spark.sql
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.SplToCatalyst.applyEventStats
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
@@ -88,7 +87,8 @@ object SplToCatalyst extends Logging {
             FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
 
           case spl.EventStatsCommand(params, funcs, by) =>
-            applyEventStats(ctx, tree, params, funcs, by)
+            // TODO implement allnum option
+          applyEventStats(ctx, tree, params, funcs, by)
         }
       }
     }
@@ -533,6 +533,7 @@ object SplToCatalyst extends Logging {
                               params: Map[String, String],
                               funcs: Seq[spl.Expr],
                               by: Seq[spl.Field] = Seq()): LogicalPlan = {
+    // TODO implement allnum option
     val partitionSpec = by.map(attr)
     val sortOrderSpec = sortOrder(by.map(field => (Some("+"), field)))
     val windowSpec = WindowSpecDefinition(partitionSpec, sortOrderSpec, UnspecifiedFrame)
