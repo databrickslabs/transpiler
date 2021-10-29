@@ -1,8 +1,9 @@
 package org.apache.spark.sql
 
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
 
-class VerificationTest extends AnyFunSuite with ProcessProxy {
+class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfterAll {
 
   val dummy = Seq(
     Dummy("a", "b", "c", 1, valid = true),
@@ -36,6 +37,16 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
     Dummy("a_abc", "abc", "a_ghi", 1, valid = true),
     Dummy("a_abc_d", "abc", "a_ghi", 2, valid = false)
   )
+
+  override def beforeAll(): Unit = {
+    import spark.implicits._
+    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
+    spark.createDataset(dummy).createOrReplaceTempView("dummy")
+    spark.createDataset(dummySingleField).createOrReplaceTempView("dummy_single_field")
+    spark.createDataset(dummyWithNull).createOrReplaceTempView("dummy_with_null")
+    spark.createDataset(dummySubstrings).createOrReplaceTempView("dummy_substrings")
+  }
+
 
   test("thing") {
     generates("n>2 | stats count() by valid",
@@ -74,9 +85,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("thing2") {
-    import spark.implicits._
-    spark.createDataset(dummy).createOrReplaceTempView("main")
-    executes("n>2",
+    executes("index=dummy | n>2",
       """+---+---+---+---+-----+
         ||a  |b  |c  |n  |valid|
         |+---+---+---+---+-----+
@@ -88,8 +97,6 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("eval n_large=if(n > 3, 1, 0)") {
-    import spark.implicits._
-    spark.createDataset(dummy).createOrReplaceTempView("main")
     generates("eval n_large=if(n > 3, 1, 0)",
       """(spark.table('main')
         |.withColumn('n_large', F.expr('(IF((`n` > 3), 1, 0))')))
@@ -106,9 +113,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("n > len(a)") {
-    import spark.implicits._
-    spark.createDataset(dummy).createOrReplaceTempView("main")
-    executes("n > len(a)",
+    executes("index=dummy | n > len(a)",
       """+---+---+---+---+-----+
         ||a  |b  |c  |n  |valid|
         |+---+---+---+---+-----+
@@ -121,9 +126,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("b = substr(a,3)") {
-    import spark.implicits._
-    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
-    executes("b = substr(a,3)",
+    executes("index=dummy_substrings | b = substr(a,3)",
       """+-----+---+-----+---+-----+
         ||a    |b  |c    |n  |valid|
         |+-----+---+-----+---+-----+
@@ -133,9 +136,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("b = substr(a,3,3)") {
-    import spark.implicits._
-    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
-    executes("b = substr(a,3,3)",
+    executes("index=dummy_substrings | b = substr(a,3,3)",
       """+-------+---+-----+---+-----+
         ||a      |b  |c    |n  |valid|
         |+-------+---+-----+---+-----+
@@ -146,9 +147,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("b = substr(a,-3)") {
-    import spark.implicits._
-    spark.createDataset(dummySubstrings).createOrReplaceTempView("main")
-    executes("b = substr(a,-3)",
+    executes("index=dummy_substrings | b = substr(a,-3)",
       """+-----+---+-----+---+-----+
         ||a    |b  |c    |n  |valid|
         |+-----+---+-----+---+-----+
@@ -158,12 +157,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummySingleField).createOrReplaceTempView("main")
-
-    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"",
+    executes("index=dummy_single_field | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"",
       """+------------------------------+-----------------------+---------------------------+
         ||                          _raw|                   from|                         to|
         |+------------------------------+-----------------------+---------------------------+
@@ -176,12 +170,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummySingleField).createOrReplaceTempView("main")
-
-    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw",
+    executes("index=dummy_single_field | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw",
       """+-----------------------+---------------------------+
         ||                   from|                         to|
         |+-----------------------+---------------------------+
@@ -194,31 +183,21 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("rename a as a1") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummy).createOrReplaceTempView("main")
-
-    executes("rename a as a1",
-      """+---+---+---+-----+---+
-        ||  b|  c|  n|valid| a1|
-        |+---+---+---+-----+---+
-        ||  b|  c|  1| true|  a|
-        ||  e|  f|  2|false|  d|
-        ||  h|  i|  3| true|  g|
-        ||  g|  f|  4|false|  h|
-        ||  d|  c|  5| true|  e|
-        |+---+---+---+-----+---+
+    executes("index=dummy | rename a as a1 | rename a1 as a | rename a as a1",
+      """+---+---+---+---+-----+
+        || a1|  b|  c|  n|valid|
+        |+---+---+---+---+-----+
+        ||  a|  b|  c|  1| true|
+        ||  d|  e|  f|  2|false|
+        ||  g|  h|  i|  3| true|
+        ||  h|  g|  f|  4|false|
+        ||  e|  d|  c|  5| true|
+        |+---+---+---+---+-----+
         |""".stripMargin, truncate = 30)
   }
 
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | rename from AS emailFrom, to AS emailTo") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummySingleField).createOrReplaceTempView("main")
-
-    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | rename from AS emailFrom, to AS emailTo",
+    executes("index=dummy_single_field | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | rename from AS emailFrom, to AS emailTo",
       """+-----------------------+---------------------------+
         ||              emailFrom|                    emailTo|
         |+-----------------------+---------------------------+
@@ -231,12 +210,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | return 4 emailFrom=from emailTo=to") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummySingleField).createOrReplaceTempView("main")
-
-    executes("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | return 4 emailFrom=from emailTo=to",
+    executes("index=dummy_single_field | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | return 4 emailFrom=from emailTo=to",
       """+-----------------------+---------------------------+
         ||              emailFrom|                    emailTo|
         |+-----------------------+---------------------------+
@@ -249,12 +223,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("join type=inner a [search a=\"a\"]") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummy).createOrReplaceTempView("main")
-
-    executes("join type=inner a [search a=\"a\"]",
+    executes("index=dummy | join type=inner a [search index=dummy a=\"a\"]",
     """+---+---+---+---+-----+---+---+---+-----+
       ||a  |b  |c  |n  |valid|b  |c  |n  |valid|
       |+---+---+---+---+-----+---+---+---+-----+
@@ -264,12 +233,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("join type=left a [search a=\"a\"]") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummy).createOrReplaceTempView("main")
-
-    executes("join type=left a [search a=\"a\"]",
+    executes("index=dummy | join type=left a [search index=dummy a=\"a\"]",
       """+---+---+---+---+-----+----+----+----+-----+
         ||a  |b  |c  |n  |valid|b   |c   |n   |valid|
         |+---+---+---+---+-----+----+----+----+-----+
@@ -283,12 +247,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("fillnull") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
-
-    executes("fillnull",
+    executes("index=dummy_with_null | fillnull",
       """+---+---+---+---+-----+
         ||a  |b  |c  |n  |valid|
         |+---+---+---+---+-----+
@@ -299,12 +258,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("fillnull value=NA") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
-
-    executes("fillnull value=NA",
+    executes("index=dummy_with_null | fillnull value=NA",
       """+---+---+---+---+-----+
         ||a  |b  |c  |n  |valid|
         |+---+---+---+---+-----+
@@ -315,12 +269,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("fillnull value=NA a c n valid") {
-    import spark.implicits._
-
-    spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
-    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
-
-    executes("fillnull value=NA a c n valid",
+    executes("index=dummy_with_null | fillnull value=NA a c n valid",
       """+---+----+---+---+-----+
         ||a  |b   |c  |n  |valid|
         |+---+----+---+---+-----+
