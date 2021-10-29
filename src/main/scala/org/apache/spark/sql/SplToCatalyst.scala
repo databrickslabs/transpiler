@@ -178,9 +178,9 @@ object SplToCatalyst extends Logging {
       // We calculate the length as follows: (stop_index - start_index + 1)
       // Known issue: A negative start and a positive stop index or vice versa is not supported and an Exception will be thrown in that case.
       val mvfield = attrOrExpr(call.args.head)
-      val start : Int = extractIndex(call.args(1), 1)
-      val stop : Int = extractIndex(call.args(call.args.size - 1), 1)
-      if (start * stop< 0) {
+      val start = extractIndex(call.args(1))
+      val stop = call.args.lift(2).map(extractIndex(_)).getOrElse(start)
+      if (start * stop < 0) {
         throw new AnalysisException(s"A combination of negative and positive start and stop indices is not supported. start_index: ${start} stop_index: ${stop}")
       }
       val length : Int = stop - start + 1
@@ -190,7 +190,7 @@ object SplToCatalyst extends Logging {
       throw new AnalysisException(s"Unknown SPL function: $approx")
   }
 
-  private def extractIndex(x: spl.Expr, offset: Int) : Int = x match {
+  private def extractIndex(x: spl.Expr, offset: Int = 1) : Int = x match {
     case spl.IntValue(index) => if (index >= 0) index + offset else index
     case _ => throw new AnalysisException("int expected")
   }
