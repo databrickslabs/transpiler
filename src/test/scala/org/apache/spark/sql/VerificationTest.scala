@@ -38,6 +38,14 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     Dummy("a_abc_d", "abc", "a_ghi", 2, valid = false)
   )
 
+  val dummyWithDuplicates = Seq(
+    Dummy("a", "b", "c", 1, valid = true),
+    Dummy("b", "b", "c", 2, valid = true),
+    Dummy("c", "b", "c", 3, valid = true),
+    Dummy("d", "e", "f", 4, valid = false),
+    Dummy("e", "e", "f", 5, valid = true),
+  )
+
   override def beforeAll(): Unit = {
     import spark.implicits._
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
@@ -45,6 +53,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     spark.createDataset(dummySingleField).createOrReplaceTempView("dummy_single_field")
     spark.createDataset(dummyWithNull).createOrReplaceTempView("dummy_with_null")
     spark.createDataset(dummySubstrings).createOrReplaceTempView("dummy_substrings")
+    spark.createDataset(dummyWithDuplicates).createOrReplaceTempView("dummy_with_duplicates")
   }
 
 
@@ -104,9 +113,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("eval coalesced=coalesce(b,c)") {
-    import spark.implicits._
-    spark.createDataset(dummyWithNull).createOrReplaceTempView("main")
-    generates("eval coalesced=coalesce(b,c)",
+    generates("index=main | eval coalesced=coalesce(b,c)",
       """(spark.table('main')
         |.withColumn('coalesced', F.expr('coalesce(`b`, `c`)')))
         |""".stripMargin)
@@ -276,6 +283,20 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||a  |null|NA |1  |true |
         ||d  |e   |f  |2  |false|
         |+---+----+---+---+-----+
+        |""".stripMargin)
+  }
+
+  test("eventstats max(n) AS max_n, min(n) by b") {
+    executes("index=dummy_with_duplicates | eventstats max(n) AS max_n, min(n) by b",
+      """+---+---+---+---+-----+-----+------+
+        ||a  |b  |c  |n  |valid|max_n|min(n)|
+        |+---+---+---+---+-----+-----+------+
+        ||d  |e  |f  |4  |false|5    |4     |
+        ||e  |e  |f  |5  |true |5    |4     |
+        ||a  |b  |c  |1  |true |3    |1     |
+        ||b  |b  |c  |2  |true |3    |1     |
+        ||c  |b  |c  |3  |true |3    |1     |
+        |+---+---+---+---+-----+-----+------+
         |""".stripMargin)
   }
 }

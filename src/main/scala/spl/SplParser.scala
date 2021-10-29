@@ -222,6 +222,10 @@ object SplParser {
   def fillNull[_:P]: P[FillNullCommand] = ("fillnull" ~ ("value=" ~~ (doubleQuoted|token)).?
                                                       ~ field.rep(1).?) map FillNullCommand.tupled
 
+  def eventStats[_:P]: P[EventStatsCommand] = ("eventstats" ~ fieldAndValueList ~ (aliasedCall | call |
+      token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?)
+      ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map(EventStatsCommand.tupled)
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -237,6 +241,7 @@ object SplParser {
                                         | join
                                         | _return
                                         | fillNull
+                                        | eventStats
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline

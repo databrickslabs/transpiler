@@ -2,9 +2,11 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Max, Min}
 import org.apache.spark.sql.catalyst.plans.{Cross, ExistenceJoin, FullOuter, Inner, InnerLike, LeftAnti, LeftOuter, LeftSemi, NaturalJoin, RightOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
+
 import scala.util.matching.Regex
 
 private case class GeneratorContext(maxLineWidth: Int = 120)
@@ -105,10 +107,59 @@ object PythonGenerator {
       s"F.lit($value)"
     case Literal(value, t @ StringType) =>
       s"F.lit(${q(value.toString)})"
+    case AggregateExpression(aggregateFunction, mode, isDistinct, filter, resultId) =>
+      aggregateFunction match {
+        case Min(child) =>
+          s"F.min(${expressionCode(child)})"
+        case Max(child) =>
+          s"F.max(${expressionCode(child)})"
+      }
+    case CurrentRow =>
+      "Window.currentRow"
+    case UnboundedFollowing =>
+      "Window.unboundedFollowing"
+    case UnboundedPreceding =>
+      "Window.unboundedPreceding"
+    case SortOrder(child, direction, nullOrdering, _) =>
+      direction match {
+        case Ascending =>
+          nullOrdering match {
+            case NullsFirst =>
+              s"${expressionCode(child)}.asc()"
+            case NullsLast =>
+              // default null ordering for `asc()` is NullsFirst
+              s"${expressionCode(child)}.asc_null_last()"
+          }
+        case Descending =>
+          nullOrdering match {
+            case NullsFirst =>
+              s"${expressionCode(child)}.desc_null_first()"
+            case NullsLast =>
+              // default null ordering for `desc()` is NullsLast
+              s"${expressionCode(child)}.desc()"
+          }
+      }
+    case WindowExpression(windowFunction, windowSpec) =>
+      s"${expressionCode(windowFunction)}.over(${expressionCode(windowSpec)})"
+    case WindowSpecDefinition(partitionSpec, orderSpec, frameSpecification) =>
+      val partGenCode = partitionSpec.map(expressionCode).mkString(", ")
+      val orderByGenCode = orderSpec.map(expressionCode).mkString(", ")
+      val windowGenCode = s"Window.partitionBy(${partGenCode}).orderBy(${orderByGenCode})"
+      frameSpecification match {
+        case UnspecifiedFrame => windowGenCode
+        case SpecifiedWindowFrame(frameType, lower, upper) =>
+          frameType match {
+            case RangeFrame =>
+              s"${windowGenCode}.rangeBetween(${expressionCode(lower)}, ${expressionCode(upper)})"
+            case RowFrame =>
+              s"${windowGenCode}.rowsBetween(${expressionCode(lower)}, ${expressionCode(upper)})"
+          }
+      }
     case attr: UnresolvedAttribute =>
       s"F.col(${q(attr.name)})"
     case _ => s"F.expr(${q(expr.sql)})"
   }
+
 
   /** Simplified SQL rendering of Spark expressions */
   def expression(expr: Expression): String = expr match {

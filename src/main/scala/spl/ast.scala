@@ -92,10 +92,11 @@ case class JoinCommand(joinType: String = "inner",
                        fields: Seq[Field],
                        subSearch: Pipeline) extends Command
 
-// TODO: replace "Product with Serializable" with "Field" and refactor things
 case class ReturnCommand(count: IntValue, fields: Seq[FieldOrAlias]) extends Command
 
 // TODO: Option[Seq[Value]] -> Seq[Value] = Seq()
 case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) extends Command
+
+case class EventStatsCommand(params: Map[String, String], funcs: Seq[Expr], by: Seq[Field] = Seq()) extends Command
 
 case class Pipeline(commands: Seq[Command])
