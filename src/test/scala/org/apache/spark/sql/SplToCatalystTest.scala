@@ -420,8 +420,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ))),
             (_, tree) => {
                 Filter(
-                    Min(
-                        UnresolvedAttribute("bar")
+                    AggregateExpression(
+                        Min(UnresolvedAttribute("bar")),
+                        Complete,
+                        isDistinct = false
                     ),
                     tree)
             }
@@ -435,14 +437,15 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ))),
             (_, tree) => {
                 Filter(
-                    Max(
-                        UnresolvedAttribute("bar")
+                    AggregateExpression(
+                        Max(UnresolvedAttribute("bar")),
+                        Complete,
+                        isDistinct = false
                     ),
                     tree)
             }
         )
     }
-
     test("length(bar)") {
         check(spl.SearchCommand(
             spl.Call("len", Seq(
@@ -556,8 +559,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) => {
                 Filter(
                     Round(
-                        Min(
-                            UnresolvedAttribute("x")
+                        AggregateExpression(
+                            Min(UnresolvedAttribute("x")),
+                            Complete,
+                            isDistinct = false
                         ),
                         Literal(0)
                     ),
@@ -595,6 +600,30 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                             Literal.create("foo%"), '\\')),
                     tree)
         )
+    }
+
+    test("eventstats max(colA) AS maxA by colC") {
+        check(spl.EventStatsCommand(
+            Map(),
+            Seq(
+                spl.Alias(
+                    spl.Call("max", Seq(spl.Field("colA"))),
+                    "maxA"
+                ),
+            ),
+            Seq(spl.Field("colC"))
+        ),
+            (_, tree) => Project(Seq(
+                Alias(
+                    WindowExpression(
+                        AggregateExpression(Max(UnresolvedAttribute("colA")), Complete, isDistinct = false),
+                        WindowSpecDefinition(
+                            Seq(UnresolvedAttribute("colC")),
+                            Seq(SortOrder(UnresolvedAttribute("colC"), Ascending)),
+                            UnspecifiedFrame
+                        )
+                    ), "maxA")()
+            ), tree))
     }
 
     private def check(command: spl.Command,
