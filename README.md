@@ -37,7 +37,7 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | head | ✅ | ✅ | ✅ |
 | format |  |  |  |
 | fillnull | ✅ | ✅ | ✅ |
-| eventstats |  |  |  |
+| eventstats | ✅ | ✅ | ✅ |
 | dedup |  |  |  |
 
 Secondary batch of commands:

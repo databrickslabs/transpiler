@@ -7,6 +7,7 @@ import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
 import org.apache.spark.sql.types.{DoubleType, StringType}
+
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
@@ -84,6 +85,10 @@ object SplToCatalyst extends Logging {
           case spl.FillNullCommand(value, fields) =>
             val fieldsOpt = fields.getOrElse(Seq.empty[spl.Field]).map(_.value).toSet
             FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
+
+          case spl.EventStatsCommand(params, funcs, by) =>
+            // TODO implement allnum option
+            applyEventStats(ctx, tree, params, funcs, by)
         }
       }
     }
@@ -104,10 +109,14 @@ object SplToCatalyst extends Logging {
       Sum(attr(call.args.head))
     case "min" =>
       // TODO: would currently fail on wildcard attributes
-      Min(attrOrExpr(call.args.head))
+      AggregateExpression(
+        Min(attrOrExpr(call.args.head)),
+        Complete, isDistinct = false)
     case "max" =>
       // TODO: would currently fail on wildcard attributes
-      Max(attr(call.args.head))
+      AggregateExpression(
+        Max(attr(call.args.head)),
+        Complete, isDistinct = false)
     case "len" =>
       // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/TextFunctions#len.28X.29
       // This function returns the character length of a string X
@@ -517,6 +526,27 @@ object SplToCatalyst extends Logging {
       case field: spl.Field => UnresolvedAttribute(field.value)
       case alias: spl.Alias => Alias(attr(alias.expr), alias.name)()
     }, tree))
+  }
+
+  private def applyEventStats(ctx: LogicalContext,
+                              tree: LogicalPlan,
+                              params: Map[String, String],
+                              funcs: Seq[spl.Expr],
+                              by: Seq[spl.Field] = Seq()): LogicalPlan = {
+    // TODO implement allnum option
+    val partitionSpec = by.map(attr)
+    val sortOrderSpec = sortOrder(by.map(field => (Some("+"), field)))
+    val windowSpec = WindowSpecDefinition(partitionSpec, sortOrderSpec, UnspecifiedFrame)
+    funcs.foldLeft(tree) {
+      case (plan, spl.Alias(expr, name)) =>
+        withColumn(ctx, plan, name, WindowExpression(expression(expr), windowSpec))
+      case (plan, expr: spl.Expr) =>
+        withColumn(ctx, plan,
+          // when no name/alias is passed to the spl command, spl generates default column name based on the expression
+          // ie. `eventstats min(column) ...` will create a column named "min(column)"
+          expression(expr).toString.replace("'", ""),
+          WindowExpression(expression(expr), windowSpec))
+    }
   }
 }
 
