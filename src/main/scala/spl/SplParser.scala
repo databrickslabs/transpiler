@@ -158,8 +158,10 @@ object SplParser {
 
   // https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/Stats
   def aliasedCall[_:P] = call ~ W("as") ~ token map Alias.tupled
-  def stats[_:P] = ("stats" ~ fieldAndValueList ~
-    (aliasedCall | call | token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?) ~
+  def statsCall[_:P] = (aliasedCall | call |
+      token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?)
+
+  def stats[_:P] = ("stats" ~ fieldAndValueList ~ statsCall ~
     (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq())) ~
     ("dedup_splitvals" ~ "=" ~ bool).?.map(v => v.exists(_.value)))
     .map(StatsCommand.tupled)
@@ -222,8 +224,7 @@ object SplParser {
   def fillNull[_:P]: P[FillNullCommand] = ("fillnull" ~ ("value=" ~~ (doubleQuoted|token)).?
                                                       ~ field.rep(1).?) map FillNullCommand.tupled
 
-  def eventStats[_:P]: P[EventStatsCommand] = ("eventstats" ~ fieldAndValueList ~ (aliasedCall | call |
-      token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?)
+  def eventStats[_:P]: P[EventStatsCommand] = ("eventstats" ~ fieldAndValueList ~ statsCall
       ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map(EventStatsCommand.tupled)
 
   def command[_:P]: P[Command] = (stats | table

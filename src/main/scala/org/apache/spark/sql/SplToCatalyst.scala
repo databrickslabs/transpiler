@@ -87,7 +87,7 @@ object SplToCatalyst extends Logging {
             FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
 
           case spl.EventStatsCommand(params, funcs, by) =>
-            // TODO implement allnum option
+          // TODO implement allnum option
           applyEventStats(ctx, tree, params, funcs, by)
         }
       }
