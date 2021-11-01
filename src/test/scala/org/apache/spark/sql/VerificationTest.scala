@@ -299,4 +299,42 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |+---+---+---+---+-----+-----+------+
         |""".stripMargin)
   }
+
+  test("dedup 1 b c") {
+    executes("index=dummy_with_duplicates | dedup 1 b c",
+      """+---+---+---+---+-----+
+        ||a  |b  |c  |n  |valid|
+        |+---+---+---+---+-----+
+        ||d  |e  |f  |4  |false|
+        ||a  |b  |c  |1  |true |
+        |+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
+  /**
+   * Dummy("a", "b", "c", 1, valid = true),
+   * Dummy("d", "e", "f", 2, valid = false),
+   */
+  test("inputlookup dummy where n < 3") {
+    executes("inputlookup dummy where n < 3",
+      """+---+---+---+---+-----+
+        ||a  |b  |c  |n  |valid|
+        |+---+---+---+---+-----+
+        ||a  |b  |c  |1  |true |
+        ||d  |e  |f  |2  |false|
+        |+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
+  test("inputlookup max=2 dummy where n < 10") {
+    executes("inputlookup dummy where n < 3",
+      """+---+---+---+---+-----+
+        ||a  |b  |c  |n  |valid|
+        |+---+---+---+---+-----+
+        ||a  |b  |c  |1  |true |
+        ||d  |e  |f  |2  |false|
+        |+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
 }

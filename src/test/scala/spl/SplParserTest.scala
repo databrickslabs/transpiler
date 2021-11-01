@@ -663,4 +663,69 @@ class SplParserTest extends ParserSuite {
         Field("port")
       ))))
   }
+
+  test("dedup 10 keepevents=true keepempty=false consecutive=true host ip port") {
+    p(dedup(_), DedupCommand(
+      spl.IntValue(10),
+      Seq(
+        spl.Field("host"),
+        spl.Field("ip"),
+        spl.Field("port")
+      ),
+      keepEvents = true,
+      keepEmpty = false,
+      consecutive = true,
+      SortCommand(Seq((Some("+"), spl.Field("_no"))))
+    ))
+  }
+
+  test("dedup 10 keepevents=true host ip port sortby +host -ip") {
+    p(dedup(_), DedupCommand(
+      spl.IntValue(10),
+      Seq(
+        spl.Field("host"),
+        spl.Field("ip"),
+        spl.Field("port")
+      ),
+      keepEvents = true,
+      keepEmpty = false,
+      consecutive = false,
+      SortCommand(
+        Seq(
+          (Some("+"), Field("host")),
+          (Some("-"), Field("ip")),
+        )
+      )
+    ))
+  }
+
+  test("inputlookup append=t strict=f myTable where test_id=11") {
+    p(inputLookup(_), InputLookup(
+      append = true,
+      strict = false,
+      start = IntValue(0),
+      max = IntValue(1000000000),
+      "myTable",
+      Some(
+        WhereCommand(
+          Binary(
+            Field("test_id"),
+            Equals,
+            IntValue(11)
+          )
+      )
+    )))
+  }
+
+  test("inputlookup myTable") {
+    p(inputLookup(_), InputLookup(
+      append = false,
+      strict = false,
+      start = IntValue(0),
+      max = IntValue(1000000000),
+      "myTable",
+      None
+    ))
+  }
+
 }

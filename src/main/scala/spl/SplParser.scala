@@ -56,6 +56,8 @@ object SplParser {
 
   def fieldAndValue[_:P]: P[FV] = (token ~ "=" ~ (doubleQuoted|token)) map { case (k, v) => FV(k, v) }
   def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
+  def fieldAndBool[_:P]: P[FB] = (token ~ "=" ~ bool).map { case (k, v) => FB(k, v.value)}
+  def fieldAndBoolList[_: P]: P[Map[String, Boolean]] = fieldAndBool.rep map(x => x.map(y => y.field -> y.value).toMap)
   def fieldList[_: P]: P[Seq[Field]] = field.rep(sep=",")
   def filename[_: P]: P[String] = term
 
@@ -227,6 +229,56 @@ object SplParser {
   def eventStats[_:P]: P[EventStatsCommand] = ("eventstats" ~ fieldAndValueList ~ statsCall
       ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map(EventStatsCommand.tupled)
 
+  /**
+   * Specific field repetition which exclude the term sortby
+   * to avoid any conflict with the sortby command during the parsing
+   */
+  def dedupFieldRep[_:P]: P[Seq[Field]] =  field.filter {
+    case Field(myVal) => !myVal.toLowerCase.equals("sortby")
+  }.rep(1)
+
+  def dedup[_:P]: P[DedupCommand] = (
+      "dedup" ~ int.? ~ fieldAndBoolList.? ~ dedupFieldRep
+              ~ ("sortby" ~ (("+"|"-").!.? ~~ field).rep(1)).?) map {
+    case (limit, kv, fields, sortByQuery) =>
+      val kvOpt = kv.getOrElse(Map[String, Boolean]())
+      val sortByCommand = sortByQuery match {
+        case Some(query) => SortCommand(query)
+        case _ => SortCommand(Seq((Some("+"), spl.Field("_no"))))
+      }
+
+      DedupCommand(
+        numResults = limit.getOrElse(IntValue(1)),
+        fields = fields,
+        keepEvents = kvOpt.getOrElse("keepevents", false),
+        keepEmpty = kvOpt.getOrElse("keepEmpty", false),
+        consecutive = kvOpt.getOrElse("consecutive", false),
+        sortByCommand
+      )
+  }
+
+  def inputLookup[_:P]: P[InputLookup] = ("inputlookup" ~ ("append=" ~ bool).? ~ ("strict=" ~ bool).?
+      ~ ("start=" ~ int).? ~ ("max=" ~ int).? ~ token ~ ("where" ~ expr).?) map {
+    case (append, strict, start, max, tableName, whereOption) =>
+      InputLookup(
+        append match {
+          case Some(bool) => bool.value
+          case _ => false
+        },
+        strict match {
+          case Some(bool) => bool.value
+          case _ => false
+        },
+        start.getOrElse(IntValue(0)),
+        max.getOrElse(IntValue(1000000000)),
+        tableName,
+        whereOption match {
+          case Some(expr) => Some(WhereCommand(expr))
+          case _ => None
+        }
+      )
+  }
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -243,6 +295,8 @@ object SplParser {
                                         | _return
                                         | fillNull
                                         | eventStats
+                                        | dedup
+                                        | inputLookup
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline
