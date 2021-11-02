@@ -628,7 +628,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("dedup host") {
         check(spl.DedupCommand(
-            spl.IntValue(1),
+            1,
             Seq(spl.Field("host")),
             keepEvents = false,
             keepEmpty = false,
@@ -666,7 +666,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("dedup 10 keepevents=true ip port sortby +host -ip") {
         check(spl.DedupCommand(
-            spl.IntValue(10),
+            10,
             Seq(
                 spl.Field("ip"),
                 spl.Field("port")
@@ -721,16 +721,16 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.InputLookup(
             append = true,
             strict = false,
-            start = spl.IntValue(0),
-            max = spl.IntValue(20),
+            start = 0,
+            max = 20,
             tableName = "main",
-            Some(spl.WhereCommand(
+            Some(
                 spl.Binary(
                     spl.Field("a"),
                     spl.GreaterThan,
                     spl.IntValue(10)
                 )
-            ))
+            )
         ),
         (_, tree) => {
             Limit(

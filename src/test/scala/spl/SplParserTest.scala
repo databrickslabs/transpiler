@@ -666,7 +666,7 @@ class SplParserTest extends ParserSuite {
 
   test("dedup 10 keepevents=true keepempty=false consecutive=true host ip port") {
     p(dedup(_), DedupCommand(
-      spl.IntValue(10),
+      10,
       Seq(
         spl.Field("host"),
         spl.Field("ip"),
@@ -681,7 +681,7 @@ class SplParserTest extends ParserSuite {
 
   test("dedup 10 keepevents=true host ip port sortby +host -ip") {
     p(dedup(_), DedupCommand(
-      spl.IntValue(10),
+      10,
       Seq(
         spl.Field("host"),
         spl.Field("ip"),
@@ -703,17 +703,15 @@ class SplParserTest extends ParserSuite {
     p(inputLookup(_), InputLookup(
       append = true,
       strict = false,
-      start = IntValue(0),
-      max = IntValue(1000000000),
+      start = 0,
+      max = 1000000000,
       "myTable",
       Some(
-        WhereCommand(
-          Binary(
-            Field("test_id"),
-            Equals,
-            IntValue(11)
-          )
-      )
+        Binary(
+          Field("test_id"),
+          Equals,
+          IntValue(11)
+        )
     )))
   }
 
@@ -721,8 +719,8 @@ class SplParserTest extends ParserSuite {
     p(inputLookup(_), InputLookup(
       append = false,
       strict = false,
-      start = IntValue(0),
-      max = IntValue(1000000000),
+      start = 0,
+      max = 1000000000,
       "myTable",
       None
     ))

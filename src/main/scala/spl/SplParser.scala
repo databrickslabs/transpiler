@@ -3,6 +3,8 @@ package spl
 import fastparse.MultiLineWhitespace._
 import fastparse._
 
+import scala.util.Try
+
 /**
  * SPL parser and AST
  *
@@ -248,7 +250,7 @@ object SplParser {
       }
 
       DedupCommand(
-        numResults = limit.getOrElse(IntValue(1)),
+        numResults = (limit.getOrElse(IntValue(1))).value,
         fields = fields,
         keepEvents = kvOpt.getOrElse("keepevents", false),
         keepEmpty = kvOpt.getOrElse("keepEmpty", false),
@@ -257,25 +259,26 @@ object SplParser {
       )
   }
 
-  def inputLookup[_:P]: P[InputLookup] = ("inputlookup" ~ ("append=" ~ bool).? ~ ("strict=" ~ bool).?
-      ~ ("start=" ~ int).? ~ ("max=" ~ int).? ~ token ~ ("where" ~ expr).?) map {
-    case (append, strict, start, max, tableName, whereOption) =>
+  def toBool(str: String): Boolean = {
+    str match {
+      case "true" => true
+      case "t" => true
+      case "false" => false
+      case "f" => false
+      case _ => throw new Exception(s"${str} does not seem to be a string representation of a boolean")
+    }
+  }
+
+  def inputLookup[_:P]: P[InputLookup] = ("inputlookup" ~ fieldAndValueList.? ~ token ~ ("where" ~ expr).?) map {
+    case (kv, tableName, whereOption) =>
+      val kvOpt: Map[String, String] = kv.getOrElse(Map[String, String]())
       InputLookup(
-        append match {
-          case Some(bool) => bool.value
-          case _ => false
-        },
-        strict match {
-          case Some(bool) => bool.value
-          case _ => false
-        },
-        start.getOrElse(IntValue(0)),
-        max.getOrElse(IntValue(1000000000)),
+        Try(toBool(kvOpt.getOrElse("append", "false"))).getOrElse(false),
+        Try(toBool(kvOpt.getOrElse("strict", "false"))).getOrElse(false),
+        Try(kvOpt.getOrElse("start", "0").toInt).getOrElse(0),
+        Try(kvOpt.getOrElse("max", "1000000000").toInt).getOrElse(1000000000),
         tableName,
-        whereOption match {
-          case Some(expr) => Some(WhereCommand(expr))
-          case _ => None
-        }
+        whereOption
       )
   }
 

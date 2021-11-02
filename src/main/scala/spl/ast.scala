@@ -101,7 +101,7 @@ case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) ex
 
 case class EventStatsCommand(params: Map[String, String], funcs: Seq[Expr], by: Seq[Field] = Seq()) extends Command
 
-case class DedupCommand(numResults: IntValue,
+case class DedupCommand(numResults: Int,
                         fields: Seq[Field],
                         keepEvents: Boolean,
                         keepEmpty: Boolean,
@@ -110,9 +110,9 @@ case class DedupCommand(numResults: IntValue,
 
 case class InputLookup(append: Boolean,
                        strict: Boolean,
-                       start: IntValue,
-                       max: IntValue,
+                       start: Int,
+                       max: Int,
                        tableName: String,
-                       where: Option[WhereCommand]) extends Command
+                       where: Option[Expr]) extends Command
 
 case class Pipeline(commands: Seq[Command])

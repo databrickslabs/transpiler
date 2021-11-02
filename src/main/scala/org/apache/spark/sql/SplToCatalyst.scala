@@ -560,18 +560,17 @@ object SplToCatalyst extends Logging {
    * TODO: For sorting we need to check that the Lexicographical order in Splunk is the same in Spark
    * https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Dedup
    */
-  private def getSortByWindowExpr(fields: Seq[spl.Field], cmd: spl.SortCommand): WindowExpression = {
+  private def getSortByWindowExpr(fields: Seq[spl.Field], cmd: spl.SortCommand): WindowExpression =
     WindowExpression(RowNumber(), WindowSpecDefinition(
       partitionSpec = fields.map(attr),
       orderSpec = sortOrder(cmd.fieldsToSort),
       frameSpecification = UnspecifiedFrame)
     )
-  }
 
   private def applyDedup(ctx: LogicalContext, tree: LogicalPlan, cmd: spl.DedupCommand) = {
     val windowExpr = getSortByWindowExpr(cmd.fields, cmd.sortBy)
     Project(ctx.output, Filter(
-      LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(cmd.numResults.value)),
+      LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(cmd.numResults)),
       withColumn(ctx,
         withColumn(ctx, tree, "_no", MonotonicallyIncreasingID()),
         "_rn", windowExpr)
@@ -579,15 +578,14 @@ object SplToCatalyst extends Logging {
     )
   }
 
-  private def applyInputLookup(ctx: LogicalContext, plan: LogicalPlan, iLookup: spl.InputLookup) = {
+  private def applyInputLookup(ctx: LogicalContext, plan: LogicalPlan, iLookup: spl.InputLookup) =
     // TODO implement `append`, `strict` and `start` options, also inputlookup should accept file name
     Limit(
-      Literal(iLookup.max.value),
+      Literal(iLookup.max),
       iLookup.where match {
-        case Some(where) => Filter(expression(where.expr), plan)
+        case Some(where) => Filter(expression(where), plan)
         case _ => plan
       })
-  }
 }
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
