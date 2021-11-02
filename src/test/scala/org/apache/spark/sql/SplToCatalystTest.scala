@@ -626,6 +626,123 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), tree))
     }
 
+    test("dedup host") {
+        check(spl.DedupCommand(
+            1,
+            Seq(spl.Field("host")),
+            keepEvents = false,
+            keepEmpty = false,
+            consecutive = false,
+            spl.SortCommand(Seq((Some("+"), spl.Field("_no"))))
+        ),
+        (_, tree) => {
+            Project(
+                Seq(
+                    UnresolvedAttribute("host")
+                ),
+                Filter(
+                    LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(1)),
+                    Project(Seq(
+                        UnresolvedAttribute("host"),
+                        Alias(MonotonicallyIncreasingID(), "_no")(),
+                        Alias(WindowExpression(
+                            RowNumber(),
+                            WindowSpecDefinition(
+                                Seq(UnresolvedAttribute("host")),
+                                Seq(SortOrder(UnresolvedAttribute("_no"), Ascending)),
+                                UnspecifiedFrame
+                            )
+                        ), "_rn")()
+                    ), Project(Seq(
+                        UnresolvedAttribute("host"),
+                        Alias(MonotonicallyIncreasingID(), "_no")()
+                    ), tree))
+                )
+            )
+        }, injectOutput = Seq(
+            UnresolvedAttribute("host"))
+        )
+    }
+
+    test("dedup 10 keepevents=true ip port sortby +host -ip") {
+        check(spl.DedupCommand(
+            10,
+            Seq(
+                spl.Field("ip"),
+                spl.Field("port")
+            ),
+            keepEvents = true,
+            keepEmpty = false,
+            consecutive = false,
+            spl.SortCommand(Seq(
+                (Some("+"), spl.Field("host")),
+                (Some("-"), spl.Field("ip"))))
+        ),
+        (_, tree) => {
+            Project(
+                Seq(
+                    UnresolvedAttribute("host"),
+                    UnresolvedAttribute("ip"),
+                    UnresolvedAttribute("port"),
+                ),
+                Filter(
+                    LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(10)),
+                    Project(Seq(
+                        UnresolvedAttribute("host"),
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port"),
+                        Alias(MonotonicallyIncreasingID(), "_no")(),
+                        Alias(WindowExpression(
+                            RowNumber(),
+                            WindowSpecDefinition(
+                                Seq(UnresolvedAttribute("ip"),
+                                    UnresolvedAttribute("port")),
+                                Seq(SortOrder(UnresolvedAttribute("host"), Ascending),
+                                    SortOrder(UnresolvedAttribute("ip"), Descending)),
+                                UnspecifiedFrame
+                            )
+                        ), "_rn")()
+                    ), Project(Seq(
+                        UnresolvedAttribute("host"),
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port"),
+                        Alias(MonotonicallyIncreasingID(), "_no")()
+                    ), tree))
+                )
+            )
+        }, injectOutput = Seq(
+            UnresolvedAttribute("host"),
+            UnresolvedAttribute("ip"),
+            UnresolvedAttribute("port")
+        ))
+    }
+
+    test("inputlookup append=t strict=f max=20 main where a > 10") {
+        check(spl.InputLookup(
+            append = true,
+            strict = false,
+            start = 0,
+            max = 20,
+            tableName = "main",
+            Some(
+                spl.Binary(
+                    spl.Field("a"),
+                    spl.GreaterThan,
+                    spl.IntValue(10)
+                )
+            )
+        ),
+        (_, tree) => {
+            Limit(
+                Literal(20),
+                Filter(GreaterThan(
+                    UnresolvedAttribute("a"),
+                    Literal(10)
+                ), tree)
+            )
+        })
+    }
+
     private def check(command: spl.Command,
                       callback: (spl.Command, LogicalPlan) => LogicalPlan,
                       injectOutput: Seq[NamedExpression] = Seq()): Unit = this.synchronized {

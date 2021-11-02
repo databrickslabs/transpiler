@@ -1,16 +1,15 @@
 package org.apache.spark.sql
 
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
-import org.apache.spark.sql.types.{DoubleType, StringType}
-
 import scala.collection.mutable
-import scala.util.control.NonFatal
 import scala.util.matching.Regex
+import scala.util.control.NonFatal
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.types.{DoubleType, StringType}
+import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
@@ -21,6 +20,10 @@ object SplToCatalyst extends Logging {
           case spl.SearchCommand(expr) =>
             // probably search is different from where...
             Filter(expression(expr), tree)
+
+          case inputLookup: spl.InputLookup =>
+            // TODO implement `append`, `strict` and `start` options, also inputlookup should accept file name
+            applyInputLookup(ctx, tree, inputLookup)
 
           case spl.WhereCommand(expr) =>
             Filter(expression(expr), tree)
@@ -89,6 +92,9 @@ object SplToCatalyst extends Logging {
           case spl.EventStatsCommand(params, funcs, by) =>
             // TODO implement allnum option
             applyEventStats(ctx, tree, params, funcs, by)
+
+          case dedupCmd: spl.DedupCommand =>
+            applyDedup(ctx, tree, dedupCmd)
         }
       }
     }
@@ -183,6 +189,7 @@ object SplToCatalyst extends Logging {
   private def determineTable(ctx: LogicalContext, p: spl.Pipeline): (LogicalPlan, spl.Pipeline) = {
     val indices = p.commands.flatMap {
       case spl.SearchCommand(expr) => findIndices(expr)
+      case inputLookup: spl.InputLookup => Set(inputLookup.tableName)
       case _ => Seq()
     }
     if (indices.size > 1) {
@@ -548,6 +555,37 @@ object SplToCatalyst extends Logging {
           WindowExpression(expression(expr), windowSpec))
     }
   }
+
+  /**
+   * TODO: For sorting we need to check that the Lexicographical order in Splunk is the same in Spark
+   * https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Dedup
+   */
+  private def getSortByWindowExpr(fields: Seq[spl.Field], cmd: spl.SortCommand): WindowExpression =
+    WindowExpression(RowNumber(), WindowSpecDefinition(
+      partitionSpec = fields.map(attr),
+      orderSpec = sortOrder(cmd.fieldsToSort),
+      frameSpecification = UnspecifiedFrame)
+    )
+
+  private def applyDedup(ctx: LogicalContext, tree: LogicalPlan, cmd: spl.DedupCommand) = {
+    val windowExpr = getSortByWindowExpr(cmd.fields, cmd.sortBy)
+    Project(ctx.output, Filter(
+      LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(cmd.numResults)),
+      withColumn(ctx,
+        withColumn(ctx, tree, "_no", MonotonicallyIncreasingID()),
+        "_rn", windowExpr)
+      )
+    )
+  }
+
+  private def applyInputLookup(ctx: LogicalContext, plan: LogicalPlan, iLookup: spl.InputLookup) =
+    // TODO implement `append`, `strict` and `start` options, also inputlookup should accept file name
+    Limit(
+      Literal(iLookup.max),
+      iLookup.where match {
+        case Some(where) => Filter(expression(where), plan)
+        case _ => plan
+      })
 }
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {

@@ -33,12 +33,12 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | return | ✅ | ✅ | ✅ |
 | mvcombine |  |  |  |
 | map |  |  |  |
-| inputlookup |  |  |  |
+| inputlookup | ✅ | ✅ | ✅ |
 | head | ✅ | ✅ | ✅ |
 | format |  |  |  |
 | fillnull | ✅ | ✅ | ✅ |
 | eventstats | ✅ | ✅ | ✅ |
-| dedup |  |  |  |
+| dedup | ✅ | ✅ | ✅ |
 
 Secondary batch of commands:
 
