@@ -9,8 +9,6 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
-import spl.FormatArgs
-
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("HeadCommand should generate a Limit") {
@@ -748,7 +746,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.FormatCommand(
             mvSep = "||",
             maxResults = 12,
-            args = FormatArgs("(", "(", "AND", ")", "OR", ")")
+            args = spl.FormatArgs("(", "(", "AND", ")", "OR", ")")
         ),
         (_, tree) => {
             Aggregate(
