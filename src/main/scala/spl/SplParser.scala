@@ -283,15 +283,20 @@ object SplParser {
   def format[_:P]: P[FormatCommand] = ("format" ~ fieldAndValueList.? ~ doubleQuoted.rep(6).?) map {
     case (kv, options) =>
       val kvOpt: Map[String, String] = kv.getOrElse(Map[String, String]())
+      val arguments = options match {
+        case Some(args) => args
+        case _ => Seq("(", "(", "AND", ")", "OR", ")")
+      }
+
       FormatCommand(
-        kvOpt.getOrElse("mvsep", "OR"),
-        kvOpt.get("maxresults").map(_.toInt).getOrElse(0),
-        options match {
-          case Some(args) =>
-            FormatArgs(args.head, args(1), args(2), args(3), args(4), args(5))
-          case _ =>
-            FormatArgs("(", "(", "AND", ")", "OR", ")")
-        }
+        mvSep = kvOpt.getOrElse("mvsep", "OR"),
+        maxResults = kvOpt.get("maxresults").map(_.toInt).getOrElse(0),
+        rowPrefix = arguments.head,
+        colPrefix = arguments(1),
+        colSep = arguments(2),
+        colEnd = arguments(3),
+        rowSep = arguments(4),
+        rowEnd = arguments(5)
       )
   }
 

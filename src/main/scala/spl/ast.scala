@@ -124,6 +124,11 @@ case class FormatArgs(rowPrefix: String,
 
 case class FormatCommand(mvSep: String,
                          maxResults: Int,
-                         args: FormatArgs) extends Command
+                         rowPrefix: String,
+                         colPrefix: String,
+                         colSep: String,
+                         colEnd: String,
+                         rowSep: String,
+                         rowEnd: String) extends Command
 
 case class Pipeline(commands: Seq[Command])

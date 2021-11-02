@@ -746,7 +746,12 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.FormatCommand(
             mvSep = "||",
             maxResults = 12,
-            args = spl.FormatArgs("(", "(", "AND", ")", "OR", ")")
+            rowPrefix = "(",
+            colPrefix =  "(",
+            colSep = "AND",
+            colEnd = ")",
+            rowSep = "OR",
+            rowEnd = ")"
         ),
         (_, tree) => {
             Aggregate(

@@ -730,7 +730,12 @@ class SplParserTest extends ParserSuite {
     p(format(_), FormatCommand(
       mvSep = "OR",
       maxResults = 10,
-      args = FormatArgs("(", "(", "AND", ")", "OR", ")")
+      rowPrefix = "(",
+      colPrefix =  "(",
+      colSep = "AND",
+      colEnd = ")",
+      rowSep = "OR",
+      rowEnd = ")"
     ))
   }
 
@@ -738,7 +743,12 @@ class SplParserTest extends ParserSuite {
     p(format(_), FormatCommand(
       mvSep = "||",
       maxResults = 0,
-      args = FormatArgs("[", "[", "&&", "]", "||", "]")
+      rowPrefix = "[",
+      colPrefix =  "[",
+      colSep = "&&",
+      colEnd = "]",
+      rowSep = "||",
+      rowEnd = "]"
     ))
   }
 }

@@ -1,13 +1,12 @@
 package org.apache.spark.sql
 
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, CollectList, Count, Max, Min, Sum}
-import org.apache.spark.sql.catalyst.plans.{Cross, ExistenceJoin, FullOuter, Inner, InnerLike, LeftAnti, LeftOuter, LeftSemi, NaturalJoin, RightOuter, UsingJoin}
-import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
-
 import scala.util.matching.Regex
+import org.apache.spark.sql.catalyst.analysis._
+import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.plans.UsingJoin
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
 
 private case class GeneratorContext(maxLineWidth: Int = 120)
 
@@ -187,9 +186,9 @@ object PythonGenerator {
       genWindowSpecCode(ws)
     case namedStruct: CreateNamedStruct =>
       s"F.struct(${namedStruct.valExprs.map(expressionCode).mkString(", ")})"
-    case FormatString(children@_*) =>
-      val strFmt::columns = children
-      s"F.format_string(${q(strFmt.toString())}, ${columns.map(expressionCode).mkString(", ")})"
+    case fs: FormatString =>
+      val stringPattern :: columns = fs.children.toSeq
+      s"F.format_string(${q(stringPattern.toString())}, ${columns.map(expressionCode).mkString(", ")})"
     case attr: AttributeReference =>
       s"F.col(${q(attr.name)})"
     case attr: UnresolvedAttribute =>

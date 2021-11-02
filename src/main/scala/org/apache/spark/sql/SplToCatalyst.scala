@@ -96,9 +96,9 @@ object SplToCatalyst extends Logging {
           case dedupCmd: spl.DedupCommand =>
             applyDedup(ctx, tree, dedupCmd)
 
-          case spl.FormatCommand(mvSep, maxResults, args) =>
+          case fc: spl.FormatCommand =>
             // TODO Implement behaviour with mvsep when multiple value field is present
-            applyFormat(ctx, tree, mvSep, maxResults, args)
+            applyFormat(ctx, tree, fc)
         }
       }
     }
@@ -591,41 +591,27 @@ object SplToCatalyst extends Logging {
         case _ => plan
       })
 
-  private def getFormattedPattern(colNames: Seq[String],
-                                  colPrefix: String,
-                                  colSep: String,
-                                  coldEnd: String,
-                                  rowPrefix: String,
-                                  rowEnd: String): String = {
-    rowPrefix + colNames.map(colName => s"${colPrefix}${colName}=%s${coldEnd}").mkString(s" ${colSep} ") + rowEnd
-  }
-
   private def applyFormat(ctx: LogicalContext,
                           tree: LogicalPlan,
-                          mvSep: String,
-                          maxResults: Int,
-                          args: spl.FormatArgs): LogicalPlan = {
+                          fc: spl.FormatCommand): LogicalPlan = {
     // TODO Implement behaviour with mvsep when multiple value field is present
-    val pattern = getFormattedPattern(
-      ctx.output.map(_.name),
-      args.colPrefix,
-      args.colSep,
-      args.colEnd,
-      args.rowPrefix,
-      args.rowEnd
+    val existingColumnNames = ctx.output.map(_.name)
+    val colLevelPattern = existingColumnNames.map(column =>
+      s"${fc.colPrefix}${column}=%s${fc.colEnd}"
     )
+    val rowLevelPattern = fc.rowPrefix + colLevelPattern.mkString(s" ${fc.colSep} ") + fc.rowEnd
     newAggregateIgnoringABI(Nil, Seq(
       Alias(
         ArrayJoin(
           AggregateExpression(
             CollectList(
-              FormatString((Literal(pattern) +: ctx.output): _*)
+              FormatString((Literal(rowLevelPattern) +: ctx.output): _*)
             ), Complete, isDistinct = false
-          ), Literal(s" ${args.rowSep} "), None
+          ), Literal(s" ${fc.rowSep} "), None
         ), "search")()
-    ), maxResults match {
+    ), fc.maxResults match {
       case 0 => tree
-      case _ => Limit(Literal(maxResults), tree)
+      case _ => Limit(Literal(fc.maxResults), tree)
     })
 
   }
