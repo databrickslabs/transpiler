@@ -148,6 +148,10 @@ object PythonGenerator {
       s"F.min(${expressionCode(expr)})"
     case Max(expr) =>
       s"F.max(${expressionCode(expr)})"
+    case MonotonicallyIncreasingID() =>
+      s"F.monotonically_increasing_id()"
+    case RowNumber() =>
+      s"F.row_number()"
     case AggregateExpression(aggFn, mode, isDistinct, filter, resultId) =>
       expressionCode(aggFn)
     case CurrentRow =>
@@ -166,7 +170,6 @@ object PythonGenerator {
       s"F.col(${q(attr.name)})"
     case _ => s"F.expr(${q(expr.sql)})"
   }
-
 
   /** Simplified SQL rendering of Spark expressions */
   def expression(expr: Expression): String = expr match {

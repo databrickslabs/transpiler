@@ -24,6 +24,8 @@ case class IPv4CIDR(value: String) extends Constant {
 
 case class FV(field: String, value: String) extends LeafExpr
 
+case class FB(field: String, value: Boolean) extends LeafExpr
+
 case class AliasedField(field: Field, alias: String) extends Expr with FieldLike
 
 case class FvList(fvs: Seq[FV]) extends Expr
@@ -98,5 +100,19 @@ case class ReturnCommand(count: IntValue, fields: Seq[FieldOrAlias]) extends Com
 case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) extends Command
 
 case class EventStatsCommand(params: Map[String, String], funcs: Seq[Expr], by: Seq[Field] = Seq()) extends Command
+
+case class DedupCommand(numResults: Int,
+                        fields: Seq[Field],
+                        keepEvents: Boolean,
+                        keepEmpty: Boolean,
+                        consecutive: Boolean,
+                        sortBy: SortCommand) extends Command
+
+case class InputLookup(append: Boolean,
+                       strict: Boolean,
+                       start: Int,
+                       max: Int,
+                       tableName: String,
+                       where: Option[Expr]) extends Command
 
 case class Pipeline(commands: Seq[Command])
