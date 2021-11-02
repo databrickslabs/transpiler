@@ -34,7 +34,7 @@ object Transpiler {
 
   /** Executes SPL query on Databricks Runtime */
   def toDataFrame(spark: SparkSession, search: String): DataFrame = {
-    Dataset.ofRows(spark, logicalPlan(search, new LogicalContext(
+    val test = logicalPlan(search, new LogicalContext(
       // TODO: make indexName, timeFieldName, rawFieldName configurable through Spark config
       // TODO: introduce callback for column renames, probably with a simple rule framework
       analyzePlan = (table: LogicalPlan) => {
@@ -42,7 +42,9 @@ object Transpiler {
         queryExecution.assertAnalyzed()
         queryExecution.analyzed.output
       }
-    )))
+    ))
+    println(test)
+    Dataset.ofRows(spark, test)
   }
   /** Generates PySpark code out of SPL search */
   def toPython(search: String): String = {
