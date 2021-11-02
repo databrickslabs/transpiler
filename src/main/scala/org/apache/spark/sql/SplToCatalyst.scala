@@ -2,16 +2,14 @@ package org.apache.spark.sql
 
 import scala.collection.mutable
 import scala.util.matching.Regex
-import org.apache.logging.log4j.scala.Logging
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{CollectSet, Count, Sum, First, Last, Max, Min}
-import org.apache.spark.sql.catalyst.plans.{Inner, JoinType, LeftOuter, UsingJoin}
-import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{DoubleType, LongType, MetadataBuilder, StringType}
-
-import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.types.{DoubleType, StringType}
+import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
@@ -22,6 +20,10 @@ object SplToCatalyst extends Logging {
           case spl.SearchCommand(expr) =>
             // probably search is different from where...
             Filter(expression(expr), tree)
+
+          case inputLookup: spl.InputLookup =>
+            // TODO implement `append`, `strict` and `start` options, also inputlookup should accept file name
+            applyInputLookup(ctx, tree, inputLookup)
 
           case spl.WhereCommand(expr) =>
             Filter(expression(expr), tree)
@@ -43,20 +45,15 @@ object SplToCatalyst extends Logging {
 
           case spl.HeadCommand(expr, keepLast, nullOption) =>
             // TODO Implement keeplast and null options behaviour
-            logger.debug(s"Adding `HeadCommand` with options: $expr to the tree")
+            log.debug(s"Adding `HeadCommand` with options: $expr to the tree")
             if (expr.isInstanceOf[spl.IntValue]) Limit(expression(expr), tree)
             else Filter(expression(expr), tree)
 
           case spl.SortCommand(fields) =>
             Sort(sortOrder(fields), global = true, tree)
 
-          case spl.FieldsCommand(op, fields) =>
-            if (op.getOrElse("+").equals("-")) {
-              val fieldsToDiscard = fields.map(_.value.replace("*", "(.*)")).mkString("|")
-              val columnRegex = UnresolvedRegex(s"(?!$fieldsToDiscard).*", None, caseSensitive = false)
-              // TODO: change LogicalContext
-              Project(Seq(columnRegex), tree)
-            } else selectExpr(fields, tree)
+          case spl.FieldsCommand(rmFields, fields) =>
+            applyFields(ctx, tree, rmFields, fields)
 
           case spl.LookupCommand(dataset, fields, output) =>
             leftJoinUsing(dataset, fields, output, tree)
@@ -72,49 +69,32 @@ object SplToCatalyst extends Logging {
               Deduplicate(by.map(x => UnresolvedAttribute(x.value)), agg)
             } else agg
 
-          case spl.RexCommand(field, maxMatch, offsetField, mode, regex) =>
+          case rc: spl.RexCommand =>
             // TODO find a way to implement max_match, offset_field and mode
-            rexExtract(ctx, field, maxMatch, offsetField, mode, regex, tree)
+            applyRex(ctx, tree, rc)
 
           case spl.RenameCommand(aliases) =>
-            renameColumn(aliases, tree)
+            applyRename(ctx, tree, aliases)
 
           case spl.RegexCommand(item, regex) =>
-            item match {
-              case Some(value) =>
-                val catalystOp = if (value._2.contains("!")) Not else (expr: Expression) => expr
-                Filter(catalystOp(RLike(Column(value._1.value).expr, Literal(regex))), tree)
-              case None =>
-                Filter(RLike(Column(ctx.rawFieldName).expr, Literal(regex)), tree)
-            }
+            applyRegex(ctx, tree, item, regex)
 
-          case spl.JoinCommand(joinType, useTime, earlier, overwrite, max, fields, subSearch) =>
-            val right = pipeline(ctx.copy(output = Seq()), subSearch)
-            Join(tree, right,
-              UsingJoin(joinType match {
-                case "inner" => Inner
-                case "left" => LeftOuter
-                case "outer" => LeftOuter
-                case _ => Inner
-              }, fields.map(_.value)), None, JoinHint.NONE)
+          case jc: spl.JoinCommand =>
+            applyJoin(ctx, tree, jc)
 
-          case spl.ReturnCommand(count, fields) =>
-            val countLimit = count match {
-              case Some(item) => Literal(item.value)
-              case None => Literal(1)
-            }
-
-            Limit(countLimit, Project(fields.map {
-              case alias: (spl.Field, spl.Expr) =>
-                // TODO: rewrite to something sensible
-                Alias(Column(attr(alias._2).name).named, attr(alias._1).name)()
-              case field: spl.Field =>
-                Column(field.value).named
-            }, tree))
+          case spl.ReturnCommand(count, fieldsOrAliases) =>
+            applyReturn(ctx, tree, count, fieldsOrAliases)
 
           case spl.FillNullCommand(value, fields) =>
             val fieldsOpt = fields.getOrElse(Seq.empty[spl.Field]).map(_.value).toSet
             FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
+
+          case spl.EventStatsCommand(params, funcs, by) =>
+            // TODO implement allnum option
+            applyEventStats(ctx, tree, params, funcs, by)
+
+          case dedupCmd: spl.DedupCommand =>
+            applyDedup(ctx, tree, dedupCmd)
         }
       }
     }
@@ -129,15 +109,20 @@ object SplToCatalyst extends Logging {
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
     case "count" =>
+      // TODO: if count is empty, make the Count(Literal.create(1))
       Count(call.args.map(expression))
     case "sum" =>
       Sum(attr(call.args.head))
     case "min" =>
       // TODO: would currently fail on wildcard attributes
-      Min(attrOrExpr(call.args.head))
+      AggregateExpression(
+        Min(attrOrExpr(call.args.head)),
+        Complete, isDistinct = false)
     case "max" =>
       // TODO: would currently fail on wildcard attributes
-      Max(attr(call.args.head))
+      AggregateExpression(
+        Max(attr(call.args.head)),
+        Complete, isDistinct = false)
     case "len" =>
       // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/TextFunctions#len.28X.29
       // This function returns the character length of a string X
@@ -204,6 +189,7 @@ object SplToCatalyst extends Logging {
   private def determineTable(ctx: LogicalContext, p: spl.Pipeline): (LogicalPlan, spl.Pipeline) = {
     val indices = p.commands.flatMap {
       case spl.SearchCommand(expr) => findIndices(expr)
+      case inputLookup: spl.InputLookup => Set(inputLookup.tableName)
       case _ => Seq()
     }
     if (indices.size > 1) {
@@ -211,10 +197,17 @@ object SplToCatalyst extends Logging {
     }
     val tableName = indices.headOption.getOrElse(ctx.indexName)
     val table = UnresolvedRelation(Seq(tableName)).asInstanceOf[LogicalPlan]
-    (table, p.copy(commands = p.commands.map {
-      case s: spl.SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
-      case c: spl.Command => c
-    }))
+    ctx.output ++= ctx.analyzePlan(table)
+    // `filterNot` is being used here to filter out a `SearchCommand` that only contains `index`.
+    // The idea is to remove the `index` filters, as they are lifted to the top of the tree
+    (table, p.copy(commands = p.commands.filterNot {
+        case s: spl.SearchCommand => isFilter(s.expr, "index")
+        case _ => false
+      }.map {
+        case s: spl.SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
+        case c: spl.Command => c
+      }
+    ))
   }
 
   private def leftJoinUsing(dataset: String,
@@ -261,9 +254,29 @@ object SplToCatalyst extends Logging {
     val child = if (hasTimeFunctions(funcs)) Sort(Seq(
         SortOrder(UnresolvedAttribute(ctx.timeFieldName), Ascending, NullsFirst, Seq.empty)
     ), global = true, tree) else tree
-    val plan = Aggregate(groupBy, agg, child)
     ctx.output = Seq()
-    plan
+    // new Aggregate(groupBy, agg, child) translates to
+    // INVOKESPECIAL Aggregate.<init> (LSeq;Seq;LLogicalPlan;)V
+    // and it's not filling in default arguments
+    newAggregateIgnoringABI(groupBy, agg, child)
+  }
+
+  // we're using Spark Catalyst's private APIs, so there are absolutely no guarantees
+  // on binary compatibility of different Spark implementations. This is a hack to
+  // make one of the most important SPL commands to be runnable in Databricks Runtime.
+  private def newAggregateIgnoringABI(groupingExpressions: Seq[Expression],
+              aggregateExpressions: Seq[NamedExpression],
+              child: LogicalPlan): Aggregate = aggregateConstructorArgCountABI match {
+    case 3 => Aggregate(groupingExpressions, aggregateExpressions, child)
+    case 4 => aggregateConstructorReflection
+      .newInstance(groupingExpressions, aggregateExpressions, child, None)
+      .asInstanceOf[Aggregate]
+    case _ => throw new AnalysisException(s"Incompatible runtime detected")
+  }
+
+  private val (aggregateConstructorReflection, aggregateConstructorArgCountABI) = {
+    val firstConstructor = classOf[Aggregate].getConstructors.head
+    (firstConstructor, firstConstructor.getParameterCount)
   }
 
   private def hasTimeFunctions(funcs: Seq[spl.Expr]) : Boolean = funcs.map {
@@ -296,7 +309,16 @@ object SplToCatalyst extends Logging {
   private def selectColumn(ctx: LogicalContext,
                            tree: LogicalPlan,
                            ne: NamedExpression): Project = {
-    ctx.output :+= ne
+    // To avoid duplicate column
+    if (!ctx.output.map(_.name).contains(ne.name))
+      ctx.output :+= ne
+    Project(ctx.output, tree)
+  }
+
+  private def selectColumns(ctx: LogicalContext,
+                            tree: LogicalPlan,
+                            namedExprs: Seq[NamedExpression]): Project = {
+    ctx.output = namedExprs
     Project(ctx.output, tree)
   }
 
@@ -306,7 +328,7 @@ object SplToCatalyst extends Logging {
     try {
       mapper(plan, command) match {
         case project: Project =>
-          //ctx.output = project.output
+          ctx.output = project.output
           project
         case result: LogicalPlan =>
           result
@@ -315,7 +337,7 @@ object SplToCatalyst extends Logging {
       case NonFatal(e) =>
         val name = command.getClass.getSimpleName
           .replace("Command", "").toLowerCase
-        logger.warn(s"Error in $name", e)
+        log.warn(s"Error in $name", e)
         UnknownPlanShim(s"Error in $name: $e", plan)
     }
   }
@@ -327,15 +349,14 @@ object SplToCatalyst extends Logging {
     }, tree)
   }
 
-  private def renameColumn(aliases: Seq[spl.Alias], tree: LogicalPlan): LogicalPlan = {
-    // TODO: modify LogicalContext
-    val myList = new ListBuffer[NamedExpression]
-    val regex = aliases.map(alias => attr(alias.expr).name).mkString("|")
-    myList += UnresolvedRegex(s"(?!$regex).*", None, caseSensitive = false)
-    aliases foreach {alias => {
-      myList += Alias(attr(alias.expr), alias.name)()
-    }}
-    Project(myList, tree)
+  private def applyRename(ctx: LogicalContext, tree: LogicalPlan, aliases: Seq[spl.Alias]): LogicalPlan = {
+    val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
+    Project(ctx.output.map(item =>
+      aliasMap.get(item.name) match {
+        case Some(alias) => Alias(attr(alias.expr), alias.name)()
+        case _ => item
+      }
+    ), tree)
   }
 
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Commontimeformatvariables
@@ -454,27 +475,117 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  private def rexExtract(ctx: LogicalContext,
-                         field: Option[String],
-                         maxMatch: Int,
-                         offsetField: Option[String],
-                         mode: Option[String],
-                         regex: String,
-                         tree: LogicalPlan): LogicalPlan = {
-    mode match {
+  private def applyFields(ctx: LogicalContext,
+                          tree: LogicalPlan,
+                          removeFields: Boolean,
+                          fields: Seq[spl.Field]): LogicalPlan =
+    if (removeFields) {
+      val columns = fields.map(_.value)
+      selectColumns(ctx, tree, ctx.output.filter(item => !columns.contains(item.name)))
+    }
+    else
+      selectExpr(fields, tree)
+
+  private def applyRex(ctx: LogicalContext, tree: LogicalPlan, rc: spl.RexCommand): LogicalPlan =
+  // TODO find a way to implement max_match, offset_field and mode
+    rc.mode match {
       case Some(value) =>
         throw new NotImplementedError(s"rex mode=$value currently not supported!")
       case None =>
         val raw = selectColumn(ctx, tree, UnresolvedAttribute(ctx.rawFieldName))
-        rexParseNamedGroup(regex).foldLeft(raw) {
+        rexParseNamedGroup(rc.regex).foldLeft(raw) {
           case (plan, (colName, groupIndex)) =>
-            withColumn(ctx, plan, colName, RegExpExtract(field match {
+            withColumn(ctx, plan, colName, RegExpExtract(rc.field match {
               case Some(value) => UnresolvedAttribute(value)
               case None => UnresolvedAttribute(ctx.rawFieldName)
-            }, Literal(regex), Literal(groupIndex)))
+            }, Literal(rc.regex), Literal(groupIndex)))
         }
     }
+
+  private def applyJoin(ctx: LogicalContext, tree: LogicalPlan, jc: spl.JoinCommand) = {
+    val right = pipeline(ctx.copy(output = Seq()), jc.subSearch)
+    Join(tree, right,
+      UsingJoin(jc.joinType match {
+        case "inner" => Inner
+        case "left" => LeftOuter
+        case "outer" => LeftOuter
+        case _ => Inner
+      }, jc.fields.map(_.value)), None, JoinHint.NONE)
   }
+
+  private def applyRegex(ctx: LogicalContext,
+                         tree: LogicalPlan,
+                         item: Option[(spl.Field, String)],
+                         regex: String) =
+    item match {
+      case Some((spl.Field(field), exclude)) =>
+        val catalystOp = if (exclude.contains("!")) Not else (expr: Expression) => expr
+        Filter(catalystOp(RLike(Column(field).expr, Literal(regex))), tree)
+      case None =>
+        Filter(RLike(Column(ctx.rawFieldName).expr, Literal(regex)), tree)
+    }
+
+  private def applyReturn(ctx: LogicalContext,
+                          tree: LogicalPlan,
+                          count: spl.IntValue,
+                          fieldsOrAliases: Seq[spl.FieldOrAlias]) = {
+    Limit(Literal(count.value), Project(fieldsOrAliases.map {
+      case field: spl.Field => UnresolvedAttribute(field.value)
+      case alias: spl.Alias => Alias(attr(alias.expr), alias.name)()
+    }, tree))
+  }
+
+  private def applyEventStats(ctx: LogicalContext,
+                              tree: LogicalPlan,
+                              params: Map[String, String],
+                              funcs: Seq[spl.Expr],
+                              by: Seq[spl.Field] = Seq()): LogicalPlan = {
+    // TODO implement allnum option
+    val partitionSpec = by.map(attr)
+    val sortOrderSpec = sortOrder(by.map(field => (Some("+"), field)))
+    val windowSpec = WindowSpecDefinition(partitionSpec, sortOrderSpec, UnspecifiedFrame)
+    funcs.foldLeft(tree) {
+      case (plan, spl.Alias(expr, name)) =>
+        withColumn(ctx, plan, name, WindowExpression(expression(expr), windowSpec))
+      case (plan, expr: spl.Expr) =>
+        withColumn(ctx, plan,
+          // when no name/alias is passed to the spl command, spl generates default column name based on the expression
+          // ie. `eventstats min(column) ...` will create a column named "min(column)"
+          expression(expr).toString.replace("'", ""),
+          WindowExpression(expression(expr), windowSpec))
+    }
+  }
+
+  /**
+   * TODO: For sorting we need to check that the Lexicographical order in Splunk is the same in Spark
+   * https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Dedup
+   */
+  private def getSortByWindowExpr(fields: Seq[spl.Field], cmd: spl.SortCommand): WindowExpression =
+    WindowExpression(RowNumber(), WindowSpecDefinition(
+      partitionSpec = fields.map(attr),
+      orderSpec = sortOrder(cmd.fieldsToSort),
+      frameSpecification = UnspecifiedFrame)
+    )
+
+  private def applyDedup(ctx: LogicalContext, tree: LogicalPlan, cmd: spl.DedupCommand) = {
+    val windowExpr = getSortByWindowExpr(cmd.fields, cmd.sortBy)
+    Project(ctx.output, Filter(
+      LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(cmd.numResults)),
+      withColumn(ctx,
+        withColumn(ctx, tree, "_no", MonotonicallyIncreasingID()),
+        "_rn", windowExpr)
+      )
+    )
+  }
+
+  private def applyInputLookup(ctx: LogicalContext, plan: LogicalPlan, iLookup: spl.InputLookup) =
+    // TODO implement `append`, `strict` and `start` options, also inputlookup should accept file name
+    Limit(
+      Literal(iLookup.max),
+      iLookup.where match {
+        case Some(where) => Filter(expression(where), plan)
+        case _ => plan
+      })
 }
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {

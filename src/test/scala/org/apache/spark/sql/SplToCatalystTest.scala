@@ -57,11 +57,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), global =  true, tree))
     }
 
-    test("FieldsCommand should generate a Project with UnresolvedAlias") {
+    test("FieldsCommand should generate a Project") {
         check(spl.FieldsCommand(
-            None, Seq(
+            removeFields = false,
+            Seq(
                 spl.Field("colA"),
-                spl.Field("colB"))),
+                spl.Field("colB"))
+            ),
         (_, tree) =>
             Project(Seq(
                 UnresolvedAttribute("colA"),
@@ -69,9 +71,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), tree))
     }
 
-    test("FieldsCommand should generate another Project with with UnresolvedAlias") {
+    test("FieldsCommand should generate another Project 3 columns") {
         check(spl.FieldsCommand(
-            Some("+"), Seq(
+            removeFields = false,
+            Seq(
                 spl.Field("colA"),
                 spl.Field("colB"),
                 spl.Field("colC"))),
@@ -83,15 +86,16 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), tree))
     }
 
-    test("FieldsCommand should generate a Project with UnresolvedRegex") {
+    test("FieldsCommand should generate another Project with 2 columns") {
         check(spl.FieldsCommand(
-            Some("-"), Seq(
+            removeFields = false,
+            Seq(
                 spl.Field("colA"),
                 spl.Field("colB"))),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("(?!colA|colB).*",
-                    None, caseSensitive = false)
+                UnresolvedAttribute("colA"),
+                UnresolvedAttribute("colB"),
             ), tree))
     }
 
@@ -234,9 +238,14 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     UnresolvedAttribute("colNameA"),
                     Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
                     Literal(1)), "from")(),
-            ), Project(Seq(
+            ), Project(
+                Seq(
+                    UnresolvedAttribute("_raw")
+                ), tree)
+            )),
+            injectOutput = Seq(
                 UnresolvedAttribute("_raw")
-            ), tree))))
+            ))
     }
 
     test("Rex Command should throw an error") {
@@ -259,10 +268,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 "colARenamed"))),
         (_, tree) =>
             Project(Seq(
-                UnresolvedRegex("(?!colNameA).*", None, caseSensitive = false),
                 Alias(Column("colNameA").expr, "colARenamed")()
             ), tree)
-        )
+        , injectOutput = Seq(
+            UnresolvedAttribute("colNameA")
+        ))
     }
 
     test("rename command should generate another Project") {
@@ -275,10 +285,12 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 "colBRenamed"))),
             (_, tree) =>
                 Project(Seq(
-                    UnresolvedRegex("(?!colNameA|colNameB).*", None, caseSensitive = false),
                     Alias(Column("colNameA").expr, "colARenamed")(),
                     Alias(Column("colNameB").expr, "colBRenamed")()
                 ), tree)
+        , injectOutput = Seq(
+            UnresolvedAttribute("colNameA"),
+            UnresolvedAttribute("colNameB"))
         )
     }
 
@@ -298,40 +310,42 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("return 10 ip host port") {
         check(spl.ReturnCommand(
-            Some(spl.IntValue(10)),
+            spl.IntValue(10),
             Seq(spl.Field("ip"),
                 spl.Field("host"),
                 spl.Field("port"))),
         (_, tree) => Limit(Literal(10), Project(Seq(
-            Column("ip").named,
-            Column("host").named,
-            Column("port").named)
+            UnresolvedAttribute("ip"),
+            UnresolvedAttribute("host"),
+            UnresolvedAttribute("port"))
         , tree))
         )
     }
 
     test("return 10 ip $env $test") {
         check(spl.ReturnCommand(
-            Some(spl.IntValue(10)),
+            spl.IntValue(10),
             Seq(spl.Field("env"),
                 spl.Field("test"))),
             (_, tree) => Limit(Literal(10), Project(Seq(
-                Column("env").named,
-                Column("test").named)
+                UnresolvedAttribute("env"),
+                UnresolvedAttribute("test"))
             , tree))
         )
     }
 
     test("return 20 a=ip b=host c=port") {
         check(spl.ReturnCommand(
-            Some(spl.IntValue(20)),
-            Seq((spl.Field("a"), spl.Field("ip")),
-                (spl.Field("b"), spl.Field("host")),
-                (spl.Field("c"), spl.Field("port")))),
+            spl.IntValue(20),
+            Seq(
+                spl.Alias(spl.Field("ip"), "a"),
+                spl.Alias(spl.Field("host"), "b"),
+                spl.Alias(spl.Field("port"), "c")
+            )),
             (_, tree) => Limit(Literal(20), Project(Seq(
-                Alias(Column("ip").named, "a")(),
-                Alias(Column("host").named, "b")(),
-                Alias(Column("port").named, "c")())
+                Alias(UnresolvedAttribute("ip"), "a")(),
+                Alias(UnresolvedAttribute("host"), "b")(),
+                Alias(UnresolvedAttribute("port"), "c")())
             , tree))
         )
     }
@@ -406,8 +420,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ))),
             (_, tree) => {
                 Filter(
-                    Min(
-                        UnresolvedAttribute("bar")
+                    AggregateExpression(
+                        Min(UnresolvedAttribute("bar")),
+                        Complete,
+                        isDistinct = false
                     ),
                     tree)
             }
@@ -421,14 +437,15 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ))),
             (_, tree) => {
                 Filter(
-                    Max(
-                        UnresolvedAttribute("bar")
+                    AggregateExpression(
+                        Max(UnresolvedAttribute("bar")),
+                        Complete,
+                        isDistinct = false
                     ),
                     tree)
             }
         )
     }
-
     test("length(bar)") {
         check(spl.SearchCommand(
             spl.Call("len", Seq(
@@ -542,8 +559,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) => {
                 Filter(
                     Round(
-                        Min(
-                            UnresolvedAttribute("x")
+                        AggregateExpression(
+                            Min(UnresolvedAttribute("x")),
+                            Complete,
+                            isDistinct = false
                         ),
                         Literal(0)
                     ),
@@ -583,11 +602,152 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("eventstats max(colA) AS maxA by colC") {
+        check(spl.EventStatsCommand(
+            Map(),
+            Seq(
+                spl.Alias(
+                    spl.Call("max", Seq(spl.Field("colA"))),
+                    "maxA"
+                ),
+            ),
+            Seq(spl.Field("colC"))
+        ),
+            (_, tree) => Project(Seq(
+                Alias(
+                    WindowExpression(
+                        AggregateExpression(Max(UnresolvedAttribute("colA")), Complete, isDistinct = false),
+                        WindowSpecDefinition(
+                            Seq(UnresolvedAttribute("colC")),
+                            Seq(SortOrder(UnresolvedAttribute("colC"), Ascending)),
+                            UnspecifiedFrame
+                        )
+                    ), "maxA")()
+            ), tree))
+    }
+
+    test("dedup host") {
+        check(spl.DedupCommand(
+            1,
+            Seq(spl.Field("host")),
+            keepEvents = false,
+            keepEmpty = false,
+            consecutive = false,
+            spl.SortCommand(Seq((Some("+"), spl.Field("_no"))))
+        ),
+        (_, tree) => {
+            Project(
+                Seq(
+                    UnresolvedAttribute("host")
+                ),
+                Filter(
+                    LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(1)),
+                    Project(Seq(
+                        UnresolvedAttribute("host"),
+                        Alias(MonotonicallyIncreasingID(), "_no")(),
+                        Alias(WindowExpression(
+                            RowNumber(),
+                            WindowSpecDefinition(
+                                Seq(UnresolvedAttribute("host")),
+                                Seq(SortOrder(UnresolvedAttribute("_no"), Ascending)),
+                                UnspecifiedFrame
+                            )
+                        ), "_rn")()
+                    ), Project(Seq(
+                        UnresolvedAttribute("host"),
+                        Alias(MonotonicallyIncreasingID(), "_no")()
+                    ), tree))
+                )
+            )
+        }, injectOutput = Seq(
+            UnresolvedAttribute("host"))
+        )
+    }
+
+    test("dedup 10 keepevents=true ip port sortby +host -ip") {
+        check(spl.DedupCommand(
+            10,
+            Seq(
+                spl.Field("ip"),
+                spl.Field("port")
+            ),
+            keepEvents = true,
+            keepEmpty = false,
+            consecutive = false,
+            spl.SortCommand(Seq(
+                (Some("+"), spl.Field("host")),
+                (Some("-"), spl.Field("ip"))))
+        ),
+        (_, tree) => {
+            Project(
+                Seq(
+                    UnresolvedAttribute("host"),
+                    UnresolvedAttribute("ip"),
+                    UnresolvedAttribute("port"),
+                ),
+                Filter(
+                    LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(10)),
+                    Project(Seq(
+                        UnresolvedAttribute("host"),
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port"),
+                        Alias(MonotonicallyIncreasingID(), "_no")(),
+                        Alias(WindowExpression(
+                            RowNumber(),
+                            WindowSpecDefinition(
+                                Seq(UnresolvedAttribute("ip"),
+                                    UnresolvedAttribute("port")),
+                                Seq(SortOrder(UnresolvedAttribute("host"), Ascending),
+                                    SortOrder(UnresolvedAttribute("ip"), Descending)),
+                                UnspecifiedFrame
+                            )
+                        ), "_rn")()
+                    ), Project(Seq(
+                        UnresolvedAttribute("host"),
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port"),
+                        Alias(MonotonicallyIncreasingID(), "_no")()
+                    ), tree))
+                )
+            )
+        }, injectOutput = Seq(
+            UnresolvedAttribute("host"),
+            UnresolvedAttribute("ip"),
+            UnresolvedAttribute("port")
+        ))
+    }
+
+    test("inputlookup append=t strict=f max=20 main where a > 10") {
+        check(spl.InputLookup(
+            append = true,
+            strict = false,
+            start = 0,
+            max = 20,
+            tableName = "main",
+            Some(
+                spl.Binary(
+                    spl.Field("a"),
+                    spl.GreaterThan,
+                    spl.IntValue(10)
+                )
+            )
+        ),
+        (_, tree) => {
+            Limit(
+                Literal(20),
+                Filter(GreaterThan(
+                    UnresolvedAttribute("a"),
+                    Literal(10)
+                ), tree)
+            )
+        })
+    }
+
     private def check(command: spl.Command,
-              callback: (spl.Command, LogicalPlan) => LogicalPlan
-              ): Unit = this.synchronized {
+                      callback: (spl.Command, LogicalPlan) => LogicalPlan,
+                      injectOutput: Seq[NamedExpression] = Seq()): Unit = this.synchronized {
         val pipeline = spl.Pipeline(Seq(command))
-        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(), pipeline)
+        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(output = injectOutput), pipeline)
         val expectedPlan = pipeline.commands.foldLeft(
             UnresolvedRelation(Seq("main")).asInstanceOf[LogicalPlan]) {
             (tree, cmd) => callback(cmd, tree)

@@ -228,7 +228,7 @@ class SplParserTest extends ParserSuite {
   test("fields column_a, column_b, column_c") {
     p(fields(_),
       FieldsCommand(
-        None,
+        removeFields = false,
         Seq(
           Field("column_a"),
           Field("column_b"),
@@ -241,7 +241,7 @@ class SplParserTest extends ParserSuite {
   test("fields + column_a, column_b") {
     p(fields(_),
       FieldsCommand(
-        Option("+"),
+        removeFields = false,
         Seq(
           Field("column_a"),
           Field("column_b")
@@ -253,7 +253,7 @@ class SplParserTest extends ParserSuite {
   test("fields - column_a, column_b") {
     p(fields(_),
       FieldsCommand(
-        Option("-"),
+        removeFields = true,
         Seq(
           Field("column_a"),
           Field("column_b")
@@ -617,7 +617,7 @@ class SplParserTest extends ParserSuite {
 
   test("return 10 $test $env") {
     p(_return(_), ReturnCommand(
-      Some(IntValue(10)),
+      IntValue(10),
       Seq(
         Field("test"),
         Field("env")
@@ -627,7 +627,7 @@ class SplParserTest extends ParserSuite {
 
   test("return 10 ip src host port") {
     p(_return(_), ReturnCommand(
-      Some(IntValue(10)),
+      IntValue(10),
       Seq(
         Field("ip"),
         Field("src"),
@@ -639,10 +639,10 @@ class SplParserTest extends ParserSuite {
 
   test("return 10 ip=src host=port") {
     p(_return(_), ReturnCommand(
-      Some(IntValue(10)),
+      IntValue(10),
       Seq(
-        (Field("ip"), Field("src")),
-        (Field("host"), Field("port"))
+        Alias(Field("src"), "ip"),
+        Alias(Field("port"), "host"),
       )
     ))
   }
@@ -663,4 +663,67 @@ class SplParserTest extends ParserSuite {
         Field("port")
       ))))
   }
+
+  test("dedup 10 keepevents=true keepempty=false consecutive=true host ip port") {
+    p(dedup(_), DedupCommand(
+      10,
+      Seq(
+        spl.Field("host"),
+        spl.Field("ip"),
+        spl.Field("port")
+      ),
+      keepEvents = true,
+      keepEmpty = false,
+      consecutive = true,
+      SortCommand(Seq((Some("+"), spl.Field("_no"))))
+    ))
+  }
+
+  test("dedup 10 keepevents=true host ip port sortby +host -ip") {
+    p(dedup(_), DedupCommand(
+      10,
+      Seq(
+        spl.Field("host"),
+        spl.Field("ip"),
+        spl.Field("port")
+      ),
+      keepEvents = true,
+      keepEmpty = false,
+      consecutive = false,
+      SortCommand(
+        Seq(
+          (Some("+"), Field("host")),
+          (Some("-"), Field("ip")),
+        )
+      )
+    ))
+  }
+
+  test("inputlookup append=t strict=f myTable where test_id=11") {
+    p(inputLookup(_), InputLookup(
+      append = true,
+      strict = false,
+      start = 0,
+      max = 1000000000,
+      "myTable",
+      Some(
+        Binary(
+          Field("test_id"),
+          Equals,
+          IntValue(11)
+        )
+    )))
+  }
+
+  test("inputlookup myTable") {
+    p(inputLookup(_), InputLookup(
+      append = false,
+      strict = false,
+      start = 0,
+      max = 1000000000,
+      "myTable",
+      None
+    ))
+  }
+
 }

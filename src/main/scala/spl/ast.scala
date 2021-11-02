@@ -8,11 +8,13 @@ sealed trait LeafExpr extends Expr
 sealed trait FieldLike
 sealed trait Constant extends LeafExpr
 
+trait FieldOrAlias
+
 case class Null() extends Constant
 case class Bool(value: Boolean) extends Constant
 case class IntValue(value: Int) extends Constant
 case class StrValue(value: String) extends Constant
-case class Field(value: String) extends Constant with FieldLike
+case class Field(value: String) extends Constant with FieldLike with FieldOrAlias
 case class Wildcard(value: String) extends Constant with FieldLike
 case class IPv4CIDR(value: String) extends Constant {
   private val subnet = new SubnetUtils(value)
@@ -21,6 +23,8 @@ case class IPv4CIDR(value: String) extends Constant {
 }
 
 case class FV(field: String, value: String) extends LeafExpr
+
+case class FB(field: String, value: Boolean) extends LeafExpr
 
 case class AliasedField(field: Field, alias: String) extends Expr with FieldLike
 
@@ -34,7 +38,7 @@ case class Call(name: String, args: Seq[Expr] = Seq()) extends Expr
 
 case class FieldIn(field: String, exprs: Seq[Expr]) extends Expr
 
-case class Alias(expr: Expr, name: String) extends Expr with FieldLike
+case class Alias(expr: Expr, name: String) extends Expr with FieldLike with FieldOrAlias
 
 sealed trait Command
 
@@ -63,7 +67,7 @@ case class HeadCommand(evalExpr: Expr,
                        keepLast: Bool = Bool(false),
                        nullOption: Bool = Bool(false)) extends Command
 
-case class FieldsCommand(op: Option[String], fields: Seq[Field]) extends Command
+case class FieldsCommand(removeFields: Boolean, fields: Seq[Field]) extends Command
 
 case class SortCommand(fieldsToSort: Seq[(Option[String], Expr)]) extends Command
 
@@ -90,10 +94,25 @@ case class JoinCommand(joinType: String = "inner",
                        fields: Seq[Field],
                        subSearch: Pipeline) extends Command
 
-// TODO: replace "Product with Serializable" with "Field" and refactor things
-case class ReturnCommand(count: Option[IntValue], fields: Seq[Product with Serializable]) extends Command
+case class ReturnCommand(count: IntValue, fields: Seq[FieldOrAlias]) extends Command
 
 // TODO: Option[Seq[Value]] -> Seq[Value] = Seq()
 case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) extends Command
+
+case class EventStatsCommand(params: Map[String, String], funcs: Seq[Expr], by: Seq[Field] = Seq()) extends Command
+
+case class DedupCommand(numResults: Int,
+                        fields: Seq[Field],
+                        keepEvents: Boolean,
+                        keepEmpty: Boolean,
+                        consecutive: Boolean,
+                        sortBy: SortCommand) extends Command
+
+case class InputLookup(append: Boolean,
+                       strict: Boolean,
+                       start: Int,
+                       max: Int,
+                       tableName: String,
+                       where: Option[Expr]) extends Command
 
 case class Pipeline(commands: Seq[Command])

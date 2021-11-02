@@ -2,7 +2,7 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.{Alias, _}
-import org.apache.spark.sql.catalyst.expressions.aggregate.Count
+import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Complete, Count, Max}
 import org.apache.spark.sql.catalyst.plans.{LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.util.sideBySide
@@ -154,6 +154,24 @@ class PythonGeneratorTest extends AnyFunSuite {
 
   test(".na.fill('n/a')") {
     g(FillNullShim("n/a", Set.empty[String], src))
+  }
+
+  test(
+    (".withColumn('minimum', F.max(F.col('colA')).over(" +
+        "Window.partitionBy(F.col('colB')).orderBy(F.col('colC').asc())))").stripMargin) {
+    g(
+      Project(Seq(
+        Alias(
+          WindowExpression(
+            AggregateExpression(Max(UnresolvedAttribute("colA")), Complete, isDistinct = false),
+            WindowSpecDefinition(
+              Seq(UnresolvedAttribute("colB")),
+              Seq(SortOrder(UnresolvedAttribute("colC"), Ascending)),
+              UnspecifiedFrame
+            )
+          ), "minimum")()
+      ), src)
+    )
   }
 
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {

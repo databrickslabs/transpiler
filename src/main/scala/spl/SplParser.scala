@@ -56,6 +56,8 @@ object SplParser {
 
   def fieldAndValue[_:P]: P[FV] = (token ~ "=" ~ (doubleQuoted|token)) map { case (k, v) => FV(k, v) }
   def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
+  def fieldAndBool[_:P]: P[FB] = (token ~ "=" ~ bool).map { case (k, v) => FB(k, v.value)}
+  def fieldAndBoolList[_: P]: P[Map[String, Boolean]] = fieldAndBool.rep map(x => x.map(y => y.field -> y.value).toMap)
   def fieldList[_: P]: P[Seq[Field]] = field.rep(sep=",")
   def filename[_: P]: P[String] = term
 
@@ -138,7 +140,13 @@ object SplParser {
    * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Fields
    * Function is missing wildcard fields (except when discarding fields ie. fields - myField, ...)
    */
-  def fields[_:P]: P[FieldsCommand] = "fields" ~ ("+" | "-").!.? ~ field.rep(min = 1, sep = ",") map FieldsCommand.tupled
+  def fields[_:P]: P[FieldsCommand] = "fields" ~ ("+" | "-").!.? ~ field.rep(min = 1, sep = ",") map {
+    case (op, fields) =>
+      if (op.getOrElse("+").equals("-"))
+        FieldsCommand(removeFields = true, fields)
+      else
+        FieldsCommand(removeFields = false, fields)
+  }
 
   /**
    * https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Sort
@@ -152,8 +160,10 @@ object SplParser {
 
   // https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/Stats
   def aliasedCall[_:P] = call ~ W("as") ~ token map Alias.tupled
-  def stats[_:P] = ("stats" ~ fieldAndValueList ~
-    (aliasedCall | call | token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?) ~
+  def statsCall[_:P] = (aliasedCall | call |
+      token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?)
+
+  def stats[_:P] = ("stats" ~ fieldAndValueList ~ statsCall ~
     (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq())) ~
     ("dedup_splitvals" ~ "=" ~ bool).?.map(v => v.exists(_.value)))
     .map(StatsCommand.tupled)
@@ -205,10 +215,70 @@ object SplParser {
   }
 
   def _return[_:P]: P[ReturnCommand] = "return" ~ int.? ~ (
-      (field ~ "=" ~ expr).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map ReturnCommand.tupled
+      (fieldAndValue).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map {
+    case (maybeValue, exprs) =>
+      ReturnCommand(maybeValue.getOrElse(IntValue(1)), exprs map {
+        case fv: FV => Alias(Field(fv.value), fv.field).asInstanceOf[FieldOrAlias]
+        case field: Field => field.asInstanceOf[FieldOrAlias]
+      })
+  }
 
   def fillNull[_:P]: P[FillNullCommand] = ("fillnull" ~ ("value=" ~~ (doubleQuoted|token)).?
                                                       ~ field.rep(1).?) map FillNullCommand.tupled
+
+  def eventStats[_:P]: P[EventStatsCommand] = ("eventstats" ~ fieldAndValueList ~ statsCall
+      ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map(EventStatsCommand.tupled)
+
+  /**
+   * Specific field repetition which exclude the term sortby
+   * to avoid any conflict with the sortby command during the parsing
+   */
+  def dedupFieldRep[_:P]: P[Seq[Field]] =  field.filter {
+    case Field(myVal) => !myVal.toLowerCase.equals("sortby")
+  }.rep(1)
+
+  def dedup[_:P]: P[DedupCommand] = (
+      "dedup" ~ int.? ~ fieldAndBoolList.? ~ dedupFieldRep
+              ~ ("sortby" ~ (("+"|"-").!.? ~~ field).rep(1)).?) map {
+    case (limit, kv, fields, sortByQuery) =>
+      val kvOpt = kv.getOrElse(Map[String, Boolean]())
+      val sortByCommand = sortByQuery match {
+        case Some(query) => SortCommand(query)
+        case _ => SortCommand(Seq((Some("+"), spl.Field("_no"))))
+      }
+
+      DedupCommand(
+        numResults = (limit.getOrElse(IntValue(1))).value,
+        fields = fields,
+        keepEvents = kvOpt.getOrElse("keepevents", false),
+        keepEmpty = kvOpt.getOrElse("keepEmpty", false),
+        consecutive = kvOpt.getOrElse("consecutive", false),
+        sortByCommand
+      )
+  }
+
+  private def toBool(str: String): Boolean = {
+    str.toLowerCase match {
+      case "true" => true
+      case "t" => true
+      case "false" => false
+      case "f" => false
+      case _ => false
+    }
+  }
+
+  def inputLookup[_:P]: P[InputLookup] = ("inputlookup" ~ fieldAndValueList.? ~ token ~ ("where" ~ expr).?) map {
+    case (kv, tableName, whereOption) =>
+      val kvOpt: Map[String, String] = kv.getOrElse(Map[String, String]())
+      InputLookup(
+        kvOpt.get("append").map(toBool).getOrElse(false),
+        kvOpt.get("strict").map(toBool).getOrElse(false),
+        kvOpt.get("start").map(_.toInt).getOrElse(0),
+        kvOpt.get("max").map(_.toInt).getOrElse(1000000000),
+        tableName,
+        whereOption
+      )
+  }
 
   def command[_:P]: P[Command] = (stats | table
                                         | where
@@ -225,6 +295,9 @@ object SplParser {
                                         | join
                                         | _return
                                         | fillNull
+                                        | eventStats
+                                        | dedup
+                                        | inputLookup
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline

@@ -33,12 +33,12 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | return | ✅ | ✅ | ✅ |
 | mvcombine |  |  |  |
 | map |  |  |  |
-| inputlookup |  |  |  |
+| inputlookup | ✅ | ✅ | ✅ |
 | head | ✅ | ✅ | ✅ |
 | format |  |  |  |
 | fillnull | ✅ | ✅ | ✅ |
-| eventstats |  |  |  |
-| dedup |  |  |  |
+| eventstats | ✅ | ✅ | ✅ |
+| dedup | ✅ | ✅ | ✅ |
 
 Secondary batch of commands:
 
@@ -86,7 +86,7 @@ Secondary batch of commands:
 
 Parsers are implemented using [fastparse](https://github.com/com-lihaoyi/fastparse) (MIT)
 
-Quick installation on Databricks: `sbt assembly && databricks --profile=demo fs cp target/scala-2.12/spark-spl-assembly-0.1.jar dbfs:/tmp/spark-spl.jar --overwrite`
+Quick installation on Databricks: `mvn -DskipTests=true package && databricks --profile=demo fs cp target/spark-spl-0.1.jar dbfs:/tmp/spark-spl.jar --overwrite`
 
 If you want to use `TERM()` function, you have to enable Spark extension:
 
