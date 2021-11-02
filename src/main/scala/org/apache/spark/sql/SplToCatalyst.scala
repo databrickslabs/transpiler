@@ -122,12 +122,6 @@ object SplToCatalyst extends Logging {
       AggregateExpression(
         Min(attrOrExpr(call.args.head)),
         Complete, isDistinct = false)
-//    case "collect_list" =>
-//      AggregateExpression(
-//        CollectList(attrOrExpr(call.args.head)),
-//        Complete, isDistinct = false)
-//    case "format_string" =>
-//      FormatString()
     case "max" =>
       // TODO: would currently fail on wildcard attributes
       AggregateExpression(
