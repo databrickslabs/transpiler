@@ -259,13 +259,13 @@ object SplParser {
       )
   }
 
-  def toBool(str: String): Boolean = {
-    str match {
+  private def toBool(str: String): Boolean = {
+    str.toLowerCase match {
       case "true" => true
       case "t" => true
       case "false" => false
       case "f" => false
-      case _ => throw new Exception(s"${str} does not seem to be a string representation of a boolean")
+      case _ => false
     }
   }
 
@@ -273,10 +273,10 @@ object SplParser {
     case (kv, tableName, whereOption) =>
       val kvOpt: Map[String, String] = kv.getOrElse(Map[String, String]())
       InputLookup(
-        Try(toBool(kvOpt.getOrElse("append", "false"))).getOrElse(false),
-        Try(toBool(kvOpt.getOrElse("strict", "false"))).getOrElse(false),
-        Try(kvOpt.getOrElse("start", "0").toInt).getOrElse(0),
-        Try(kvOpt.getOrElse("max", "1000000000").toInt).getOrElse(1000000000),
+        kvOpt.get("append").map(toBool).getOrElse(false),
+        kvOpt.get("strict").map(toBool).getOrElse(false),
+        kvOpt.get("start").map(_.toInt).getOrElse(0),
+        kvOpt.get("max").map(_.toInt).getOrElse(1000000000),
         tableName,
         whereOption
       )
