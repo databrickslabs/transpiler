@@ -78,7 +78,7 @@ Secondary batch of commands:
 | substr() | ✅ |
 | isnotnull() |  |
 | sum() | ✅ |
-| mvfilter() |  |
+| mvfilter() | ✅ |
 | len() | ✅ |
 | count() | ✅ |
 

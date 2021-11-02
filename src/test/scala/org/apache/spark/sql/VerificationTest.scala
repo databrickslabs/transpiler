@@ -23,6 +23,14 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     DummyWithArray("e", "d", "c", Seq("e", "d", "c"), 5, valid = true),
   )
 
+  val dummyWithIntArray = Seq(
+    DummyWithIntArray("a", "b", "c", Seq(1, 2, 3), 1, valid = true),
+    DummyWithIntArray("d", "e", "f", Seq(4, 5), 2, valid = false),
+    DummyWithIntArray("g", "h", "i", Seq(6, 7, 8), 3, valid = true),
+    DummyWithIntArray("h", "g", "f", Seq(9), 4, valid = false),
+    DummyWithIntArray("e", "d", "c", Seq(5, 4, 3), 5, valid = true),
+  )
+
   val dummyWithNull = Seq(
     Dummy("a", null, null, 1, valid = true),
     Dummy("d", "e", "f", 2, valid = false)
@@ -195,6 +203,16 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |.withColumn('mvappended', F.expr('concat(`d`, `d`)')))
         |""".stripMargin)
   }
+
+  /**
+  test("mvfiltered") {
+    import spark.implicits._
+    spark.createDataset(dummyWithIntArray).createOrReplaceTempView("main")
+    generates("eval filtered=mvfilter(d > 3)",
+      """(spark.table('main')
+        |.withColumn('mvfiltered', F.expr('filter(`d`, d -> d > 3)')))
+        |""".stripMargin)
+  }**/
 
   test("n > len(a)") {
     import spark.implicits._

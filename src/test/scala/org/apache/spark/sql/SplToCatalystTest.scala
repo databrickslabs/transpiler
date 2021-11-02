@@ -4,7 +4,6 @@ import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
 import org.apache.spark.sql.types.DoubleType
 import org.scalatest.funsuite.AnyFunSuite
@@ -313,6 +312,65 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     Alias(
                         Concat(Seq(UnresolvedAttribute("mvfieldA"),UnresolvedAttribute("mvfieldB"), UnresolvedAttribute("mvfieldC"))),
                         "merged_arrays"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvfilter function") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("filtered_array"),
+              spl.Call("mvfilter",
+                  Seq(
+                      spl.Binary(spl.Field("method"),
+                      spl.NotEquals,
+                      spl.StrValue("GET"))
+                  )
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        ArrayFilter(UnresolvedAttribute("method"),
+                            LambdaFunction(Not(EqualTo(UnresolvedNamedLambdaVariable(Seq("method")), Literal("GET"))),Seq(UnresolvedNamedLambdaVariable(Seq("method"))))),
+                        "filtered_array"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvfilter function with complex expr") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("filtered_array"),
+              spl.Call("mvfilter",
+                  Seq(
+                      spl.Binary(spl.Binary(spl.Field("method"),
+                          spl.NotEquals,
+                          spl.StrValue("GET")),
+                          spl.Or,
+                          spl.Binary(spl.Field("method"),
+                              spl.NotEquals,
+                              spl.StrValue("DELETE")))
+                  )
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        ArrayFilter(UnresolvedAttribute("method"),
+                            LambdaFunction(Or(
+                                Not(EqualTo(UnresolvedNamedLambdaVariable(Seq("method")), Literal("GET"))),
+                                Not(EqualTo(UnresolvedNamedLambdaVariable(Seq("method")), Literal("DELETE"))))
+                                ,Seq(UnresolvedNamedLambdaVariable(Seq("method")))
+                            )
+                        ),
+                        "filtered_array"
                     )()
                 )
                     , tree)
