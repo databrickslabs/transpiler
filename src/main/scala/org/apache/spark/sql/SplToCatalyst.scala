@@ -95,6 +95,10 @@ object SplToCatalyst extends Logging {
 
           case dedupCmd: spl.DedupCommand =>
             applyDedup(ctx, tree, dedupCmd)
+
+          case spl.FormatCommand(mvSep, maxResults, args) =>
+            // TODO Implement behaviour with mvsep when multiple value field is present
+            applyFormat(ctx, tree, mvSep, maxResults, args)
         }
       }
     }
@@ -118,6 +122,12 @@ object SplToCatalyst extends Logging {
       AggregateExpression(
         Min(attrOrExpr(call.args.head)),
         Complete, isDistinct = false)
+//    case "collect_list" =>
+//      AggregateExpression(
+//        CollectList(attrOrExpr(call.args.head)),
+//        Complete, isDistinct = false)
+//    case "format_string" =>
+//      FormatString()
     case "max" =>
       // TODO: would currently fail on wildcard attributes
       AggregateExpression(
@@ -586,6 +596,45 @@ object SplToCatalyst extends Logging {
         case Some(where) => Filter(expression(where), plan)
         case _ => plan
       })
+
+  private def getFormattedPattern(colNames: Seq[String],
+                                  colPrefix: String,
+                                  colSep: String,
+                                  coldEnd: String,
+                                  rowPrefix: String,
+                                  rowEnd: String): String = {
+    rowPrefix + colNames.map(colName => s"${colPrefix}${colName}=%s${coldEnd}").mkString(s" ${colSep} ") + rowEnd
+  }
+
+  private def applyFormat(ctx: LogicalContext,
+                          tree: LogicalPlan,
+                          mvSep: String,
+                          maxResults: Int,
+                          args: spl.FormatArgs): LogicalPlan = {
+    // TODO Implement behaviour with mvsep when multiple value field is present
+    val pattern = getFormattedPattern(
+      ctx.output.map(_.name),
+      args.colPrefix,
+      args.colSep,
+      args.colEnd,
+      args.rowPrefix,
+      args.rowEnd
+    )
+    newAggregateIgnoringABI(Nil, Seq(
+      Alias(
+        ArrayJoin(
+          AggregateExpression(
+            CollectList(
+              FormatString((Literal(pattern) +: ctx.output): _*)
+            ), Complete, isDistinct = false
+          ), Literal(s" ${args.rowSep} "), None
+        ), "search")()
+    ), maxResults match {
+      case 0 => tree
+      case _ => Limit(Literal(maxResults), tree)
+    })
+
+  }
 }
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {

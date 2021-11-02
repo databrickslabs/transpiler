@@ -62,7 +62,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       """(spark.table('main')
         |.where('(`n` > 2)')
         |.groupBy('valid')
-        |.agg(F.expr('count() AS `count`')))
+        |.agg(F.count().alias('count')))
         |""".stripMargin)
   }
 
@@ -71,7 +71,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       """(spark.table('main')
         |.where('(`n` > 2)')
         |.groupBy('valid')
-        |.agg(F.expr('sum(`n`) AS `sum`')))
+        |.agg(F.sum(F.col('n')).alias('sum')))
         |""".stripMargin)
   }
 
@@ -80,7 +80,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       """(spark.table('main')
         |.where('(`n` > 2)')
         |.groupBy()
-        |.agg(F.expr('sum(`n`) AS `sum`')))
+        |.agg(F.sum(F.col('n')).alias('sum')))
         |""".stripMargin)
   }
 
@@ -89,7 +89,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       """(spark.table('main')
         |.where('(`n` > 2)')
         |.groupBy()
-        |.agg(F.expr('sum(`n`) AS `total_sum`')))
+        |.agg(F.sum(F.col('n')).alias('total_sum')))
         |""".stripMargin)
   }
 
@@ -337,4 +337,13 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("format maxresults=2") {
+    executes("index=dummy | format maxresults=2",
+      """+-----------------------------------------------------------------------------------------------------------------+
+        ||search                                                                                                           |
+        |+-----------------------------------------------------------------------------------------------------------------+
+        ||((a=a) AND (b=b) AND (c=c) AND (n=1) AND (valid=true)) OR ((a=d) AND (b=e) AND (c=f) AND (n=2) AND (valid=false))|
+        |+-----------------------------------------------------------------------------------------------------------------+
+        |""".stripMargin)
+  }
 }

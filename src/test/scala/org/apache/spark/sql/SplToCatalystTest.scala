@@ -9,6 +9,7 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
+import spl.FormatArgs
 
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
@@ -741,6 +742,39 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 ), tree)
             )
         })
+    }
+
+    test("format maxresults=12") {
+        check(spl.FormatCommand(
+            mvSep = "||",
+            maxResults = 12,
+            args = FormatArgs("(", "(", "AND", ")", "OR", ")")
+        ),
+        (_, tree) => {
+            Aggregate(
+                Seq(),
+                Seq(
+                    Alias(
+                        ArrayJoin(
+                            AggregateExpression(
+                                CollectList(
+                                    FormatString((Literal("((a=%s) AND (b=%s))") +: Seq(
+                                        UnresolvedAttribute("a"),
+                                        UnresolvedAttribute("b")
+                                    ): _*))),
+                                Complete,
+                                isDistinct = false
+                            ),
+                            Literal(" OR "),
+                            None
+                        ), "search")()
+                ),
+                Limit(Literal(12), tree)
+            )
+        }, injectOutput = Seq(
+            UnresolvedAttribute("a"),
+            UnresolvedAttribute("b")
+        ))
     }
 
     private def check(command: spl.Command,

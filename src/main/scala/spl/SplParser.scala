@@ -280,6 +280,21 @@ object SplParser {
       )
   }
 
+  def format[_:P]: P[FormatCommand] = ("format" ~ fieldAndValueList.? ~ doubleQuoted.rep(6).?) map {
+    case (kv, options) =>
+      val kvOpt: Map[String, String] = kv.getOrElse(Map[String, String]())
+      FormatCommand(
+        kvOpt.getOrElse("mvsep", "OR"),
+        kvOpt.get("maxresults").map(_.toInt).getOrElse(0),
+        options match {
+          case Some(args) =>
+            FormatArgs(args.head, args(1), args(2), args(3), args(4), args(5))
+          case _ =>
+            FormatArgs("(", "(", "AND", ")", "OR", ")")
+        }
+      )
+  }
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -298,6 +313,7 @@ object SplParser {
                                         | eventStats
                                         | dedup
                                         | inputLookup
+                                        | format
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline
