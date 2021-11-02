@@ -295,6 +295,30 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("EvalCommand to check mvappend function") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("merged_arrays"),
+              spl.Call("mvappend",
+                  Seq(
+                      spl.Field("mvfieldA"),
+                      spl.Field("mvfieldB"),
+                      spl.Field("mvfieldC")
+                  )
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        Concat(Seq(UnresolvedAttribute("mvfieldA"),UnresolvedAttribute("mvfieldB"), UnresolvedAttribute("mvfieldC"))),
+                        "merged_arrays"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
     test("EvalCommand to check coalesce functionality") {
         check(spl.EvalCommand(
             Seq(

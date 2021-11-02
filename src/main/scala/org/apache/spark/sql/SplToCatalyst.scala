@@ -185,6 +185,14 @@ object SplToCatalyst extends Logging {
       }
       val length : Int = stop - start + 1
       Slice(mvfield, Literal.create(start), Literal.create(length))
+    case "mvappend" =>
+      // Splunk's mvappend functions takes an arbitrary number of arguments and returns a mvfield with all input values.
+      // We leverage Spark's concat function for appending mvfields from the input into a a single mvfield in the output.
+      // Not supported: Input args are single value fields or a mixture of multi and single value fields.
+      // Known issues: If the input args are single value fields of type string we will concatenate them to a single string instead of putting the strings into an array.
+      val inputFields : Seq[Expression] = call.args.map(attrOrExpr)
+      Concat(inputFields)
+
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
