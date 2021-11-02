@@ -182,11 +182,13 @@ class PythonGeneratorTest extends AnyFunSuite {
         Seq(
           Alias(
             ArrayJoin(
-              CollectList(
-                FormatString((Literal("((a=%s) AND (b=%s))") +: Seq(
-                  UnresolvedAttribute("a"),
-                  UnresolvedAttribute("b")
-                ): _*))),
+              AggregateExpression(
+                CollectList(
+                  FormatString((Literal("((a=%s) AND (b=%s))") +: Seq(
+                    UnresolvedAttribute("a"),
+                    UnresolvedAttribute("b")
+                  ): _*))
+                ), Complete, isDistinct = false),
                 Literal("OR"),
                 None
             ), "search")()
