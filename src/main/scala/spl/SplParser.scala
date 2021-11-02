@@ -3,6 +3,8 @@ package spl
 import fastparse.MultiLineWhitespace._
 import fastparse._
 
+import scala.util.Try
+
 /**
  * SPL parser and AST
  *
