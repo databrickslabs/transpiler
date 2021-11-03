@@ -59,6 +59,46 @@ class SplParserTest extends ParserSuite {
     p(int(_), IntValue(-100500))
   }
 
+  test("1sec") {
+    p(timeSpan(_), TimeSpan(1, "seconds"))
+  }
+
+  test("5s") {
+    p(timeSpan(_), TimeSpan(5, "seconds"))
+  }
+
+  test("5second") {
+    p(timeSpan(_), TimeSpan(5, "seconds"))
+  }
+
+  test("5sec") {
+    p(timeSpan(_), TimeSpan(5, "seconds"))
+  }
+
+  test("5m") {
+    p(timeSpan(_), TimeSpan(5, "minutes"))
+  }
+
+  test("5mins") {
+    p(timeSpan(_), TimeSpan(5, "minutes"))
+  }
+
+  test("-5mon") {
+    p(timeSpan(_), TimeSpan(-5, "months"))
+  }
+
+  test("a=b c=1 d=\"e\" f=g* h=-15m i=10.0.0.0/8 k=f") {
+    p(fieldMap(_), Map(
+      "a" -> Field("b"),
+      "c" -> IntValue(1),
+      "d" -> StrValue("e"),
+      "f" -> Wildcard("g*"),
+      "h" -> TimeSpan(-15, "minutes"),
+      "i" -> IPv4CIDR("10.0.0.0/8"),
+      "k" -> Bool(false),
+    ))
+  }
+
   test("a OR b") {
     p(expr(_), Binary(
       Field("a"),
@@ -764,5 +804,16 @@ class SplParserTest extends ParserSuite {
       Some(","),
       Field("host")
     ))
+  }
+
+  test("bin span=30m minspan=5m bins=20 start=0 end=20 aligntime=latest foo AS bar") {
+    p(command(_), BinCommand(
+      Alias(Field("foo"), "bar"),
+      Some(TimeSpan(30, "minutes")),
+      Some(TimeSpan(5, "minutes")),
+      Some(20),
+      Some(0),
+      Some(20),
+      Some("latest")))
   }
 }
