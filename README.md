@@ -31,7 +31,7 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | stats | ✅ | ✅ | ✅ |
 | sort | ✅ | ✅ | ✅ |
 | return | ✅ | ✅ | ✅ |
-| mvcombine |  |  |  |
+| mvcombine | ✅ | ✅ | ✅ |
 | map |  |  |  |
 | inputlookup | ✅ | ✅ | ✅ |
 | head | ✅ | ✅ | ✅ |

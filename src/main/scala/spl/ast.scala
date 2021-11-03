@@ -7,13 +7,14 @@ sealed trait LeafExpr extends Expr
 
 sealed trait FieldLike
 sealed trait Constant extends LeafExpr
-
-trait FieldOrAlias
+sealed trait Span extends Constant
+sealed trait FieldOrAlias
 
 case class Null() extends Constant
 case class Bool(value: Boolean) extends Constant
 case class IntValue(value: Int) extends Constant
 case class StrValue(value: String) extends Constant
+case class TimeSpan(value: Int, scale: String) extends Span
 case class Field(value: String) extends Constant with FieldLike with FieldOrAlias
 case class Wildcard(value: String) extends Constant with FieldLike
 case class IPv4CIDR(value: String) extends Constant {
@@ -23,7 +24,7 @@ case class IPv4CIDR(value: String) extends Constant {
 }
 
 case class FV(field: String, value: String) extends LeafExpr
-
+case class FC(field: String, value: Constant) extends LeafExpr
 case class FB(field: String, value: Boolean) extends LeafExpr
 
 case class AliasedField(field: Field, alias: String) extends Expr with FieldLike
@@ -130,5 +131,30 @@ case class FormatCommand(mvSep: String,
                          colEnd: String,
                          rowSep: String,
                          rowEnd: String) extends Command
+
+case class MvCombineCommand(delim: Option[String], field: Field) extends Command
+
+case class BinCommand(field: FieldOrAlias,
+    // Sets the size of each bin, using a span length based on time or logarithm-based span.
+    span: Option[Span] = None,
+    // Specifies the smallest span granularity to use automatically inferring span from the data time range.
+    minSpan: Option[Span] = None,
+    // Sets the maximum number of bins to discretize into.
+    bins: Option[Int] = None,
+    // Sets the minimum and maximum extents for numerical bins. The data in the field
+    // is analyzed and the beginning and ending values are determined. The start and
+    // end arguments are used when a span value is not specified. You can use the start
+    // or end arguments only to expand the range, not to shorten the range. For example,
+    // if the field represents seconds the values are from 0-59. If you specify a span
+    // of 10, then the bins are calculated in increments of 10. The bins are 0-9, 10-19,
+    // 20-29, and so forth. If you do not specify a span, but specify end=1000, the bins
+    // are calculated based on the actual beginning value and 1000 as the end value.
+    //If you set end=10 and the values are >10, the end argument has no effect.
+    start: Option[Int] = None,
+    end: Option[Int] = None,
+    // (earliest | latest | <time-specifier>) Align the bin times to something
+    // other than base UTC time (epoch 0).
+    alignTime: Option[String] = None
+) extends Command
 
 case class Pipeline(commands: Seq[Command])

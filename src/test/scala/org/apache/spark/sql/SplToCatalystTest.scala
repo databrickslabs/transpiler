@@ -780,6 +780,68 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         ))
     }
 
+    test("mvcombine host") {
+        check(spl.MvCombineCommand(
+            None,
+            spl.Field("host")
+        ),
+            (_, tree) => {
+                Aggregate(
+                    Seq(
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port")
+                    ),
+                    Seq(
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port"),
+                        Alias(
+                            AggregateExpression(
+                                CollectList(UnresolvedAttribute("host")),
+                                Complete,
+                                isDistinct = false
+                            ), "host")()
+                    )
+                    , tree)
+            }, injectOutput = Seq(
+                UnresolvedAttribute("host"),
+                UnresolvedAttribute("ip"),
+                UnresolvedAttribute("port")
+            ))
+    }
+
+    test("mvcombine delim=\",\" host") {
+        check(spl.MvCombineCommand(
+            Some(","),
+            spl.Field("host")
+        ),
+        (_, tree) => {
+            Aggregate(
+                Seq(
+                    UnresolvedAttribute("ip"),
+                    UnresolvedAttribute("port")
+                ),
+                Seq(
+                    UnresolvedAttribute("ip"),
+                    UnresolvedAttribute("port"),
+                    Alias(
+                        ArrayJoin(
+                            AggregateExpression(
+                                CollectList(UnresolvedAttribute("host")),
+                                Complete,
+                                isDistinct = false
+                            ),
+                            Literal(","),
+                            None
+                    ) , "host")()
+                )
+            , tree)
+        }, injectOutput = Seq(
+            UnresolvedAttribute("host"),
+            UnresolvedAttribute("ip"),
+            UnresolvedAttribute("port")
+        ))
+    }
+
     private def check(command: spl.Command,
                       callback: (spl.Command, LogicalPlan) => LogicalPlan,
                       injectOutput: Seq[NamedExpression] = Seq()): Unit = this.synchronized {

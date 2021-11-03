@@ -40,6 +40,16 @@ object SplParser {
     ("true" | "t").map(_ => Bool(true)) |
       ("false" | "f").map(_ => Bool(false))
 
+  // TODO: add interval parsing for: us | ms | cs | ds
+  def seconds[_:P]: P[String] = ("seconds" | "second" | "secs" | "sec" | "s").map(_ => "seconds")
+  def minutes[_:P]: P[String] = ("minutes" | "minute" | "mins" | "min" | "m").map(_ => "minutes")
+  def hours[_:P]: P[String] = ("hours" | "hour" | "hrs" | "hr" | "h").map(_ => "minutes")
+  def days[_:P]: P[String] = ("days" | "day" | "d").map(_ => "days")
+  def months[_:P]: P[String] = ("months" | "month" | "mon").map(_ => "months")
+  def timeSpan[_:P]: P[TimeSpan] = int ~~ (months|days|hours|minutes|seconds) map {
+    case (IntValue(v), interval) => TimeSpan(v, interval)
+  }
+
   // TODO: this is a hack for earliest=-15m@m
   def token[_: P]: P[String] = ("_"|"*"|"-"|"@"|letter|digit).repX(1).!
   def doubleQuoted[_: P]: P[String] = P( "\"" ~ (
@@ -55,7 +65,9 @@ object SplParser {
   def cidr[_:P]: P[IPv4CIDR] = (byte.rep(sep=".", exactly=4) ~ "/" ~ byte).! map IPv4CIDR
 
   def fieldAndValue[_:P]: P[FV] = (token ~ "=" ~ (doubleQuoted|token)) map { case (k, v) => FV(k, v) }
+  def fieldAndConstant[_:P]: P[FC] = (token ~ "=" ~ constant) map { case (k, v) => FC(k, v) }
   def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
+  def fieldMap[_: P]: P[Map[String, Constant]] = fieldAndConstant.rep map(x => x.map(y => y.field -> y.value).toMap)
   def fieldAndBool[_:P]: P[FB] = (token ~ "=" ~ bool).map { case (k, v) => FB(k, v.value)}
   def fieldAndBoolList[_: P]: P[Map[String, Boolean]] = fieldAndBool.rep map(x => x.map(y => y.field -> y.value).toMap)
   def fieldList[_: P]: P[Seq[Field]] = field.rep(sep=",")
@@ -68,7 +80,7 @@ object SplParser {
     case (sign, i) => IntValue(if (sign.equals("-")) -1 * i.toInt else i.toInt)
   }
 
-  def constant[_:P]: P[Constant] = cidr | wildcard | strValue | int | field | bool
+  def constant[_:P]: P[Constant] = cidr | wildcard | strValue | timeSpan | int | field | bool
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
     | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P | Add.P | Subtract.P
@@ -271,8 +283,8 @@ object SplParser {
     case (kv, tableName, whereOption) =>
       val kvOpt: Map[String, String] = kv.getOrElse(Map[String, String]())
       InputLookup(
-        kvOpt.get("append").map(toBool).getOrElse(false),
-        kvOpt.get("strict").map(toBool).getOrElse(false),
+        kvOpt.get("append").exists(toBool),
+        kvOpt.get("strict").exists(toBool),
         kvOpt.get("start").map(_.toInt).getOrElse(0),
         kvOpt.get("max").map(_.toInt).getOrElse(1000000000),
         tableName,
@@ -300,6 +312,20 @@ object SplParser {
       )
   }
 
+  def mvcombine[_:P]: P[MvCombineCommand] = ("mvcombine" ~ ("delim" ~ "=" ~ doubleQuoted).?
+                                                         ~ field) map MvCombineCommand.tupled
+  // bin [<bin-options>...] <field> [AS <newfield>]
+  def bin[_:P]: P[BinCommand] = "bin" ~ fieldMap ~ (aliasedField | field) map {
+    case (options, field) => BinCommand(field,
+      span = options.get("span").map(_.asInstanceOf[Span]),
+      minSpan = options.get("minspan").map(_.asInstanceOf[Span]),
+      bins = options.get("bins").map(_.asInstanceOf[IntValue]).map(_.value),
+      start = options.get("start").map(_.asInstanceOf[IntValue]).map(_.value),
+      end = options.get("end").map(_.asInstanceOf[IntValue]).map(_.value),
+      alignTime = options.get("aligntime").map(_.asInstanceOf[Field]).map(_.value),
+    )
+  }
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -319,6 +345,8 @@ object SplParser {
                                         | dedup
                                         | inputLookup
                                         | format
+                                        | mvcombine
+                                        | bin
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline
