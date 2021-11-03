@@ -99,6 +99,9 @@ object SplToCatalyst extends Logging {
           case fc: spl.FormatCommand =>
             // TODO Implement behaviour with mvsep when multiple value field is present
             applyFormat(ctx, tree, fc)
+
+          case spl.MvCombineCommand(delim, field) =>
+            applyMvCombine(ctx, tree, field, delim)
         }
       }
     }
@@ -613,7 +616,29 @@ object SplToCatalyst extends Logging {
       case 0 => tree
       case _ => Limit(Literal(fc.maxResults), tree)
     })
+  }
 
+  private def applyMvCombine(ctx: LogicalContext,
+                             tree: LogicalPlan,
+                             field: spl.Field,
+                             delim: Option[String]) = {
+    val grpExprs = ctx.output.filter(!_.name.equals(field.value))
+    val aggExpr = AggregateExpression(
+      CollectList(UnresolvedAttribute(field.value)),
+      Complete,
+      isDistinct = false
+    )
+
+    newAggregateIgnoringABI(
+      grpExprs,
+      grpExprs ++ Seq(
+        Alias(
+          delim match {
+            case Some(delimValue) => ArrayJoin(aggExpr, Literal(delimValue), None)
+            case _ => aggExpr
+          }, field.value)(),
+      ), tree
+    )
   }
 }
 

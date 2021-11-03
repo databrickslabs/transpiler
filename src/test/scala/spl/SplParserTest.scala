@@ -751,4 +751,18 @@ class SplParserTest extends ParserSuite {
       rowEnd = "]"
     ))
   }
+
+  test("mvcombine host") {
+    p(mvcombine(_), MvCombineCommand(
+      None,
+      Field("host")
+    ))
+  }
+
+  test("mvcombine delim=\",\" host") {
+    p(mvcombine(_), MvCombineCommand(
+      Some(","),
+      Field("host")
+    ))
+  }
 }

@@ -198,6 +198,30 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
+  test(".groupBy('ip', 'port')\n.agg(F.array_join(F.collect_list(F.col('host')), ',').alias('host'))") {
+    g(
+      Aggregate(
+        Seq(
+          UnresolvedAttribute("ip"),
+          UnresolvedAttribute("port")
+        ),
+        Seq(
+          UnresolvedAttribute("ip"),
+          UnresolvedAttribute("port"),
+          Alias(
+            ArrayJoin(
+              AggregateExpression(
+                CollectList(UnresolvedAttribute("host")),
+                Complete,
+                isDistinct = false
+              ),
+              Literal(","),
+              None
+            ) , "host")()
+        ) , src)
+    )
+  }
+
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
     val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable
