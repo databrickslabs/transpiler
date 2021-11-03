@@ -6,7 +6,9 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.UsingJoin
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.catalyst.util.IntervalUtils
 import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
+import org.apache.spark.unsafe.types.UTF8String
 
 private case class GeneratorContext(maxLineWidth: Int = 120)
 
@@ -196,6 +198,9 @@ object PythonGenerator {
       s"F.col(${q(attr.name)})"
     case attr: UnresolvedAttribute =>
       s"F.col(${q(attr.name)})"
+    case TimeWindow(col, window, slide, _) if window == slide =>
+      val interval = IntervalUtils.stringToInterval(UTF8String.fromString(s"$window microseconds"))
+      s"F.window(${expressionCode(col)}, '$interval')"
     case _ => s"F.expr(${q(expr.sql)})"
   }
 
