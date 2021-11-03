@@ -66,6 +66,12 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     spark.createDataset(countryByContinent).createOrReplaceTempView("countries")
   }
 
+  test("bin span") {
+    generates("bin span=5m n",
+      """(spark.table('main')
+        |.withColumn('n', F.window(F.col('n'), '5 minutes')))
+        |""".stripMargin)
+  }
 
   test("thing") {
     generates("n>2 | stats count() by valid",

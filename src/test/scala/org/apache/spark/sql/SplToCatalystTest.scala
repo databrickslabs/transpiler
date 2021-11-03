@@ -1,14 +1,12 @@
 package org.apache.spark.sql
 
-import org.scalatest.funsuite.AnyFunSuite
 import org.apache.spark.sql.catalyst.analysis._
+import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.catalyst.expressions.Length
-import org.apache.spark.sql.catalyst.expressions.Substring
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
+import org.apache.spark.sql.types.DoubleType
+import org.scalatest.funsuite.AnyFunSuite
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("HeadCommand should generate a Limit") {
@@ -840,6 +838,22 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             UnresolvedAttribute("ip"),
             UnresolvedAttribute("port")
         ))
+    }
+
+    test("bin spans") {
+        check(spl.BinCommand(
+            spl.Alias(spl.Field("ts"), "time_bin"),
+            span = Some(spl.TimeSpan(1, "hours"))
+        ),
+        (_, tree) => Project(Seq(
+            Alias(
+                TimeWindow(
+                    UnresolvedAttribute("ts"),
+                    3600000000L,
+                    3600000000L,
+                    0),
+                "time_bin")()
+        ), tree))
     }
 
     private def check(command: spl.Command,

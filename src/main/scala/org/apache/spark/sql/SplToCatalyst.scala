@@ -104,6 +104,9 @@ object SplToCatalyst extends Logging {
 
           case spl.MvCombineCommand(delim, field) =>
             applyMvCombine(ctx, tree, field, delim)
+
+          case bc: spl.BinCommand =>
+            applyBin(ctx, tree, bc)
         }
       }
     }
@@ -669,7 +672,6 @@ object SplToCatalyst extends Logging {
       Complete,
       isDistinct = false
     )
-
     newAggregateIgnoringABI(
       grpExprs,
       grpExprs ++ Seq(
@@ -680,6 +682,20 @@ object SplToCatalyst extends Logging {
           }, field.value)(),
       ), tree
     )
+  }
+
+  private def applyBin(ctx: LogicalContext, tree: LogicalPlan, bc: spl.BinCommand) = {
+    val (field, alias) = bc.field match {
+      case spl.Field(v) => (UnresolvedAttribute(v), v)
+      case spl.Alias(spl.Field(v), alias) => (UnresolvedAttribute(v), alias)
+    }
+    if (bc.span.isEmpty) {
+      throw new AnalysisException(s"Currently, only `span` is implemented: $bc")
+    }
+    val ts = bc.span.get.asInstanceOf[spl.TimeSpan]
+    val duration = Literal.create(timeSpan(ts).toString())
+    val window = new TimeWindow(field, duration)
+    withColumn(ctx, tree, alias, window)
   }
 }
 
