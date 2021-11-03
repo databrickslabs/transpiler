@@ -147,13 +147,13 @@ object SplToCatalyst extends Logging {
       //substr(X,Y,Z) -> Returns a substring of X, starting at the index specified by Y with the number of characters specified by Z
       val str = attrOrExpr(call.args.head)
       val pos = expression(call.args(1))
-      val len = call.args.lift(2).map(expression(_)).getOrElse(Literal(Integer.MAX_VALUE))
+      val len = call.args.lift(2).map(expression).getOrElse(Literal(Integer.MAX_VALUE))
       Substring(str,pos,len)
     case "coalesce" =>
       Coalesce(call.args.map(attrOrExpr))
     case "round" =>
       val num = attrOrExpr(call.args.head)
-      val scale = call.args.lift(1).map(expression(_)).getOrElse(Literal(0))
+      val scale = call.args.lift(1).map(expression).getOrElse(Literal(0))
       Round(num, scale)
     case "TERM" =>
       Term(expression(call.args.head))
@@ -195,7 +195,8 @@ object SplToCatalyst extends Logging {
     case "mvfilter" =>
       val expr = call.args.head
       val fields = extractFields(expr)
-      ArrayFilter(attrOrExpr(fields.head), LambdaFunction(expression(expr, isLambdaExpr = true), Seq(UnresolvedNamedLambdaVariable(Seq(fields.head.value)))))
+      implicit def toLambdaAttr(expr: spl.Expr): UnresolvedNamedLambdaVariable = lambdaAttr(expr)
+      ArrayFilter(attrOrExpr(fields.head), LambdaFunction(expression(expr), Seq(UnresolvedNamedLambdaVariable(Seq(fields.head.value)))))
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
@@ -482,7 +483,7 @@ object SplToCatalyst extends Logging {
     case _ => throw new AnalysisException(s"Not a relative time: $expr")
   }
 
-  private def expression(expr: spl.Expr, isLambdaExpr: Boolean = false): Expression = expr match {
+  private def expression(expr: spl.Expr)(implicit convertToAttr:spl.Expr => Expression = attr): Expression = expr match {
     case constant: spl.Constant => mapConstants(constant)
     case call: spl.Call => function(call)
     case spl.Unary(symbol, right) => symbol match {
@@ -490,7 +491,7 @@ object SplToCatalyst extends Logging {
       // TODO: failure modes
     }
     case spl.FieldIn(field, exprs) =>
-      In(UnresolvedAttribute(field), exprs.map(expression(_, isLambdaExpr)))
+      In(UnresolvedAttribute(field), exprs.map(expression))
     case spl.Binary(left, spl.Equals, spl.Wildcard(pattern)) =>
       like(left, pattern)
     case spl.Binary(left, spl.NotEquals, spl.Wildcard(pattern)) =>
@@ -510,20 +511,20 @@ object SplToCatalyst extends Logging {
     case spl.Binary(left, symbol, right) => symbol match {
       case straight: spl.Straight => straight match {
         case relational: spl.Relational => relational match {
-          case spl.LessThan => LessThan(if(!isLambdaExpr) attr(left) else lambdaAttr(left), expression(right,isLambdaExpr))
-          case spl.GreaterThan => GreaterThan(if(!isLambdaExpr) attr(left) else lambdaAttr(left), expression(right,isLambdaExpr))
-          case spl.GreaterEquals => GreaterThanOrEqual(if(!isLambdaExpr) attr(left) else lambdaAttr(left), expression(right,isLambdaExpr))
-          case spl.LessEquals => LessThanOrEqual(if(!isLambdaExpr) attr(left) else lambdaAttr(left), expression(right,isLambdaExpr))
-          case spl.Equals => EqualTo(if(!isLambdaExpr) attr(left) else lambdaAttr(left), expression(right,isLambdaExpr))
-          case spl.NotEquals => Not(EqualTo(if(!isLambdaExpr) attr(left) else lambdaAttr(left), expression(right,isLambdaExpr)))
+          case spl.LessThan => LessThan(convertToAttr(left), expression(right))
+          case spl.GreaterThan => GreaterThan(convertToAttr(left), expression(right))
+          case spl.GreaterEquals => GreaterThanOrEqual(convertToAttr(left), expression(right))
+          case spl.LessEquals => LessThanOrEqual(convertToAttr(left), expression(right))
+          case spl.Equals => EqualTo(convertToAttr(left), expression(right))
+          case spl.NotEquals => Not(EqualTo(convertToAttr(left), expression(right)))
         }
-        case spl.Or => Or(expression(left,isLambdaExpr), expression(right,isLambdaExpr))
-        case spl.And => And(expression(left,isLambdaExpr), expression(right,isLambdaExpr))
-        case spl.Add => Add(expression(left,isLambdaExpr), expression(right,isLambdaExpr))
-        case spl.Subtract => Subtract(expression(left,isLambdaExpr), expression(right,isLambdaExpr))
-        case spl.Multiply => Multiply(expression(left,isLambdaExpr), expression(right,isLambdaExpr))
-        case spl.Divide => Divide(expression(left,isLambdaExpr), expression(right,isLambdaExpr))
-        case spl.Concatenate => Concat(Seq(expression(left,isLambdaExpr), expression(right,isLambdaExpr)))
+        case spl.Or => Or(expression(left), expression(right))
+        case spl.And => And(expression(left), expression(right))
+        case spl.Add => Add(expression(left), expression(right))
+        case spl.Subtract => Subtract(expression(left), expression(right))
+        case spl.Multiply => Multiply(expression(left), expression(right))
+        case spl.Divide => Divide(expression(left), expression(right))
+        case spl.Concatenate => Concat(Seq(expression(left), expression(right)))
         // TODO: make a failure case
       }
     }
