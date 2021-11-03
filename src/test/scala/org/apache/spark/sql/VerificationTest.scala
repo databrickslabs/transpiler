@@ -218,7 +218,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
-  test("n > len(a)") {
+  test("count=mvcount(d)") {
     import spark.implicits._
     spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
     generates("eval count=mvcount(d)",
