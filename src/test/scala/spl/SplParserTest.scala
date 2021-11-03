@@ -726,4 +726,29 @@ class SplParserTest extends ParserSuite {
     ))
   }
 
+  test("format maxresults=10") {
+    p(format(_), FormatCommand(
+      mvSep = "OR",
+      maxResults = 10,
+      rowPrefix = "(",
+      colPrefix =  "(",
+      colSep = "AND",
+      colEnd = ")",
+      rowSep = "OR",
+      rowEnd = ")"
+    ))
+  }
+
+  test("format mvsep=\"||\" \"[\" \"[\" \"&&\" \"]\" \"||\" \"]\"") {
+    p(format(_), FormatCommand(
+      mvSep = "||",
+      maxResults = 0,
+      rowPrefix = "[",
+      colPrefix =  "[",
+      colSep = "&&",
+      colEnd = "]",
+      rowSep = "||",
+      rowEnd = "]"
+    ))
+  }
 }

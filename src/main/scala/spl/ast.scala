@@ -115,4 +115,20 @@ case class InputLookup(append: Boolean,
                        tableName: String,
                        where: Option[Expr]) extends Command
 
+case class FormatArgs(rowPrefix: String,
+                      colPrefix: String,
+                      colSep: String,
+                      colEnd: String,
+                      rowSep: String,
+                      rowEnd: String)
+
+case class FormatCommand(mvSep: String,
+                         maxResults: Int,
+                         rowPrefix: String,
+                         colPrefix: String,
+                         colSep: String,
+                         colEnd: String,
+                         rowSep: String,
+                         rowEnd: String) extends Command
+
 case class Pipeline(commands: Seq[Command])
