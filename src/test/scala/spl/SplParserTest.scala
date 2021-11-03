@@ -1,7 +1,5 @@
 package spl
 
-import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
-
 class SplParserTest extends ParserSuite {
   import spl.SplParser._
 

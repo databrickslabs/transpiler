@@ -622,24 +622,20 @@ object SplToCatalyst extends Logging {
                              tree: LogicalPlan,
                              field: spl.Field,
                              delim: Option[String]) = {
-    val groupingExpressions = ctx.output.filter(!_.name.equals(field.value))
+    val grpExprs = ctx.output.filter(!_.name.equals(field.value))
+    val aggExpr = AggregateExpression(
+      CollectList(UnresolvedAttribute(field.value)),
+      Complete,
+      isDistinct = false
+    )
+
     newAggregateIgnoringABI(
-      groupingExpressions,
-      groupingExpressions ++ Seq(
+      grpExprs,
+      grpExprs ++ Seq(
         Alias(
           delim match {
-            case Some(delimValue) => ArrayJoin(
-              AggregateExpression(
-                CollectList(UnresolvedAttribute(field.value)),
-                Complete,
-                isDistinct = false),
-              Literal(delimValue),
-              None
-            )
-            case _ => AggregateExpression(
-                CollectList(UnresolvedAttribute(field.value)),
-                Complete,
-                isDistinct = false)
+            case Some(delimValue) => ArrayJoin(aggExpr, Literal(delimValue), None)
+            case _ => aggExpr
           }, field.value)(),
       ), tree
     )

@@ -300,7 +300,7 @@ object SplParser {
       )
   }
 
-  def mvcombine[_:P]: P[MvCombineCommand] = ("mvcombine" ~ ("delim=" ~~ doubleQuoted).?
+  def mvcombine[_:P]: P[MvCombineCommand] = ("mvcombine" ~ ("delim" ~ "=" ~ doubleQuoted).?
                                                          ~ field) map MvCombineCommand.tupled
 
   def command[_:P]: P[Command] = (stats | table
