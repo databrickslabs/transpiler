@@ -1,13 +1,12 @@
 package org.apache.spark.sql
 
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Max, Min}
-import org.apache.spark.sql.catalyst.plans.{Cross, ExistenceJoin, FullOuter, Inner, InnerLike, LeftAnti, LeftOuter, LeftSemi, NaturalJoin, RightOuter, UsingJoin}
-import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
-
 import scala.util.matching.Regex
+import org.apache.spark.sql.catalyst.analysis._
+import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.plans.UsingJoin
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
 
 private case class GeneratorContext(maxLineWidth: Int = 120)
 
@@ -33,7 +32,7 @@ object PythonGenerator {
             throw new UnsupportedOperationException(s"cannot generate column: ${exprs.last}")
         }
       } else {
-        s"$childCode\n.selectExpr(${exprList(ctx, exprs)})"
+        s"$childCode\n.select(${exprCodeList(ctx, exprs)})"
       }
 
     case Filter(condition, child) =>
@@ -82,6 +81,9 @@ object PythonGenerator {
     case UnknownPlanShim(message, child) =>
       s"${fromPlan(ctx, child)}\n# $message"
   }
+
+  private def exprCodeList(ctx: GeneratorContext, exprs: Seq[Expression]) =
+    smartDelimiters(ctx, exprs.map(expressionCode))
 
   private def exprList(ctx: GeneratorContext, exprs: Seq[Expression]) =
     smartDelimiters(ctx, exprs.map(expression).map(q))
@@ -144,12 +146,24 @@ object PythonGenerator {
       s"F.lit($value)"
     case Literal(value, t @ StringType) =>
       s"F.lit(${q(value.toString)})"
+    case Alias(child, name) =>
+      s"${expressionCode(child)}.alias(${q(name)})"
+    case Count(children) =>
+      s"F.count(${children.map(expressionCode).mkString(", ")})"
+    case Sum(child) =>
+      s"F.sum(${expressionCode(child)})"
     case Min(expr) =>
       s"F.min(${expressionCode(expr)})"
     case Max(expr) =>
       s"F.max(${expressionCode(expr)})"
     case MonotonicallyIncreasingID() =>
       s"F.monotonically_increasing_id()"
+    case Concat(children) =>
+      s"F.concat(${children.map(expressionCode).mkString(", ")})"
+    case ArrayJoin(array, delimiter, nullReplacement) =>
+      s"F.array_join(${expressionCode(array)}, ${delimiter.sql})"
+    case CollectList(child, x, y) =>
+      s"F.collect_list(${expressionCode(child)})"
     case RowNumber() =>
       s"F.row_number()"
     case AggregateExpression(aggFn, mode, isDistinct, filter, resultId) =>
@@ -162,10 +176,21 @@ object PythonGenerator {
       "Window.unboundedPreceding"
     case so: SortOrder =>
       genSortOrderCode(so)
+    case ur: UnresolvedRegex =>
+      s"F.col(${q(s"`${ur.regexPattern}`")})"
+    case RegExpExtract(subject, regexp, idx) =>
+      s"F.regexp_extract(${expressionCode(subject)}, ${regexp.sql}, ${idx.sql})"
     case WindowExpression(windowFunction, windowSpec) =>
       s"${expressionCode(windowFunction)}.over(${expressionCode(windowSpec)})"
     case ws: WindowSpecDefinition =>
       genWindowSpecCode(ws)
+    case namedStruct: CreateNamedStruct =>
+      s"F.struct(${namedStruct.valExprs.map(expressionCode).mkString(", ")})"
+    case fs: FormatString =>
+      val stringPattern :: columns = fs.children.toSeq
+      s"F.format_string(${q(stringPattern.toString())}, ${columns.map(expressionCode).mkString(", ")})"
+    case attr: AttributeReference =>
+      s"F.col(${q(attr.name)})"
     case attr: UnresolvedAttribute =>
       s"F.col(${q(attr.name)})"
     case _ => s"F.expr(${q(expr.sql)})"
