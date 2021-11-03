@@ -131,4 +131,6 @@ case class FormatCommand(mvSep: String,
                          rowSep: String,
                          rowEnd: String) extends Command
 
+case class MvCombineCommand(delim: Option[String], field: Field) extends Command
+
 case class Pipeline(commands: Seq[Command])

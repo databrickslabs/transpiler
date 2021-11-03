@@ -300,6 +300,9 @@ object SplParser {
       )
   }
 
+  def mvcombine[_:P]: P[MvCombineCommand] = ("mvcombine" ~ ("delim" ~ "=" ~ doubleQuoted).?
+                                                         ~ field) map MvCombineCommand.tupled
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -319,6 +322,7 @@ object SplParser {
                                         | dedup
                                         | inputLookup
                                         | format
+                                        | mvcombine
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline
