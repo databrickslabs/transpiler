@@ -1,5 +1,7 @@
 package spl
 
+import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
+
 class SplParserTest extends ParserSuite {
   import spl.SplParser._
 
@@ -749,6 +751,20 @@ class SplParserTest extends ParserSuite {
       colEnd = "]",
       rowSep = "||",
       rowEnd = "]"
+    ))
+  }
+
+  test("mvcombine host") {
+    p(mvcombine(_), MvCombineCommand(
+      None,
+      Field("host")
+    ))
+  }
+
+  test("mvcombine delim=\",\" host") {
+    p(mvcombine(_), MvCombineCommand(
+      Some(","),
+      Field("host")
     ))
   }
 }

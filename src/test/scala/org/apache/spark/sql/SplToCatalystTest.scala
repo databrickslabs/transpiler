@@ -9,7 +9,7 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
-import spl.FormatArgs
+import spl.MvCombineCommand
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("HeadCommand should generate a Limit") {
@@ -778,6 +778,68 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         }, injectOutput = Seq(
             UnresolvedAttribute("a"),
             UnresolvedAttribute("b")
+        ))
+    }
+
+    test("mvcombine host") {
+        check(MvCombineCommand(
+            None,
+            spl.Field("host")
+        ),
+            (_, tree) => {
+                Aggregate(
+                    Seq(
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port")
+                    ),
+                    Seq(
+                        UnresolvedAttribute("ip"),
+                        UnresolvedAttribute("port"),
+                        Alias(
+                            AggregateExpression(
+                                CollectList(UnresolvedAttribute("host")),
+                                Complete,
+                                isDistinct = false
+                            ), "host")()
+                    )
+                    , tree)
+            }, injectOutput = Seq(
+                UnresolvedAttribute("host"),
+                UnresolvedAttribute("ip"),
+                UnresolvedAttribute("port")
+            ))
+    }
+
+    test("mvcombine delim=\",\" host") {
+        check(MvCombineCommand(
+            Some(","),
+            spl.Field("host")
+        ),
+        (_, tree) => {
+            Aggregate(
+                Seq(
+                    UnresolvedAttribute("ip"),
+                    UnresolvedAttribute("port")
+                ),
+                Seq(
+                    UnresolvedAttribute("ip"),
+                    UnresolvedAttribute("port"),
+                    Alias(
+                        ArrayJoin(
+                            AggregateExpression(
+                                CollectList(UnresolvedAttribute("host")),
+                                Complete,
+                                isDistinct = false
+                            ),
+                            Literal(","),
+                            None
+                    ) , "host")()
+                )
+            , tree)
+        }, injectOutput = Seq(
+            UnresolvedAttribute("host"),
+            UnresolvedAttribute("ip"),
+            UnresolvedAttribute("port")
         ))
     }
 

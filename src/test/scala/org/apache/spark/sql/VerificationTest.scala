@@ -46,6 +46,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     Dummy("e", "e", "f", 5, valid = true),
   )
 
+  val countryByContinent = Seq(
+    CountryByContinent("Europe", "Albania"),
+    CountryByContinent("Europe", "Bulgaria"),
+    CountryByContinent("Europe", "Belarus"),
+    CountryByContinent("Africa", "Congo"),
+    CountryByContinent("Africa", "Egypt"),
+    CountryByContinent("Africa", "Algeria")
+  )
+
   override def beforeAll(): Unit = {
     import spark.implicits._
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
@@ -54,6 +63,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     spark.createDataset(dummyWithNull).createOrReplaceTempView("dummy_with_null")
     spark.createDataset(dummySubstrings).createOrReplaceTempView("dummy_substrings")
     spark.createDataset(dummyWithDuplicates).createOrReplaceTempView("dummy_with_duplicates")
+    spark.createDataset(countryByContinent).createOrReplaceTempView("countries")
   }
 
 
@@ -354,6 +364,28 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |+---------------------------------------------------------------------------------------------------------+
         ||[[a=a] && [b=b] && [c=c] && [n=1] && [valid=true]] || [[a=d] && [b=e] && [c=f] && [n=2] && [valid=false]]|
         |+---------------------------------------------------------------------------------------------------------+
+        |""".stripMargin)
+  }
+
+  test("mvcombine country") {
+    executes("index=countries | mvcombine country",
+    """+---------+----------------------------+
+      ||continent|country                     |
+      |+---------+----------------------------+
+      ||Europe   |[Albania, Bulgaria, Belarus]|
+      ||Africa   |[Congo, Egypt, Algeria]     |
+      |+---------+----------------------------+
+      |""".stripMargin)
+  }
+
+  test("mvcombine delim=\";\" country") {
+    executes("index=countries | mvcombine delim=\";\" country",
+      """+---------+------------------------+
+        ||continent|country                 |
+        |+---------+------------------------+
+        ||Europe   |Albania;Bulgaria;Belarus|
+        ||Africa   |Congo;Egypt;Algeria     |
+        |+---------+------------------------+
         |""".stripMargin)
   }
 }
