@@ -10,7 +10,6 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
 
-
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("HeadCommand should generate a Limit") {
         check(spl.HeadCommand(
@@ -741,6 +740,44 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 ), tree)
             )
         })
+    }
+
+    test("format maxresults=12") {
+        check(spl.FormatCommand(
+            mvSep = "||",
+            maxResults = 12,
+            rowPrefix = "(",
+            colPrefix =  "(",
+            colSep = "AND",
+            colEnd = ")",
+            rowSep = "OR",
+            rowEnd = ")"
+        ),
+        (_, tree) => {
+            Aggregate(
+                Seq(),
+                Seq(
+                    Alias(
+                        ArrayJoin(
+                            AggregateExpression(
+                                CollectList(
+                                    FormatString((Literal("((a=%s) AND (b=%s))") +: Seq(
+                                        UnresolvedAttribute("a"),
+                                        UnresolvedAttribute("b")
+                                    ): _*))),
+                                Complete,
+                                isDistinct = false
+                            ),
+                            Literal(" OR "),
+                            None
+                        ), "search")()
+                ),
+                Limit(Literal(12), tree)
+            )
+        }, injectOutput = Seq(
+            UnresolvedAttribute("a"),
+            UnresolvedAttribute("b")
+        ))
     }
 
     private def check(command: spl.Command,

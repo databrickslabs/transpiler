@@ -35,7 +35,7 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | map |  |  |  |
 | inputlookup | ✅ | ✅ | ✅ |
 | head | ✅ | ✅ | ✅ |
-| format |  |  |  |
+| format | ✅ | ✅ | ✅ |
 | fillnull | ✅ | ✅ | ✅ |
 | eventstats | ✅ | ✅ | ✅ |
 | dedup | ✅ | ✅ | ✅ |

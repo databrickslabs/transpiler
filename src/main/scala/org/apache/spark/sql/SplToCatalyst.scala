@@ -95,6 +95,10 @@ object SplToCatalyst extends Logging {
 
           case dedupCmd: spl.DedupCommand =>
             applyDedup(ctx, tree, dedupCmd)
+
+          case fc: spl.FormatCommand =>
+            // TODO Implement behaviour with mvsep when multiple value field is present
+            applyFormat(ctx, tree, fc)
         }
       }
     }
@@ -586,6 +590,31 @@ object SplToCatalyst extends Logging {
         case Some(where) => Filter(expression(where), plan)
         case _ => plan
       })
+
+  private def applyFormat(ctx: LogicalContext,
+                          tree: LogicalPlan,
+                          fc: spl.FormatCommand): LogicalPlan = {
+    // TODO Implement behaviour with mvsep when multiple value field is present
+    val existingColumnNames = ctx.output.map(_.name)
+    val colLevelPattern = existingColumnNames.map(column =>
+      s"${fc.colPrefix}${column}=%s${fc.colEnd}"
+    )
+    val rowLevelPattern = fc.rowPrefix + colLevelPattern.mkString(s" ${fc.colSep} ") + fc.rowEnd
+    newAggregateIgnoringABI(Nil, Seq(
+      Alias(
+        ArrayJoin(
+          AggregateExpression(
+            CollectList(
+              FormatString((Literal(rowLevelPattern) +: ctx.output): _*)
+            ), Complete, isDistinct = false
+          ), Literal(s" ${fc.rowSep} "), None
+        ), "search")()
+    ), fc.maxResults match {
+      case 0 => tree
+      case _ => Limit(Literal(fc.maxResults), tree)
+    })
+
+  }
 }
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {

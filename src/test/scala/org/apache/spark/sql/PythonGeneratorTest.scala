@@ -2,7 +2,7 @@ package org.apache.spark.sql
 
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.{Alias, _}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Complete, Count, Max}
+import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, CollectList, Complete, Count, Max}
 import org.apache.spark.sql.catalyst.plans.{LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.util.sideBySide
@@ -24,7 +24,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     ))
   }
 
-  test(".selectExpr('a', 'b')") {
+  test(".select(F.col('a'), F.col('b'))") {
     g(Project(
       Seq(
         UnresolvedAttribute("a"),
@@ -35,7 +35,7 @@ class PythonGeneratorTest extends AnyFunSuite {
   }
 
   // TODO: this test is a bit wrong, fix the logic
-  test(".selectExpr('1 AS a', '1 AS b')\n.withColumn('a', F.lit(1))") {
+  test(".select(F.lit(1).alias('a'), F.lit(1).alias('b'))\n.withColumn('a', F.lit(1))") {
     g(Project(
       Seq(
         // TODO: make another case with UnresolvedAttribute here
@@ -83,7 +83,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     ), global = true, src))
   }
 
-  test(".groupBy('host')\n.agg(F.expr('count() AS `count`'))") {
+  test(".groupBy('host')\n.agg(F.count().alias('count'))") {
     g(Aggregate(
       Seq(Column("host").named),
       Seq(Alias(Count(Seq()),
@@ -100,7 +100,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       None, JoinHint.NONE))
   }
 
-  test(".withColumn('from', F.expr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1)\"))") {
+  test(".withColumn('from', F.regexp_extract(F.col('event_type'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 1))") {
     g(
       Project(
         Seq(Alias(
@@ -111,8 +111,8 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".selectExpr(\"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 1) AS from\",\n" +
-                   "  \"regexp_extract(`event_type`, 'From: <(?<from>.*)> To: <(?<to>.*)>', 2) AS to\")") {
+  test(""".select(F.regexp_extract(F.col('event_type'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 1).alias('from'),
+         |  F.regexp_extract(F.col('event_type'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 2).alias('to'))""".stripMargin) {
     g(
       Project(
         Seq(
@@ -138,7 +138,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".selectExpr('`^(?!event_type).*`', 'event_type AS testRenamed')") {
+  test(".select(F.col('`^(?!event_type).*`'), F.col('event_type').alias('testRenamed'))") {
     g(
       Project(
         Seq(
@@ -171,6 +171,30 @@ class PythonGeneratorTest extends AnyFunSuite {
             )
           ), "minimum")()
       ), src)
+    )
+  }
+
+  test(".limit(10)\n.groupBy()\n.agg(F.array_join(F.collect_list(" +
+      "F.format_string('((a=%s) AND (b=%s))', F.col('a'), F.col('b'))), 'OR').alias('search'))") {
+    g(
+      Aggregate(
+        Seq(),
+        Seq(
+          Alias(
+            ArrayJoin(
+              AggregateExpression(
+                CollectList(
+                  FormatString((Literal("((a=%s) AND (b=%s))") +: Seq(
+                    UnresolvedAttribute("a"),
+                    UnresolvedAttribute("b")
+                  ): _*))
+                ), Complete, isDistinct = false),
+                Literal("OR"),
+                None
+            ), "search")()
+        ),
+        Limit(Literal(10), src)
+      )
     )
   }
 
