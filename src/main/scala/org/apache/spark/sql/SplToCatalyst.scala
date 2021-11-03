@@ -173,10 +173,12 @@ object SplToCatalyst extends Logging {
     case "mvcount" =>
       Size(attrOrExpr(call.args.head))
     case "mvindex" =>
-      // Splunk's mvindex function takes 3 arguments (mvfield, start_index, stop_index)
-      // Spark's slice function takes 3 arguments (mvfield, start_index, length)
-      // We calculate the length as follows: (stop_index - start_index + 1)
-      // Known issue: A negative start and a positive stop index or vice versa is not supported and an Exception will be thrown in that case.
+      /**
+       * Splunk's mvindex function takes 3 arguments (mvfield, start_index, stop_index)
+       * Spark's slice function takes 3 arguments (mvfield, start_index, length)
+       * We calculate the length as follows: (stop_index - start_index + 1)
+       * Known issue: A negative start and a positive stop index or vice versa is not supported and an Exception will be thrown in that case.
+        */
       val mvfield = attrOrExpr(call.args.head)
       val start = extractIndex(call.args(1))
       val stop = call.args.lift(2).map(extractIndex(_)).getOrElse(start)
@@ -186,32 +188,40 @@ object SplToCatalyst extends Logging {
       val length : Int = stop - start + 1
       Slice(mvfield, Literal.create(start), Literal.create(length))
     case "mvappend" =>
-      // Splunk's mvappend functions takes an arbitrary number of arguments and returns a mvfield with all input values.
-      // We leverage Spark's concat function for appending mvfields from the input into a a single mvfield in the output.
-      // Not supported: Input args are single value fields or a mixture of multi and single value fields.
-      // Known issues: If the input args are single value fields of type string we will concatenate them to a single string instead of putting the strings into an array.
+      /**
+       * Splunk's mvappend functions takes an arbitrary number of arguments and returns a mvfield with all input values.
+       * We leverage Spark's concat function for appending mvfields from the input into a a single mvfield in the output.
+       * Not supported: Input args are single value fields or a mixture of multi and single value fields.
+       * Known issues: If the input args are single value fields of type string we will concatenate them to a single string instead of putting the strings into an array.
+       */
       val inputFields : Seq[Expression] = call.args.map(attrOrExpr)
       Concat(inputFields)
     case "mvfilter" =>
       val expr = call.args.head
       val fields = extractFields(expr)
-      implicit def toLambdaAttr(expr: spl.Expr): UnresolvedNamedLambdaVariable = lambdaAttr(expr)
-      ArrayFilter(attrOrExpr(fields.head), LambdaFunction(expression(expr), Seq(UnresolvedNamedLambdaVariable(Seq(fields.head.value)))))
+      if (fields.size > 1) {
+        throw new AnalysisException(s"Expression references more than one field. Fields: ${fields}")
+      }
+      val field = fields.head
+      val filterArgument = attr(field)
+      implicit def toLambdaAttr(tmpField: spl.Field): NamedExpression = lambdaAttr(tmpField)
+      val filterFunction = LambdaFunction(expression(expr),Seq(UnresolvedNamedLambdaVariable(Seq(field.value))))
+      ArrayFilter(filterArgument, filterFunction)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
   }
 
-  private def extractFields(expr: spl.Expr): Seq[spl.Field] = expr match {
+  private def extractFields(expr: spl.Expr): Set[spl.Field] = expr match {
     case constant: spl.Constant => constant match {
-      case field :spl.Field => Seq(field)
-      case _  => Seq()
+      case field: spl.Field => Set(field)
+      case _  => Set()
     }
-    case spl.Unary(symbol, right) => extractFields(right)
-    case spl.Binary(left, symbol, right) => extractFields(left)++extractFields(right)
-    case call: spl.Call => call.args.flatMap(extractFields)
-    case spl.FieldIn(field, exprs) => exprs.flatMap(extractFields)
-    case _ => Seq()
+    case spl.Unary(_, right) => extractFields(right)
+    case spl.Binary(left, _, right) => extractFields(left)++extractFields(right)
+    case spl.Call(_, args) => args.flatMap(extractFields).toSet
+    case spl.FieldIn(_, exprs) => exprs.flatMap(extractFields).toSet
+    case _ => Set()
   }
 
   private def extractIndex(x: spl.Expr, offset: Int = 1) : Int = x match {
@@ -451,9 +461,21 @@ object SplToCatalyst extends Logging {
     "%%" -> "%"
   )
 
-  private def attrOrExpr(expr: spl.Expr): Expression = expr match {
+  private def attrOrExpr(expr: spl.Expr)
+                        (implicit convertToAttr: spl.Field => NamedExpression = normalAttr): Expression =
+    expr match {
+      case field: spl.Field => convertToAttr(field)
+      case _ => expression(expr)
+  }
+
+  private def lambdaAttr(field: spl.Field): NamedExpression = UnresolvedNamedLambdaVariable(Seq(field.value))
+
+  private def normalAttr(field: spl.Field): NamedExpression = UnresolvedAttribute(Seq(field.value))
+
+  private def attr(expr: spl.Expr): UnresolvedAttribute = expr match {
     case spl.Field(value) => UnresolvedAttribute(Seq(value))
-    case _ => expression(expr)
+    // TODO: support wildcards somehow...
+    // TODO: failure mode
   }
 
   private def timeSpan(ts: spl.TimeSpan): Literal = {
@@ -482,8 +504,8 @@ object SplToCatalyst extends Logging {
       }
     case _ => throw new AnalysisException(s"Not a relative time: $expr")
   }
-
-  private def expression(expr: spl.Expr)(implicit convertToAttr:spl.Expr => Expression = attr): Expression = expr match {
+  
+  private def expression(expr: spl.Expr)(implicit convertToAttr: spl.Field => NamedExpression = normalAttr): Expression = expr match {
     case constant: spl.Constant => mapConstants(constant)
     case call: spl.Call => function(call)
     case spl.Unary(symbol, right) => symbol match {
@@ -511,12 +533,12 @@ object SplToCatalyst extends Logging {
     case spl.Binary(left, symbol, right) => symbol match {
       case straight: spl.Straight => straight match {
         case relational: spl.Relational => relational match {
-          case spl.LessThan => LessThan(convertToAttr(left), expression(right))
-          case spl.GreaterThan => GreaterThan(convertToAttr(left), expression(right))
-          case spl.GreaterEquals => GreaterThanOrEqual(convertToAttr(left), expression(right))
-          case spl.LessEquals => LessThanOrEqual(convertToAttr(left), expression(right))
-          case spl.Equals => EqualTo(convertToAttr(left), expression(right))
-          case spl.NotEquals => Not(EqualTo(convertToAttr(left), expression(right)))
+          case spl.LessThan => LessThan(attrOrExpr(left), expression(right))
+          case spl.GreaterThan => GreaterThan(attrOrExpr(left), expression(right))
+          case spl.GreaterEquals => GreaterThanOrEqual(attrOrExpr(left), expression(right))
+          case spl.LessEquals => LessThanOrEqual(attrOrExpr(left), expression(right))
+          case spl.Equals => EqualTo(attrOrExpr(left), expression(right))
+          case spl.NotEquals => Not(EqualTo(attrOrExpr(left), expression(right)))
         }
         case spl.Or => Or(expression(left), expression(right))
         case spl.And => And(expression(left), expression(right))
@@ -534,17 +556,6 @@ object SplToCatalyst extends Logging {
   private def like(left: spl.Expr, pattern: String): Like = {
     val regex = Literal.create(pattern.replaceAll("\\*", "%"))
     Like(attrOrExpr(left), regex, '\\')
-  }
-
-  private def attr(expr: spl.Expr): UnresolvedAttribute = expr match {
-    case spl.Field(value) => UnresolvedAttribute(Seq(value))
-    // TODO: support wildcards somehow...
-    // TODO: failure mode
-  }
-
-  private def lambdaAttr(expr: spl.Expr): UnresolvedNamedLambdaVariable = expr match {
-    case spl.Field(value) => UnresolvedNamedLambdaVariable(Seq(value))
-    // TODO: failure mode
   }
 
   private def mapConstants(constant: spl.Constant): Literal = constant match {

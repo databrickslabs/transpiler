@@ -204,7 +204,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
-  test("mvfiltered") {
+  test("mvfilter(d > 3)") {
     import spark.implicits._
     spark.createDataset(dummyWithIntArray).createOrReplaceTempView("main")
     executes("n > mvcount(mvfilter(d > 3))",

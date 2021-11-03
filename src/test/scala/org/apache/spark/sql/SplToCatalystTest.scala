@@ -377,6 +377,41 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    /**
+     * test("EvalCommand to check mvfilter function with nested fct calls") {
+     * check(spl.EvalCommand(Seq(
+     * (spl.Field("filtered_array"),
+     *               spl.Call("mvfilter",
+     * Seq(
+     *                       spl.Binary(
+     *                           spl.Field("mvfield"),
+     *                           spl.GreaterThan,
+     *                           spl.Call("len",
+     * Seq(spl.Field("mvfield")
+     * )
+     * )
+     * )
+     * )
+     * )
+     * )
+     * )
+     * ),
+     * (_, tree) =>
+     * Project(Seq(
+     * Alias(
+     * ArrayFilter(UnresolvedAttribute("mvfield"),
+     * LambdaFunction(GreaterThan(
+     * UnresolvedNamedLambdaVariable(Seq("mvfield")),
+     * Length(UnresolvedNamedLambdaVariable(Seq("mvfield")))),
+     * Seq(UnresolvedNamedLambdaVariable(Seq("mvfield")))
+     * )
+     * ), "filtered_array")()
+     * )
+     * , tree)
+     * )
+     * }
+     */
+
     test("EvalCommand to check coalesce functionality") {
         check(spl.EvalCommand(
             Seq(
