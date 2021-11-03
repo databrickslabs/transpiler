@@ -87,16 +87,57 @@ class SplParserTest extends ParserSuite {
     p(timeSpan(_), TimeSpan(-5, "months"))
   }
 
+  test("-5d@w-2h") {
+    p(constant(_), SnapTime(
+      Some(TimeSpan(-5, "days")),
+      "weeks",
+      Some(TimeSpan(-2, "hours"))))
+  }
+
+  test("-5d@w0-2h") {
+    p(constant(_), SnapTime(
+      Some(TimeSpan(-5, "days")),
+      "weeks",
+      Some(TimeSpan(-2, "hours"))))
+  }
+
+  test("-5d@w") {
+    p(constant(_), SnapTime(
+      Some(TimeSpan(-5, "days")),
+      "weeks",
+      None))
+  }
+
+  test("@w") {
+    p(constant(_), SnapTime(None, "weeks", None))
+  }
+
+  test("@w-1d") {
+    p(constant(_), SnapTime(None, "weeks", Some(TimeSpan(-1, "days"))))
+  }
+
+  test("-1h@h") {
+    p(constant(_), SnapTime(Some(TimeSpan(-1, "hours")), "hours", None))
+  }
+
+  test("-h@h") {
+    p(constant(_), SnapTime(Some(TimeSpan(-1, "hours")), "hours", None))
+  }
+
+  test("h@h") {
+    p(constant(_), SnapTime(Some(TimeSpan(1, "hours")), "hours", None))
+  }
+
   test("a=b c=1 d=\"e\" f=g* h=-15m i=10.0.0.0/8 k=f") {
-    p(fieldMap(_), Map(
-      "a" -> Field("b"),
-      "c" -> IntValue(1),
-      "d" -> StrValue("e"),
-      "f" -> Wildcard("g*"),
-      "h" -> TimeSpan(-15, "minutes"),
-      "i" -> IPv4CIDR("10.0.0.0/8"),
-      "k" -> Bool(false),
-    ))
+    p(commandOptions(_), CommandOptions(Seq(
+      FC("a", Field("b")),
+      FC("c", IntValue(1)),
+      FC("d", StrValue("e")),
+      FC("f", Wildcard("g*")),
+      FC("h", TimeSpan(-15, "minutes")),
+      FC("i", IPv4CIDR("10.0.0.0/8")),
+      FC("k", Bool(false))
+    )))
   }
 
   test("a OR b") {

@@ -10,6 +10,8 @@ import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.util.IntervalUtils
+import org.apache.spark.unsafe.types.UTF8String
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
@@ -396,6 +398,33 @@ object SplToCatalyst extends Logging {
     case _ => expression(expr)
   }
 
+  private def timeSpan(ts: spl.TimeSpan): Literal = {
+    val utf8String = UTF8String.fromString(s"${ts.value} ${ts.scale}")
+    val iv = IntervalUtils.stringToInterval(utf8String)
+    Literal.create(iv)
+  }
+
+  private def snapTime(snap: String, time: Expression): TruncTimestamp = {
+    val format = snap.replaceAll("s$", "")
+    TruncTimestamp(Literal.create(format), time)
+  }
+
+  // https://docs.splunk.com/Documentation/SCS/current/Search/Timemodifiers
+  private def relativeTime(expr: spl.Expr): Expression = expr match {
+    case spl.Field("now") => Now()
+    case ts: spl.TimeSpan => Add(Now(), timeSpan(ts))
+    case spl.SnapTime(relative, snap, offset) =>
+      val truncated = snapTime(snap, relative match {
+        case Some(span) => Add(Now(), timeSpan(span))
+        case None => Now()
+      })
+      offset match {
+        case Some(value) => Add(truncated, timeSpan(value))
+        case None => truncated
+      }
+    case _ => throw new AnalysisException(s"Not a relative time: $expr")
+  }
+
   private def expression(expr: spl.Expr): Expression = expr match {
     case constant: spl.Constant => mapConstants(constant)
     case call: spl.Call => function(call)
@@ -409,6 +438,18 @@ object SplToCatalyst extends Logging {
       like(left, pattern)
     case spl.Binary(left, spl.NotEquals, spl.Wildcard(pattern)) =>
       Not(like(left, pattern))
+    case spl.Binary(spl.Field("earliest"), spl.Equals, expr) =>
+      val timeColumn = "_time"
+      GreaterThanOrEqual(UnresolvedAttribute(timeColumn), relativeTime(expr))
+    case spl.Binary(spl.Field("_index_earliest"), spl.Equals, expr) =>
+      val timeColumn = "_time"
+      GreaterThanOrEqual(UnresolvedAttribute(timeColumn), relativeTime(expr))
+    case spl.Binary(spl.Field("latest"), spl.Equals, expr) =>
+      val timeColumn = "_time"
+      LessThanOrEqual(UnresolvedAttribute(timeColumn), relativeTime(expr))
+    case spl.Binary(spl.Field("_index_latest"), spl.Equals, expr) =>
+      val timeColumn = "_time"
+      LessThanOrEqual(UnresolvedAttribute(timeColumn), relativeTime(expr))
     case spl.Binary(left, symbol, right) => symbol match {
       case straight: spl.Straight => straight match {
         case relational: spl.Relational => relational match {
