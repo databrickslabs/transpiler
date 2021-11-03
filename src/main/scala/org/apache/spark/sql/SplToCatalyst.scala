@@ -622,7 +622,6 @@ object SplToCatalyst extends Logging {
                              tree: LogicalPlan,
                              field: spl.Field,
                              delim: Option[String]) = {
-
     val groupingExpressions = ctx.output.filter(!_.name.equals(field.value))
     newAggregateIgnoringABI(
       groupingExpressions,

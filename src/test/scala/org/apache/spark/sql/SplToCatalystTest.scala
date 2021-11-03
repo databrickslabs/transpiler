@@ -9,7 +9,6 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
-import spl.MvCombineCommand
 
 class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     test("HeadCommand should generate a Limit") {
@@ -782,7 +781,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     }
 
     test("mvcombine host") {
-        check(MvCombineCommand(
+        check(spl.MvCombineCommand(
             None,
             spl.Field("host")
         ),
@@ -811,7 +810,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
     }
 
     test("mvcombine delim=\",\" host") {
-        check(MvCombineCommand(
+        check(spl.MvCombineCommand(
             Some(","),
             spl.Field("host")
         ),
