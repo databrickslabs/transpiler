@@ -103,14 +103,14 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("bin span execute") {
-    executes("index=flow | bin span=5m ts | stats count by ts",
+    executes("index=flow | bin span=5m ts | stats count by ts | sort ts",
       """+-------------------+-----+
         ||ts                 |count|
         |+-------------------+-----+
-        ||2021-11-05 03:40:00|1    |
-        ||2021-11-04 09:15:00|1    |
         ||2021-11-04 09:10:00|2    |
+        ||2021-11-04 09:15:00|1    |
         ||2021-11-04 12:10:00|2    |
+        ||2021-11-05 03:40:00|1    |
         |+-------------------+-----+
         |""".stripMargin)
   }
