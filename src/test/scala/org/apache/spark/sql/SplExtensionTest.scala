@@ -7,6 +7,7 @@ case class Dummy(a: String, b: String, c: String, n: Int, valid: Boolean)
 case class DummyKeyValue(key: String, value: String)
 case class SingleRawField(_raw: String)
 case class CountryByContinent(continent: String, country: String)
+case class Flow(ts: java.sql.Timestamp, src_ip: String, dst_ip: String, service: String)
 
 class SplExtensionTest extends AnyFunSuite {
   val dummy = Seq(
