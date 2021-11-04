@@ -1,5 +1,7 @@
 package org.apache.spark.sql
 
+import java.sql.Timestamp
+
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -55,10 +57,20 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     CountryByContinent("Africa", "Algeria")
   )
 
+  val dummyFlow = Seq(
+    Flow(Timestamp.valueOf("2021-11-04 09:12:34"), "10.1.1.2", "178.0.3.56", "http"),
+    Flow(Timestamp.valueOf("2021-11-04 09:13:04"), "10.1.1.2", "10.1.2.25", "ftp"),
+    Flow(Timestamp.valueOf("2021-11-04 09:16:31"), "10.1.2.25", "10.4.15.7", "ssh"),
+    Flow(Timestamp.valueOf("2021-11-04 12:14:01"), "10.1.1.2", "178.0.3.56", "ssh"),
+    Flow(Timestamp.valueOf("2021-11-04 12:14:02"), "178.0.3.56", "10.1.2.25", "ssh"),
+    Flow(Timestamp.valueOf("2021-11-05 03:43:54"), "178.45.15.10", "10.1.2.25", "ssh"),
+  )
+
   override def beforeAll(): Unit = {
     import spark.implicits._
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
     spark.createDataset(dummy).createOrReplaceTempView("dummy")
+    spark.createDataset(dummyFlow).createOrReplaceTempView("flow")
     spark.createDataset(dummySingleField).createOrReplaceTempView("dummy_single_field")
     spark.createDataset(dummyWithNull).createOrReplaceTempView("dummy_with_null")
     spark.createDataset(dummySubstrings).createOrReplaceTempView("dummy_substrings")
@@ -69,7 +81,21 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   test("bin span") {
     generates("bin span=5m n",
       """(spark.table('main')
-        |.withColumn('n', F.window(F.col('n'), '5 minutes')))
+        |.withColumn('n', F.window(F.col('n'), '5 minutes'))
+        |.withColumn('n', F.col('n.start')))
+        |""".stripMargin)
+  }
+
+  test("bin span execute") {
+    executes("index=flow | bin span=5m ts | stats count by ts",
+      """+-------------------+-----+
+        ||ts                 |count|
+        |+-------------------+-----+
+        ||2021-11-05 03:40:00|1    |
+        ||2021-11-04 09:15:00|1    |
+        ||2021-11-04 09:10:00|2    |
+        ||2021-11-04 12:10:00|2    |
+        |+-------------------+-----+
         |""".stripMargin)
   }
 
@@ -78,7 +104,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       """(spark.table('main')
         |.where('(`n` > 2)')
         |.groupBy('valid')
-        |.agg(F.count().alias('count')))
+        |.agg(F.count(F.lit(1)).alias('count')))
         |""".stripMargin)
   }
 

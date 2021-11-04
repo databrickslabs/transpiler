@@ -116,13 +116,16 @@ object SplToCatalyst extends Logging {
     case "isnull" =>
       IsNull(attrOrExpr(call.args.head))
     case "if" =>
-      If(attrOrExpr(call.args.head), attrOrExpr(call.args(1)),attrOrExpr(call.args(2)))
+      If(attrOrExpr(call.args.head), attrOrExpr(call.args(1)), attrOrExpr(call.args(2)))
     case "ctime" =>
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
     case "count" =>
-      // TODO: if count is empty, make the Count(Literal.create(1))
-      Count(call.args.map(expression))
+      AggregateExpression(
+        Count(call.args match {
+          case Nil => Seq(Literal.create(1))
+          case args => args.map(expression)
+        }), Complete, isDistinct = false)
     case "sum" =>
       Sum(attr(call.args.head))
     case "min" =>
@@ -256,21 +259,19 @@ object SplToCatalyst extends Logging {
       Alias(expression(expr), alias)()
   }
 
-  private def aggregate(ctx: LogicalContext,
-                        by: Seq[spl.Field],
-                        funcs: Seq[spl.Expr],
-                        tree: LogicalPlan) = {
+  private def aggregate(ctx: LogicalContext, by: Seq[spl.Field], funcs: Seq[spl.Expr], tree: LogicalPlan) = {
     // TODO: select _time
     val groupBy = by.map(attr)
     val agg = aggregates(funcs)
     val child = if (hasTimeFunctions(funcs)) Sort(Seq(
         SortOrder(UnresolvedAttribute(ctx.timeFieldName), Ascending, NullsFirst, Seq.empty)
     ), global = true, tree) else tree
-    ctx.output = Seq()
+    //TODO: hm... ctx.output = Seq()
+
     // new Aggregate(groupBy, agg, child) translates to
     // INVOKESPECIAL Aggregate.<init> (LSeq;Seq;LLogicalPlan;)V
     // and it's not filling in default arguments
-    newAggregateIgnoringABI(groupBy, agg, child)
+    newAggregateIgnoringABI(groupBy, groupBy ++ agg, child)
   }
 
   // we're using Spark Catalyst's private APIs, so there are absolutely no guarantees
@@ -321,9 +322,15 @@ object SplToCatalyst extends Logging {
   private def selectColumn(ctx: LogicalContext,
                            tree: LogicalPlan,
                            ne: NamedExpression): Project = {
+    ctx.output = ctx.output.map {
+      case toReplace if toReplace.name == ne.name => ne
+      case toKeep => toKeep
+    }
     // To avoid duplicate column
-    if (!ctx.output.map(_.name).contains(ne.name))
+    if (!ctx.output.map(_.name).contains(ne.name)) {
+      // maybe there's a more functional way to do this
       ctx.output :+= ne
+    }
     Project(ctx.output, tree)
   }
 
@@ -336,12 +343,18 @@ object SplToCatalyst extends Logging {
 
   private def wrapCommand(ctx: LogicalContext)
                          (mapper: (LogicalPlan, spl.Command) => LogicalPlan)
-                         (plan: LogicalPlan, command: spl.Command): LogicalPlan = {
+                         (plan: LogicalPlan, command: spl.Command): LogicalPlan =
     try {
       mapper(plan, command) match {
         case project: Project =>
           ctx.output = project.output
           project
+        case agg: Aggregate =>
+          // matching is done by attribute name because of ABI compatibility
+          ctx.output = agg.groupingExpressions.filter(_.isInstanceOf[NamedExpression]).map {
+            case ne: NamedExpression => UnresolvedAttribute(ne.name)
+            } ++ agg.aggregateExpressions.map(ne => UnresolvedAttribute(ne.name))
+          agg
         case result: LogicalPlan =>
           result
       }
@@ -352,14 +365,12 @@ object SplToCatalyst extends Logging {
         log.warn(s"Error in $name", e)
         UnknownPlanShim(s"Error in $name: $e", plan)
     }
-  }
 
-  private def selectExpr(fields: Seq[spl.Field], tree: LogicalPlan) = {
+  private def selectExpr(fields: Seq[spl.Field], tree: LogicalPlan) =
     // TODO: replace the logic with select(ctx, tree, ne)?...
     Project(fields.map {
       case spl.Field(value) => UnresolvedAttribute(value)
     }, tree)
-  }
 
   private def applyRename(ctx: LogicalContext, tree: LogicalPlan, aliases: Seq[spl.Alias]): LogicalPlan = {
     val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
@@ -483,6 +494,7 @@ object SplToCatalyst extends Logging {
 
   private def attr(expr: spl.Expr): UnresolvedAttribute = expr match {
     case spl.Field(value) => UnresolvedAttribute(Seq(value))
+    // TODO: support wildcards somehow...
     // TODO: failure mode
   }
 
@@ -694,8 +706,9 @@ object SplToCatalyst extends Logging {
     }
     val ts = bc.span.get.asInstanceOf[spl.TimeSpan]
     val duration = Literal.create(timeSpan(ts).toString())
-    val window = new TimeWindow(field, duration)
-    withColumn(ctx, tree, alias, window)
+    // technically, we can do it in one stage, but generated code would be less readable
+    val projectWindow = withColumn(ctx, tree, alias, new TimeWindow(field, duration))
+    withColumn(ctx, projectWindow, alias, UnresolvedAttribute(Seq(alias, "start")))
   }
 }
 
