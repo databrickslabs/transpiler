@@ -15,6 +15,7 @@ case class Bool(value: Boolean) extends Constant
 case class IntValue(value: Int) extends Constant
 case class StrValue(value: String) extends Constant
 case class TimeSpan(value: Int, scale: String) extends Span
+case class SnapTime(span: Option[TimeSpan], snap: String, snapOffset: Option[TimeSpan]) extends Constant
 case class Field(value: String) extends Constant with FieldLike with FieldOrAlias
 case class Wildcard(value: String) extends Constant with FieldLike
 case class IPv4CIDR(value: String) extends Constant {
@@ -24,8 +25,45 @@ case class IPv4CIDR(value: String) extends Constant {
 }
 
 case class FV(field: String, value: String) extends LeafExpr
-case class FC(field: String, value: Constant) extends LeafExpr
 case class FB(field: String, value: Boolean) extends LeafExpr
+case class FC(field: String, value: Constant) extends LeafExpr
+
+case class CommandOptions(options: Seq[FC]) {
+  private val inner = options.map(y => y.field -> y.value).toMap
+
+  private def throwIAE(msg: String) = throw new IllegalArgumentException(msg)
+
+  def getIntOption(key: String): Option[Int] = inner.get(key) map {
+    case IntValue(value) => value
+    case other: Constant => throwIAE(s"not an int: $other")
+  }
+
+  def getInt(key: String, default: Int = 0): Int =
+    getIntOption(key).getOrElse(default)
+
+  def getStringOption(key: String): Option[String] = inner.get(key) map {
+      case Field(v) => v
+      case StrValue(v) => v
+      case other: Constant => throwIAE(s"not a string: $other")
+    }
+
+  def getString(key: String, default: String): String =
+    getStringOption(key).getOrElse(default)
+
+  def getSpanOption(key: String): Option[Span] = inner.get(key) map {
+    case span: Span => span
+    case other: Constant => throwIAE(s"not a span: $other")
+  }
+
+  def getBoolean(key: String, default: Boolean = false): Boolean = inner.get(key) map {
+    case Bool(value) => value
+    case Field("true") => true
+    case Field("t") => true
+    case Field("false") => false
+    case Field("f") => false
+    case other: Constant => throwIAE(s"not a bool: $other")
+  } getOrElse default
+}
 
 case class AliasedField(field: Field, alias: String) extends Expr with FieldLike
 

@@ -43,15 +43,22 @@ object SplParser {
   // TODO: add interval parsing for: us | ms | cs | ds
   def seconds[_:P]: P[String] = ("seconds" | "second" | "secs" | "sec" | "s").map(_ => "seconds")
   def minutes[_:P]: P[String] = ("minutes" | "minute" | "mins" | "min" | "m").map(_ => "minutes")
-  def hours[_:P]: P[String] = ("hours" | "hour" | "hrs" | "hr" | "h").map(_ => "minutes")
+  def hours[_:P]: P[String] = ("hours" | "hour" | "hrs" | "hr" | "h").map(_ => "hours")
   def days[_:P]: P[String] = ("days" | "day" | "d").map(_ => "days")
+  def weeks[_:P]: P[String] = ("weeks" | "week" | "w7" | "w0" | "w").map(_ => "weeks")
   def months[_:P]: P[String] = ("months" | "month" | "mon").map(_ => "months")
-  def timeSpan[_:P]: P[TimeSpan] = int ~~ (months|days|hours|minutes|seconds) map {
+  def timeUnit[_:P]: P[String] = months|days|hours|minutes|weeks|seconds
+  def timeSpan[_:P]: P[TimeSpan] = int ~~ timeUnit map {
     case (IntValue(v), interval) => TimeSpan(v, interval)
   }
+  def timeSpanOne[_:P]: P[TimeSpan] = "-".!.? ~~ timeUnit map {
+    case (Some("-"), interval) => TimeSpan(-1, interval)
+    case (None, interval) => TimeSpan(1, interval)
+  }
+  // https://docs.splunk.com/Documentation/SCS/current/Search/Specifyrelativetime
+  def relativeTime[_:P]: P[SnapTime] = ((timeSpan|timeSpanOne).? ~~ "@" ~~ timeUnit ~~ timeSpan.?).map(SnapTime.tupled)
 
-  // TODO: this is a hack for earliest=-15m@m
-  def token[_: P]: P[String] = ("_"|"*"|"-"|"@"|letter|digit).repX(1).!
+  def token[_: P]: P[String] = ("_"|"*"|letter|digit).repX(1).!
   def doubleQuoted[_: P]: P[String] = P( "\"" ~ (
     CharsWhile(!"\"".contains(_))
       | "\\" ~~ AnyChar
@@ -63,13 +70,13 @@ object SplParser {
   def field[_:P]: P[Field] = token.filter(!Seq("t", "f").contains(_)) map Field
   def byte[_:P]: P[String] = digit.rep(min=1, max=3).!
   def cidr[_:P]: P[IPv4CIDR] = (byte.rep(sep=".", exactly=4) ~ "/" ~ byte).! map IPv4CIDR
-
   def fieldAndValue[_:P]: P[FV] = (token ~ "=" ~ (doubleQuoted|token)) map { case (k, v) => FV(k, v) }
   def fieldAndConstant[_:P]: P[FC] = (token ~ "=" ~ constant) map { case (k, v) => FC(k, v) }
-  def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
-  def fieldMap[_: P]: P[Map[String, Constant]] = fieldAndConstant.rep map(x => x.map(y => y.field -> y.value).toMap)
-  def fieldAndBool[_:P]: P[FB] = (token ~ "=" ~ bool).map { case (k, v) => FB(k, v.value)}
-  def fieldAndBoolList[_: P]: P[Map[String, Boolean]] = fieldAndBool.rep map(x => x.map(y => y.field -> y.value).toMap)
+  def commandOptions[_: P]: P[CommandOptions] = fieldAndConstant.rep map CommandOptions
+  @deprecated("use commandOptions") def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
+  @deprecated("use commandOptions") def fieldAndBoolList[_: P]: P[Map[String, Boolean]] = fieldAndBool.rep map(x => x.map(y => y.field -> y.value).toMap)
+  @deprecated("use commandOptions") def fieldAndBool[_:P]: P[FB] = (token ~ "=" ~ bool).map { case (k, v) => FB(k, v.value)}
+
   def fieldList[_: P]: P[Seq[Field]] = field.rep(sep=",")
   def filename[_: P]: P[String] = term
 
@@ -80,7 +87,7 @@ object SplParser {
     case (sign, i) => IntValue(if (sign.equals("-")) -1 * i.toInt else i.toInt)
   }
 
-  def constant[_:P]: P[Constant] = cidr | wildcard | strValue | timeSpan | int | field | bool
+  def constant[_:P]: P[Constant] = cidr | wildcard | strValue | relativeTime | timeSpan | int | field | bool
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
     | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P | Add.P | Subtract.P
@@ -141,6 +148,7 @@ object SplParser {
    * Function is missing the case where both a limit and a condition are passed
    * ie. head limit=10 (1==1)
    * TODO Add condition
+   * TODO: refactor to use command options
    */
   def head[_:P]: P[HeadCommand] = ("head" ~ ((int | "limit=" ~ int) | expr)
                                           ~ ("keeplast=" ~ bool).?
@@ -162,7 +170,6 @@ object SplParser {
 
   /**
    * https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Sort
-   * ip
    */
   def sort[_:P]: P[SortCommand] = "sort" ~ (("+"|"-").!.? ~~ expr).rep(min = 1, sep = ",") map SortCommand
   // where <predicate-expression>
@@ -181,53 +188,31 @@ object SplParser {
     .map(StatsCommand.tupled)
 
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Rex
-  def rex[_:P]: P[RexCommand] = ("rex" ~ fieldAndValueList ~ doubleQuoted) map { case (kv, regex) =>
-    RexCommand(
-      field = kv.get("field"),
-      maxMatch = kv.get("max_match").map(_.toInt).getOrElse(1),
-      offsetField = kv.get("offset_field"),
-      mode = kv.get("mode"),
-      regex = regex)
+  def rex[_:P]: P[RexCommand] = ("rex" ~ commandOptions ~ doubleQuoted) map {
+    case (kv, regex) =>
+      RexCommand(
+        field = kv.getStringOption("field"),
+        maxMatch = kv.getInt("max_match", 1),
+        offsetField = kv.getStringOption("offset_field"),
+        mode = kv.getStringOption("mode"),
+        regex = regex)
   }
 
   def rename[_:P]: P[RenameCommand] = "rename" ~ aliasedField.rep(min = 1, sep = ",") map RenameCommand
   def _regex[_:P]: P[RegexCommand] = "regex" ~ (field ~ ("="|"!=").!).? ~ doubleQuoted map RegexCommand.tupled
-  def join[_:P]: P[JoinCommand] = ("join" ~ ("type=" ~ ("inner"|"outer"|"left").!).?
-                                          ~ ("usetime=" ~ bool).?
-                                          ~ ("earlier=" ~ bool).?
-                                          ~ ("overwrite=" ~ bool).?
-                                          ~ ("max=" ~ int).?
-                                          ~ field.rep(min = 1, sep = ",")
-                                          ~ subSearch) map { command => {
-      JoinCommand(
-        command._1 match {
-          case Some(value) => value
-          case None => "inner"
-        },
-        command._2 match {
-          case Some(useTime) => useTime.value
-          case None => false
-        },
-        command._3 match {
-          case Some(earlier) => earlier.value
-          case None => true
-        },
-        command._4 match {
-          case Some(overwrite) => overwrite.value
-          case None => false
-        },
-        command._5 match {
-          case Some(max) => max.value
-          case None => 1
-        },
-        command._6,
-        command._7
-      )
-    }
+  def join[_:P]: P[JoinCommand] = ("join" ~ commandOptions ~ field.rep(min = 1, sep = ",") ~ subSearch) map {
+    case (options, fields, pipeline) => JoinCommand(
+        joinType = options.getString("type", "inner"),
+        useTime = options.getBoolean("usetime"),
+        earlier = options.getBoolean("earlier", default = true),
+        overwrite = options.getBoolean("overwrite"),
+        max = options.getInt("max", 1),
+        fields = fields,
+        subSearch = pipeline)
   }
 
   def _return[_:P]: P[ReturnCommand] = "return" ~ int.? ~ (
-      (fieldAndValue).rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map {
+      fieldAndValue.rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map {
     case (maybeValue, exprs) =>
       ReturnCommand(maybeValue.getOrElse(IntValue(1)), exprs map {
         case fv: FV => Alias(Field(fv.value), fv.field).asInstanceOf[FieldOrAlias]
@@ -250,59 +235,43 @@ object SplParser {
   }.rep(1)
 
   def dedup[_:P]: P[DedupCommand] = (
-      "dedup" ~ int.? ~ fieldAndBoolList.? ~ dedupFieldRep
+      "dedup" ~ int.? ~ commandOptions ~ dedupFieldRep
               ~ ("sortby" ~ (("+"|"-").!.? ~~ field).rep(1)).?) map {
     case (limit, kv, fields, sortByQuery) =>
-      val kvOpt = kv.getOrElse(Map[String, Boolean]())
       val sortByCommand = sortByQuery match {
         case Some(query) => SortCommand(query)
         case _ => SortCommand(Seq((Some("+"), spl.Field("_no"))))
       }
-
       DedupCommand(
-        numResults = (limit.getOrElse(IntValue(1))).value,
+        numResults = limit.getOrElse(IntValue(1)).value,
         fields = fields,
-        keepEvents = kvOpt.getOrElse("keepevents", false),
-        keepEmpty = kvOpt.getOrElse("keepEmpty", false),
-        consecutive = kvOpt.getOrElse("consecutive", false),
+        keepEvents = kv.getBoolean("keepevents"),
+        keepEmpty = kv.getBoolean("keepEmpty"),
+        consecutive = kv.getBoolean("consecutive"),
         sortByCommand
       )
   }
 
-  private def toBool(str: String): Boolean = {
-    str.toLowerCase match {
-      case "true" => true
-      case "t" => true
-      case "false" => false
-      case "f" => false
-      case _ => false
-    }
-  }
-
-  def inputLookup[_:P]: P[InputLookup] = ("inputlookup" ~ fieldAndValueList.? ~ token ~ ("where" ~ expr).?) map {
-    case (kv, tableName, whereOption) =>
-      val kvOpt: Map[String, String] = kv.getOrElse(Map[String, String]())
+  def inputLookup[_:P]: P[InputLookup] = ("inputlookup" ~ commandOptions ~ token ~ ("where" ~ expr).?) map {
+    case (options, tableName, whereOption) =>
       InputLookup(
-        kvOpt.get("append").exists(toBool),
-        kvOpt.get("strict").exists(toBool),
-        kvOpt.get("start").map(_.toInt).getOrElse(0),
-        kvOpt.get("max").map(_.toInt).getOrElse(1000000000),
+        options.getBoolean("append"),
+        options.getBoolean("strict"),
+        options.getInt("start", 0),
+        options.getInt("max", 1000000000),
         tableName,
-        whereOption
-      )
+        whereOption)
   }
 
-  def format[_:P]: P[FormatCommand] = ("format" ~ fieldAndValueList.? ~ doubleQuoted.rep(6).?) map {
+  def format[_:P]: P[FormatCommand] = ("format" ~ commandOptions ~ doubleQuoted.rep(6).?) map {
     case (kv, options) =>
-      val kvOpt: Map[String, String] = kv.getOrElse(Map[String, String]())
       val arguments = options match {
         case Some(args) => args
         case _ => Seq("(", "(", "AND", ")", "OR", ")")
       }
-
       FormatCommand(
-        mvSep = kvOpt.getOrElse("mvsep", "OR"),
-        maxResults = kvOpt.get("maxresults").map(_.toInt).getOrElse(0),
+        mvSep = kv.getString("mvsep", "OR"),
+        maxResults = kv.getInt("maxresults"),
         rowPrefix = arguments.head,
         colPrefix = arguments(1),
         colSep = arguments(2),
@@ -315,14 +284,14 @@ object SplParser {
   def mvcombine[_:P]: P[MvCombineCommand] = ("mvcombine" ~ ("delim" ~ "=" ~ doubleQuoted).?
                                                          ~ field) map MvCombineCommand.tupled
   // bin [<bin-options>...] <field> [AS <newfield>]
-  def bin[_:P]: P[BinCommand] = "bin" ~ fieldMap ~ (aliasedField | field) map {
+  def bin[_:P]: P[BinCommand] = "bin" ~ commandOptions ~ (aliasedField | field) map {
     case (options, field) => BinCommand(field,
-      span = options.get("span").map(_.asInstanceOf[Span]),
-      minSpan = options.get("minspan").map(_.asInstanceOf[Span]),
-      bins = options.get("bins").map(_.asInstanceOf[IntValue]).map(_.value),
-      start = options.get("start").map(_.asInstanceOf[IntValue]).map(_.value),
-      end = options.get("end").map(_.asInstanceOf[IntValue]).map(_.value),
-      alignTime = options.get("aligntime").map(_.asInstanceOf[Field]).map(_.value),
+      span = options.getSpanOption("span"),
+      minSpan = options.getSpanOption("minspan"),
+      bins = options.getIntOption("bins"),
+      start = options.getIntOption("start"),
+      end = options.getIntOption("end"),
+      alignTime = options.getStringOption("aligntime"),
     )
   }
 

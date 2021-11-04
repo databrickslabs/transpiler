@@ -22,7 +22,7 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | regex | ✅ | ✅ | ✅ |
 | where | ✅ | ✅ | ✅ |
 | lookup | ✅ | ✅ | ✅ |
-| bin |  |  |  |
+| bin | ✅ | ✅ | ✅ |
 | rename | ✅ | ✅ | ✅ |
 | join | ✅ | ✅ | ✅ |
 | fields | ✅ | ✅ | ✅ |
