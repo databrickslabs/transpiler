@@ -15,6 +15,22 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     Dummy("e", "d", "c", 5, valid = true),
   )
 
+  val dummyWithArray = Seq(
+    DummyWithArray("a", "b", "c", Seq("a", "b", "cde"), 1, valid = true),
+    DummyWithArray("d", "e", "f", Seq("d", "e"), 2, valid = false),
+    DummyWithArray("g", "h", "i", Seq("g", "h", "i"), 3, valid = true),
+    DummyWithArray("h", "g", "f", Seq("h"), 4, valid = false),
+    DummyWithArray("e", "d", "c", Seq("e", "d", "c"), 5, valid = true),
+  )
+
+  val dummyWithIntArray = Seq(
+    DummyWithIntArray("a", "b", "c", Seq(1, 2, 3), 1, valid = true),
+    DummyWithIntArray("d", "e", "f", Seq(4, 5), 2, valid = false),
+    DummyWithIntArray("g", "h", "i", Seq(6, 7, 8), 3, valid = true),
+    DummyWithIntArray("h", "g", "f", Seq(9), 4, valid = false),
+    DummyWithIntArray("e", "d", "c", Seq(5, 4, 3), 5, valid = true),
+  )
+
   val dummyWithNull = Seq(
     Dummy("a", null, null, 1, valid = true),
     Dummy("d", "e", "f", 2, valid = false)
@@ -87,14 +103,14 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("bin span execute") {
-    executes("index=flow | bin span=5m ts | stats count by ts",
+    executes("index=flow | bin span=5m ts | stats count by ts | sort ts",
       """+-------------------+-----+
         ||ts                 |count|
         |+-------------------+-----+
-        ||2021-11-05 03:40:00|1    |
-        ||2021-11-04 09:15:00|1    |
         ||2021-11-04 09:10:00|2    |
+        ||2021-11-04 09:15:00|1    |
         ||2021-11-04 12:10:00|2    |
+        ||2021-11-05 03:40:00|1    |
         |+-------------------+-----+
         |""".stripMargin)
   }
@@ -158,6 +174,68 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     generates("index=main | eval coalesced=coalesce(b,c)",
       """(spark.table('main')
         |.withColumn('coalesced', F.expr('coalesce(`b`, `c`)')))
+        |""".stripMargin)
+  }
+
+  test("eval count=mvcount(d)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
+    generates("eval count=mvcount(d)",
+      """(spark.table('main')
+        |.withColumn('count', F.expr('size(`d`)')))
+        |""".stripMargin)
+  }
+
+  test("eval mvsubset=mvindex(d,0,1)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
+    generates("eval count=mvindex(d,0,1)",
+      """(spark.table('main')
+        |.withColumn('count', F.expr('slice(`d`, 1, 2)')))
+        |""".stripMargin)
+  }
+
+  test("eval mvappended=mvappend(d,d)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
+    generates("eval mvappended=mvappend(d,d)",
+      """(spark.table('main')
+        |.withColumn('mvappended', F.concat(F.col('d'), F.col('d'))))
+        |""".stripMargin)
+  }
+
+  test("mvfilter(d > 3)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithIntArray).createOrReplaceTempView("main")
+    executes("n > mvcount(mvfilter(d > 3))",
+      """+---+---+---+---------+---+-----+
+        ||a  |b  |c  |d        |n  |valid|
+        |+---+---+---+---------+---+-----+
+        ||a  |b  |c  |[1, 2, 3]|1  |true |
+        ||h  |g  |f  |[9]      |4  |false|
+        ||e  |d  |c  |[5, 4, 3]|5  |true |
+        |+---+---+---+---------+---+-----+
+        |""".stripMargin)
+  }
+
+  test("mvfilter(len(d) > 1)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
+    executes("mvcount(mvfilter(len(d) > 1)) = 1",
+      """+---+---+---+-----------+---+-----+
+        ||a  |b  |c  |d          |n  |valid|
+        |+---+---+---+-----------+---+-----+
+        ||a  |b  |c  |[a, b, cde]|1  |true |
+        |+---+---+---+-----------+---+-----+
+        |""".stripMargin)
+  }
+
+  test("count=mvcount(d)") {
+    import spark.implicits._
+    spark.createDataset(dummyWithArray).createOrReplaceTempView("main")
+    generates("eval count=mvcount(d)",
+      """(spark.table('main')
+        |.withColumn('count', F.expr('size(`d`)')))
         |""".stripMargin)
   }
 

@@ -4,6 +4,8 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.must.Matchers._
 
 case class Dummy(a: String, b: String, c: String, n: Int, valid: Boolean)
+case class DummyWithArray(a: String, b: String, c: String, d: Seq[String], n: Int, valid: Boolean)
+case class DummyWithIntArray(a: String, b: String, c: String, d: Seq[Int], n: Int, valid: Boolean)
 case class DummyKeyValue(key: String, value: String)
 case class SingleRawField(_raw: String)
 case class CountryByContinent(continent: String, country: String)

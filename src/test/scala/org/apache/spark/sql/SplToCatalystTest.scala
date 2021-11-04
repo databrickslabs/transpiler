@@ -180,6 +180,239 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("EvalCommand to check mvcount function") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("count"),
+              spl.Call("mvcount",
+                  Seq(spl.Field("mvfield"))
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        Size(UnresolvedAttribute("mvfield")),
+                        "count"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvindex function w/ stop index") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("mvsubset"),
+              spl.Call("mvindex",
+                  Seq(spl.Field("mvfield"), spl.IntValue(0), spl.IntValue(1))
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        Slice(UnresolvedAttribute("mvfield"), Literal(1), Literal(2)),
+                        "mvsubset"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvindex function w/o stop index") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("mvsubset"),
+              spl.Call("mvindex",
+                  Seq(spl.Field("mvfield"), spl.IntValue(0))
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        Slice(UnresolvedAttribute("mvfield"), Literal(1), Literal(1)),
+                        "mvsubset"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvindex function w/ neg start and stop index") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("mvsubset"),
+              spl.Call("mvindex",
+                  Seq(spl.Field("mvfield"), spl.IntValue(-3), spl.IntValue(-2))
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        Slice(UnresolvedAttribute("mvfield"), Literal(-3), Literal(2)),
+                        "mvsubset"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvindex function w/ neg start index") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("mvsubset"),
+              spl.Call("mvindex",
+                  Seq(spl.Field("mvfield"), spl.IntValue(-3))
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        Slice(UnresolvedAttribute("mvfield"), Literal(-3), Literal(1)),
+                        "mvsubset"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvappend function") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("merged_arrays"),
+              spl.Call("mvappend",
+                  Seq(
+                      spl.Field("mvfieldA"),
+                      spl.Field("mvfieldB"),
+                      spl.Field("mvfieldC")
+                  )
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        Concat(Seq(
+                            UnresolvedAttribute("mvfieldA"),
+                            UnresolvedAttribute("mvfieldB"),
+                            UnresolvedAttribute("mvfieldC")
+                        )),
+                        "merged_arrays"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvfilter function") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("filtered_array"),
+              spl.Call("mvfilter",
+                  Seq(
+                      spl.Binary(spl.Field("method"),
+                      spl.NotEquals,
+                      spl.StrValue("GET"))
+                  )
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        ArrayFilter(UnresolvedAttribute("method"),
+                            LambdaFunction(Not(EqualTo(
+                                UnresolvedNamedLambdaVariable(Seq("method")),
+                                Literal("GET"))),
+                                Seq(UnresolvedNamedLambdaVariable(Seq("method"))))),
+                        "filtered_array"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvfilter function with complex expr") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("filtered_array"),
+              spl.Call("mvfilter",
+                  Seq(
+                      spl.Binary(spl.Binary(spl.Field("method"),
+                          spl.NotEquals,
+                          spl.StrValue("GET")),
+                          spl.Or,
+                          spl.Binary(spl.Field("method"),
+                              spl.NotEquals,
+                              spl.StrValue("DELETE")))
+                  )
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        ArrayFilter(UnresolvedAttribute("method"),
+                            LambdaFunction(Or(
+                                Not(EqualTo(
+                                    UnresolvedNamedLambdaVariable(Seq("method")),
+                                    Literal("GET"))),
+                                Not(EqualTo(
+                                    UnresolvedNamedLambdaVariable(Seq("method")),
+                                    Literal("DELETE")))),
+                                Seq(UnresolvedNamedLambdaVariable(Seq("method")))
+                            )
+                        ),
+                        "filtered_array"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check mvfilter function with nested fct") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("filtered_array"),
+              spl.Call("mvfilter",
+                  Seq(
+                      spl.Binary(
+                          spl.Binary(spl.Call("len", Seq(spl.Field("email"))),
+                              spl.GreaterThan,
+                              spl.IntValue(5)),
+                          spl.And,
+                          spl.Binary(spl.Call("len", Seq(spl.Field("email"))),
+                              spl.LessThan,
+                              spl.IntValue(10)))
+                  )
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        ArrayFilter(UnresolvedAttribute("email"),
+                            LambdaFunction(And(
+                                GreaterThan(Length(
+                                    UnresolvedNamedLambdaVariable(Seq("email"))),
+                                    Literal(5)),
+                                LessThan(Length(
+                                    UnresolvedNamedLambdaVariable(Seq("email"))),
+                                    Literal(10))),
+                                Seq(UnresolvedNamedLambdaVariable(Seq("email")))
+                            )
+                        ),
+                        "filtered_array"
+                    )()
+                )
+                    , tree)
+        )
+    }
+
     test("EvalCommand to check coalesce functionality") {
         check(spl.EvalCommand(
             Seq(
