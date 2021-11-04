@@ -50,8 +50,8 @@ trait ProcessProxy extends Logging {
   }
 
   def executes(search: String, results: String, truncate: Int = 0) = {
-    val testVar = Transpiler.toDataFrame(spark, search)
-                            .showString(20, truncate)
+    val df = Transpiler.toDataFrame(spark, search)
+    val testVar = df.showString(20, truncate)
     if (testVar != results) {
       Assertions.fail(s"""FAILURE: Results do not match
                          |=======

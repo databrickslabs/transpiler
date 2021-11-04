@@ -104,7 +104,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         (_, tree) =>
             Aggregate(
                 Seq(UnresolvedAttribute("host")),
-                Seq(Alias(Count(Seq()), "count")()),
+                Seq(
+                    UnresolvedAttribute("host"),
+                    Alias(
+                        AggregateExpression(
+                            Count(Seq(Literal.create(1))),
+                            Complete, isDistinct = false
+                        ), "count")()),
                 tree))
     }
 
@@ -116,7 +122,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Aggregate(
                     Seq(UnresolvedAttribute("host")),
-                    Seq(Alias(Sum(UnresolvedAttribute("connection_time")), "sum")()),
+                    Seq(
+                        UnresolvedAttribute("host"),
+                        Alias(Sum(UnresolvedAttribute("connection_time")), "sum")()),
                     tree))
     }
 
@@ -133,7 +141,14 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     ),
                     Aggregate(
                         Seq(UnresolvedAttribute("host")),
-                        Seq(Alias(Count(Seq()), "count")()),
+                        Seq(
+                            UnresolvedAttribute("host"),
+                            Alias(
+                                AggregateExpression(
+                                    Count(Seq(Literal.create(1))),
+                                    Complete, isDistinct = false
+                                ), "count")()
+                        ),
                         tree)))
     }
 
@@ -846,14 +861,14 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             span = Some(spl.TimeSpan(1, "hours"))
         ),
         (_, tree) => Project(Seq(
-            Alias(
-                TimeWindow(
+                Alias(UnresolvedAttribute("time_bin.start"), "time_bin")()
+            ), Project(Seq(
+                Alias(TimeWindow(
                     UnresolvedAttribute("ts"),
                     3600000000L,
                     3600000000L,
-                    0),
-                "time_bin")()
-        ), tree))
+                    0), "time_bin")()
+            ), tree)))
     }
 
     private def check(command: spl.Command,
