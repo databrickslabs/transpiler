@@ -377,40 +377,40 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
-    /**
-     * test("EvalCommand to check mvfilter function with nested fct calls") {
-     * check(spl.EvalCommand(Seq(
-     * (spl.Field("filtered_array"),
-     *               spl.Call("mvfilter",
-     * Seq(
-     *                       spl.Binary(
-     *                           spl.Field("mvfield"),
-     *                           spl.GreaterThan,
-     *                           spl.Call("len",
-     * Seq(spl.Field("mvfield")
-     * )
-     * )
-     * )
-     * )
-     * )
-     * )
-     * )
-     * ),
-     * (_, tree) =>
-     * Project(Seq(
-     * Alias(
-     * ArrayFilter(UnresolvedAttribute("mvfield"),
-     * LambdaFunction(GreaterThan(
-     * UnresolvedNamedLambdaVariable(Seq("mvfield")),
-     * Length(UnresolvedNamedLambdaVariable(Seq("mvfield")))),
-     * Seq(UnresolvedNamedLambdaVariable(Seq("mvfield")))
-     * )
-     * ), "filtered_array")()
-     * )
-     * , tree)
-     * )
-     * }
-     */
+    test("EvalCommand to check mvfilter function with nested fct") {
+        check(spl.EvalCommand(Seq(
+            (spl.Field("filtered_array"),
+              spl.Call("mvfilter",
+                  Seq(
+                      spl.Binary(
+                          spl.Binary(spl.Call("len", Seq(spl.Field("email"))),
+                              spl.GreaterThan,
+                              spl.IntValue(5)),
+                          spl.And,
+                          spl.Binary(spl.Call("len", Seq(spl.Field("email"))),
+                              spl.LessThan,
+                              spl.IntValue(10)))
+                  )
+              )
+            )
+        )
+        ),
+            (_, tree) =>
+                Project(Seq(
+                    Alias(
+                        ArrayFilter(UnresolvedAttribute("email"),
+                            LambdaFunction(And(
+                                GreaterThan(Length(UnresolvedNamedLambdaVariable(Seq("email"))), Literal(5)),
+                                LessThan(Length(UnresolvedNamedLambdaVariable(Seq("email"))), Literal(10)))
+                                ,Seq(UnresolvedNamedLambdaVariable(Seq("email")))
+                            )
+                        ),
+                        "filtered_array"
+                    )()
+                )
+                    , tree)
+        )
+    }
 
     test("EvalCommand to check coalesce functionality") {
         check(spl.EvalCommand(
