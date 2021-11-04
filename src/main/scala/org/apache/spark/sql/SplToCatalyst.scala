@@ -186,14 +186,17 @@ object SplToCatalyst extends Logging {
       if (fields.size > 1) {
         throw new AnalysisException(s"Expression references more than one field. Fields: ${fields}")
       }
-      val field = fields.head
-      val filterArgument = attrOrExpr(ctx, field)
-      val lambdaCtx = ctx.copy(splFieldToAttr=(field : spl.Field) => UnresolvedNamedLambdaVariable(Seq(field.value)))
-      val filterFunction = LambdaFunction(expression(lambdaCtx, expr),Seq(UnresolvedNamedLambdaVariable(Seq(field.value))))
-      ArrayFilter(filterArgument, filterFunction)
+      mvFilter(ctx, fields.head, expr)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
+  }
+
+  private def mvFilter(ctx: LogicalContext, field: spl.Field, expr: spl.Expr) = {
+    val filterArgument = attrOrExpr(ctx, field)
+    val lambdaCtx = ctx.copy(splFieldToAttr = (field: spl.Field) => UnresolvedNamedLambdaVariable(Seq(field.value)))
+    val filterFunction = LambdaFunction(expression(lambdaCtx, expr), Seq(UnresolvedNamedLambdaVariable(Seq(field.value))))
+    ArrayFilter(filterArgument, filterFunction)
   }
 
   private def extractFields(expr: spl.Expr): Set[spl.Field] = expr match {
