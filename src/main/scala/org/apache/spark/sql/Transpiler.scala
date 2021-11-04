@@ -19,7 +19,7 @@ private class LogicalContext(
            splFieldToAttr: (spl.Field) => NamedExpression = this.splFieldToAttr,
            analyzePlan: (LogicalPlan) => Seq[Attribute] = this.analyzePlan,
            output: Seq[NamedExpression] = this.output) =
-    new LogicalContext(indexName, timeFieldName, rawFieldName,splFieldToAttr, analyzePlan, output)
+    new LogicalContext(indexName, timeFieldName, rawFieldName, splFieldToAttr, analyzePlan, output)
 }
 
 object Transpiler {

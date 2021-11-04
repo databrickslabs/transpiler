@@ -204,11 +204,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.EvalCommand(Seq(
             (spl.Field("mvsubset"),
               spl.Call("mvindex",
-                  Seq(
-                      spl.Field("mvfield"),
-                      spl.IntValue(0),
-                      spl.IntValue(1)
-                  )
+                  Seq(spl.Field("mvfield"), spl.IntValue(0), spl.IntValue(1))
               )
             )
         )
@@ -228,10 +224,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.EvalCommand(Seq(
             (spl.Field("mvsubset"),
               spl.Call("mvindex",
-                  Seq(
-                      spl.Field("mvfield"),
-                      spl.IntValue(0),
-                  )
+                  Seq(spl.Field("mvfield"), spl.IntValue(0))
               )
             )
         )
@@ -251,11 +244,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.EvalCommand(Seq(
             (spl.Field("mvsubset"),
               spl.Call("mvindex",
-                  Seq(
-                      spl.Field("mvfield"),
-                      spl.IntValue(-3),
-                      spl.IntValue(-2),
-                  )
+                  Seq(spl.Field("mvfield"), spl.IntValue(-3), spl.IntValue(-2))
               )
             )
         )
@@ -275,10 +264,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(spl.EvalCommand(Seq(
             (spl.Field("mvsubset"),
               spl.Call("mvindex",
-                  Seq(
-                      spl.Field("mvfield"),
-                      spl.IntValue(-3)
-                  )
+                  Seq(spl.Field("mvfield"), spl.IntValue(-3))
               )
             )
         )
@@ -310,7 +296,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Project(Seq(
                     Alias(
-                        Concat(Seq(UnresolvedAttribute("mvfieldA"),UnresolvedAttribute("mvfieldB"), UnresolvedAttribute("mvfieldC"))),
+                        Concat(Seq(
+                            UnresolvedAttribute("mvfieldA"),
+                            UnresolvedAttribute("mvfieldB"),
+                            UnresolvedAttribute("mvfieldC")
+                        )),
                         "merged_arrays"
                     )()
                 )
@@ -335,7 +325,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Project(Seq(
                     Alias(
                         ArrayFilter(UnresolvedAttribute("method"),
-                            LambdaFunction(Not(EqualTo(UnresolvedNamedLambdaVariable(Seq("method")), Literal("GET"))),Seq(UnresolvedNamedLambdaVariable(Seq("method"))))),
+                            LambdaFunction(Not(EqualTo(
+                                UnresolvedNamedLambdaVariable(Seq("method")),
+                                Literal("GET"))),
+                                Seq(UnresolvedNamedLambdaVariable(Seq("method"))))),
                         "filtered_array"
                     )()
                 )
@@ -365,9 +358,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     Alias(
                         ArrayFilter(UnresolvedAttribute("method"),
                             LambdaFunction(Or(
-                                Not(EqualTo(UnresolvedNamedLambdaVariable(Seq("method")), Literal("GET"))),
-                                Not(EqualTo(UnresolvedNamedLambdaVariable(Seq("method")), Literal("DELETE"))))
-                                ,Seq(UnresolvedNamedLambdaVariable(Seq("method")))
+                                Not(EqualTo(
+                                    UnresolvedNamedLambdaVariable(Seq("method")),
+                                    Literal("GET"))),
+                                Not(EqualTo(
+                                    UnresolvedNamedLambdaVariable(Seq("method")),
+                                    Literal("DELETE")))),
+                                Seq(UnresolvedNamedLambdaVariable(Seq("method")))
                             )
                         ),
                         "filtered_array"
@@ -400,9 +397,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     Alias(
                         ArrayFilter(UnresolvedAttribute("email"),
                             LambdaFunction(And(
-                                GreaterThan(Length(UnresolvedNamedLambdaVariable(Seq("email"))), Literal(5)),
-                                LessThan(Length(UnresolvedNamedLambdaVariable(Seq("email"))), Literal(10)))
-                                ,Seq(UnresolvedNamedLambdaVariable(Seq("email")))
+                                GreaterThan(Length(
+                                    UnresolvedNamedLambdaVariable(Seq("email"))),
+                                    Literal(5)),
+                                LessThan(Length(
+                                    UnresolvedNamedLambdaVariable(Seq("email"))),
+                                    Literal(10))),
+                                Seq(UnresolvedNamedLambdaVariable(Seq("email")))
                             )
                         ),
                         "filtered_array"
