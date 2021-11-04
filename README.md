@@ -71,12 +71,12 @@ Secondary batch of commands:
 | coalesce() | ✅ |
 | mvindex() | ✅ |
 | mvappend() | ✅ |
-| null() |  |
+| null() | ✅ |
 | min() | ✅ |
 | round() | ✅ |
 | max() | ✅ |
 | substr() | ✅ |
-| isnotnull() |  |
+| isnotnull() | ✅ |
 | sum() | ✅ |
 | mvfilter() | ✅ |
 | len() | ✅ |
