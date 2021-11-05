@@ -12,7 +12,6 @@ import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.util.IntervalUtils
 import org.apache.spark.unsafe.types.UTF8String
-import spl.IntValue
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
@@ -749,7 +748,7 @@ object SplToCatalyst extends Logging {
   private def applyMvExpand(ctx: LogicalContext,
                                 tree: LogicalPlan,
                                 field: spl.Field,
-                                limit: Option[IntValue]) = {
+                                limit: Option[Int]) = {
     val attribute = attr(field)
     val exploded_attr = Explode(attribute)
     withColumn(ctx, tree, field.value, exploded_attr)

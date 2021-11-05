@@ -524,8 +524,18 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |+---------+------------------------+
         |""".stripMargin)
   }
-  
+
   test("mvexpand d") {
+    executes("index=dummy_with_array | mvexpand d | len(d) = 3",
+      """+---+---+---+---+---+-----+
+        ||a  |b  |c  |d  |n  |valid|
+        |+---+---+---+---+---+-----+
+        ||a  |b  |c  |cde|1  |true |
+        |+---+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
+  test("mvexpand d limit=10") {
     executes("index=dummy_with_array | mvexpand d | len(d) = 3",
       """+---+---+---+---+---+-----+
         ||a  |b  |c  |d  |n  |valid|
