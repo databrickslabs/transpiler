@@ -373,6 +373,31 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("b_not_null") {
+    executes("index=dummy_with_null | eval b_not_null=if(isnotnull(b), 1, 0)",
+      """+---+----+----+---+-----+----------+
+        ||a  |b   |c   |n  |valid|b_not_null|
+        |+---+----+----+---+-----+----------+
+        ||a  |null|null|1  |true |0         |
+        ||d  |e   |f   |2  |false|1         |
+        |+---+----+----+---+-----+----------+
+        |""".stripMargin)
+  }
+
+  test( "null_if_n_gt_3") {
+    executes("index=dummy | eval n_null=if(n > 3, null(), n) | table n n_null",
+      """+---+------+
+        ||n  |n_null|
+        |+---+------+
+        ||1  |1     |
+        ||2  |2     |
+        ||3  |3     |
+        ||4  |null  |
+        ||5  |null  |
+        |+---+------+
+        |""".stripMargin)
+  }
+
   test("fillnull") {
     executes("index=dummy_with_null | fillnull",
       """+---+---+---+---+-----+
