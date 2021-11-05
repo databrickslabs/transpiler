@@ -86,7 +86,7 @@ Secondary batch of commands:
 
 Parsers are implemented using [fastparse](https://github.com/com-lihaoyi/fastparse) (MIT)
 
-Quick installation on Databricks: `mvn -DskipTests=true package && databricks --profile=demo fs cp target/spark-spl-0.1.jar dbfs:/tmp/spark-spl.jar --overwrite`
+Quick installation on Databricks: `mvn -DskipTests=true package && databricks --profile=demo fs cp target/spark-spl-0.2.jar dbfs:/tmp/spark-spl.jar --overwrite`
 
 If you want to use `TERM()` function, you have to enable Spark extension:
 

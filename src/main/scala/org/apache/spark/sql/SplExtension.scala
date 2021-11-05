@@ -12,19 +12,84 @@ class SplExtension extends (SparkSessionExtensions => Unit) {
   override def apply(extensions: SparkSessionExtensions): Unit = {
     extensions.injectResolutionRule(spark => new TermExpansion(spark))
     extensions.injectResolutionRule(spark => new FillNullShimExpansion(spark))
+    registerTerm(extensions)
+    //registerCidrMatch(extensions)
+  }
 
+  private def registerTerm(extensions: SparkSessionExtensions): Unit = {
     val clazz = classOf[Term]
     val df = clazz.getAnnotation(classOf[ExpressionDescription])
 
     extensions.injectFunction((FunctionIdentifier("term"), new ExpressionInfo(
-      clazz.getCanonicalName,null,"term", df.usage(),
+      clazz.getCanonicalName, null, "term", df.usage(),
       df.arguments(), df.examples(), df.note(), df.group(),
       df.since(), df.deprecated()), {
-        case Seq(expr) => Term(expr)
-        case _ => throw new AnalysisException("TERM() expects only single argument")
-      }))
-
+      case Seq(expr) => Term(expr)
+      case _ => throw new AnalysisException("TERM() expects only single argument")
+    }))
   }
+
+  private def registerCidrMatch(extensions: SparkSessionExtensions): Unit = {
+    val clazz = classOf[CidrMatch]
+    val df = clazz.getAnnotation(classOf[ExpressionDescription])
+
+    extensions.injectFunction((FunctionIdentifier("cidr_match"), new ExpressionInfo(
+      clazz.getCanonicalName, null, "cidr_match", df.usage(),
+      df.arguments(), df.examples(), df.note(), df.group(),
+      df.since(), df.deprecated()), {
+      case cidr :: ip :: Nil => CidrMatch(cidr, ip)
+      case _ => throw new AnalysisException("CIDR_MATCH() expects two arguments")
+    }))
+  }
+}
+
+@ExpressionDescription(
+  usage = "_FUNC_(cidr, ip) - Matches IP address string with the supplied CIDR string",
+  since = "3.3.0")
+case class CidrMatch(cidr: Expression, ip: Expression) extends RuntimeReplaceable {
+  override def nullable: Boolean = false
+  override def dataType: DataType = BooleanType
+
+  override def exprsReplaced: Seq[Expression] = Seq(cidrMatch)
+  override def child: Expression = cidr // TODO: is this correct?..
+
+  // TODO: add special handling for /8, /16, and /24 with StartsWith()
+  private def cidrMatch = And(
+    GreaterThanOrEqual(ipAddress, lowAddress),
+    LessThanOrEqual(ipAddress, highAddress))
+
+  private def ipAddress: Add = aton(ip)
+  private def lowAddress: Add = aton(SubstringIndex(cidr, Literal.create("/"), Literal.create(1)))
+  private def highAddress: Add = Add(lowAddress, numAddresses)
+
+  private def numAddresses = Subtract(
+    Pow(
+      Literal.create(2),
+      Subtract(
+        Literal.create(32),
+        SubstringIndex(
+          cidr,
+          Literal.create("/"),
+          Literal.create(-1)
+        )
+      )
+    ), Literal.create(1))
+
+  private def aton(addr: Expression): Add = {
+    val bytes = new StringSplit(addr, Literal.create("\\."))
+    Add(Add(Add(
+      addrMult(bytes, 0, 256*256*256),
+      addrMult(bytes, 1, 256*256)),
+      addrMult(bytes, 2, 256)),
+      addrMult(bytes, 3, 1))
+  }
+
+  private def addrMult(bytes: Expression, offset: Int, multiple: Int) =
+    Cast(
+      Multiply(
+        ElementAt(bytes, Literal.create(offset)),
+        Literal.create(multiple)),
+      IntegerType)
 }
 
 class TermExpansion(spark: SparkSession) extends Rule[LogicalPlan] {
