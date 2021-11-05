@@ -443,6 +443,64 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("EvalCommand to check null functionality") {
+        check(spl.EvalCommand(
+            Seq(
+                (spl.Field("x_no_neg"),
+                  spl.Call("if",
+                      Seq(spl.Binary(spl.Field("x"),
+                          spl.GreaterThan,
+                          spl.IntValue(0)),
+                          spl.Field("x"),
+                          spl.Call("null", Seq())
+                      )
+                  )
+                )
+            )
+        ),
+            (_, tree) =>
+                Project(
+                    Seq(Alias(
+                        If(
+                            GreaterThan(UnresolvedAttribute("x"),Literal(0)),
+                            UnresolvedAttribute("x"),
+                            Literal(null)
+                        ),
+                        "x_no_neg"
+                    )()
+                    )
+                    , tree)
+        )
+    }
+
+    test("EvalCommand to check isnotnull functionality") {
+        check(spl.EvalCommand(
+            Seq(
+                (spl.Field("x_not_null"),
+                  spl.Call("if",
+                      Seq(spl.Call("isnotnull", Seq(spl.Field("x"))),
+                          spl.StrValue("yes"),
+                          spl.StrValue("no")
+                      )
+                  )
+                )
+            )
+        ),
+            (_, tree) =>
+                Project(
+                    Seq(Alias(
+                        If(
+                            IsNotNull(UnresolvedAttribute("x")),
+                            Literal("yes"),
+                            Literal("no")
+                        ),
+                        "x_not_null"
+                    )()
+                    )
+                    , tree)
+        )
+    }
+
     test("LookupCommand to Join") {
         check(spl.LookupCommand(
             "dst", Seq(

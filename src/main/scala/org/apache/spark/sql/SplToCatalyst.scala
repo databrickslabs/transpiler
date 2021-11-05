@@ -187,6 +187,10 @@ object SplToCatalyst extends Logging {
         throw new AnalysisException(s"Expression references more than one field. Fields: ${fields}")
       }
       mvFilter(ctx, fields.head, expr)
+    case "null" =>
+      Literal(null)
+    case "isnotnull" =>
+      IsNotNull(attrOrExpr(ctx, call.args.head))
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
