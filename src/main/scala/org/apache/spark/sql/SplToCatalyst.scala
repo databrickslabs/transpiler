@@ -745,15 +745,11 @@ object SplToCatalyst extends Logging {
     )
   }
 
-  private def applyMvExpand(ctx: LogicalContext,
-                                tree: LogicalPlan,
-                                field: spl.Field,
-                                limit: Option[Int]) = {
-
+  private def applyMvExpand(ctx: LogicalContext, tree: LogicalPlan, field: spl.Field, limit: Option[Int]) = {
     val attribute = attr(field)
     val expr = if(limit isEmpty) attribute else Slice(attribute, Literal(1), Literal(limit.get))
-    val exploded_attr = Explode(expr)
-    withColumn(ctx, tree, field.value, exploded_attr)
+    val explodedAttr = Explode(expr)
+    withColumn(ctx, tree, field.value, explodedAttr)
   }
 
   private def applyBin(ctx: LogicalContext, tree: LogicalPlan, bc: spl.BinCommand) = {
