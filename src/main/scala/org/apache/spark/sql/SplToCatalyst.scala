@@ -749,8 +749,10 @@ object SplToCatalyst extends Logging {
                                 tree: LogicalPlan,
                                 field: spl.Field,
                                 limit: Option[Int]) = {
+
     val attribute = attr(field)
-    val exploded_attr = Explode(attribute)
+    val expr = if(limit isEmpty) attribute else Slice(attribute, Literal(1), Literal(limit.get))
+    val exploded_attr = Explode(expr)
     withColumn(ctx, tree, field.value, exploded_attr)
   }
 
