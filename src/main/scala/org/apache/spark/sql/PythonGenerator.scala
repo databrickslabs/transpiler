@@ -201,6 +201,8 @@ object PythonGenerator {
     case TimeWindow(col, window, slide, _) if window == slide =>
       val interval = IntervalUtils.stringToInterval(UTF8String.fromString(s"$window microseconds"))
       s"F.window(${expressionCode(col)}, '$interval')"
+    case Explode(child) =>
+      s"F.explode(${expressionCode(child)})"
     case _ => s"F.expr(${q(expr.sql)})"
   }
 
