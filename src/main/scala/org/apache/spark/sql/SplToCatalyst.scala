@@ -668,8 +668,8 @@ object SplToCatalyst extends Logging {
                                by: Seq[spl.Field] = Seq()): LogicalPlan = {
     val partitionSpec = by.map(attr)
     val sortOrderSpec = sortOrder(Seq((Some("+"), spl.Field(ctx.timeFieldName))))
-    val includeCurrentRow = params.getOrElse("current","true").toBoolean
-    val wLength = params.getOrElse("window","0").toInt
+    val includeCurrentRow = params.getOrElse("current", "true").toBoolean
+    val wLength = params.getOrElse("window", "0").toInt
     if (wLength < 0) {
       throw new AnalysisException(s"window parameter can't be negative: $wLength")
     }
