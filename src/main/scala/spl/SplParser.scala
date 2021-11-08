@@ -283,6 +283,12 @@ object SplParser {
 
   def mvcombine[_:P]: P[MvCombineCommand] = ("mvcombine" ~ ("delim" ~ "=" ~ doubleQuoted).?
                                                          ~ field) map MvCombineCommand.tupled
+
+  def mvexpand[_:P]: P[MvExpandCommand] = ("mvexpand" ~ field ~ ("limit" ~ "=" ~ int).?) map {
+    case (field, None) => MvExpandCommand(field, None)
+    case (field, Some(limit)) => MvExpandCommand(field, Some(limit.value))
+  }
+
   // bin [<bin-options>...] <field> [AS <newfield>]
   def bin[_:P]: P[BinCommand] = "bin" ~ commandOptions ~ (aliasedField | field) map {
     case (options, field) => BinCommand(field,
@@ -315,6 +321,7 @@ object SplParser {
                                         | inputLookup
                                         | format
                                         | mvcombine
+                                        | mvexpand
                                         | bin
                                         | impliedSearch)
 

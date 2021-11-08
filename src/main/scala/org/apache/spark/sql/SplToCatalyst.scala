@@ -105,6 +105,9 @@ object SplToCatalyst extends Logging {
           case spl.MvCombineCommand(delim, field) =>
             applyMvCombine(ctx, tree, field, delim)
 
+          case spl.MvExpandCommand(field, limit) =>
+            applyMvExpand(ctx, tree, field, limit)
+
           case bc: spl.BinCommand =>
             applyBin(ctx, tree, bc)
         }
@@ -740,6 +743,13 @@ object SplToCatalyst extends Logging {
           }, field.value)(),
       ), tree
     )
+  }
+
+  private def applyMvExpand(ctx: LogicalContext, tree: LogicalPlan, field: spl.Field, limit: Option[Int]) = {
+    val attribute = attr(field)
+    val expr = if(limit isEmpty) attribute else Slice(attribute, Literal(1), Literal(limit.get))
+    val explodedAttr = Explode(expr)
+    withColumn(ctx, tree, field.value, explodedAttr)
   }
 
   private def applyBin(ctx: LogicalContext, tree: LogicalPlan, bc: spl.BinCommand) = {

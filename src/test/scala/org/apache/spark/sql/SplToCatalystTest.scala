@@ -1146,6 +1146,21 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         ))
     }
 
+    test("mvexpand country") {
+        check(spl.MvExpandCommand(
+            spl.Field("country"),
+            None
+        ),
+            (_, tree) => {
+                Project(Seq(
+                    Alias(Explode(UnresolvedAttribute("country")),
+                    "country")()),
+                    tree
+                )
+            }
+        )
+    }
+
     test("bin spans") {
         check(spl.BinCommand(
             spl.Alias(spl.Field("ts"), "time_bin"),

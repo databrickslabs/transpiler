@@ -222,6 +222,16 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
+  test(".withColumn('country', F.explode(F.col('country')))") {
+    g(Project(
+      Seq(
+        Alias(
+          Explode(UnresolvedAttribute("country")),
+          "country")()
+      ),
+      src))
+  }
+
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
     val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable
