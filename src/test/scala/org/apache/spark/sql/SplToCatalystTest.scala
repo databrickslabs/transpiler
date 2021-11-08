@@ -931,7 +931,6 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("streamstats max(colA) AS maxA by colC") {
         check(spl.StreamStatsCommand(
-            Map(),
             Seq(
                 spl.Alias(
                     spl.Call("max", Seq(spl.Field("colA"))),

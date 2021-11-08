@@ -95,8 +95,8 @@ object SplToCatalyst extends Logging {
             // TODO implement allnum option
             applyEventStats(ctx, tree, params, funcs, by)
 
-          case spl.StreamStatsCommand(params, funcs, by) =>
-            applyStreamStats(ctx, tree, params, funcs, by)
+          case spl.StreamStatsCommand(funcs, by, current, window) =>
+            applyStreamStats(ctx, tree, funcs, by, current, window)
 
           case dedupCmd: spl.DedupCommand =>
             applyDedup(ctx, tree, dedupCmd)
@@ -663,17 +663,16 @@ object SplToCatalyst extends Logging {
 
   private def applyStreamStats(ctx: LogicalContext,
                                tree: LogicalPlan,
-                               params: Map[String, String],
                                funcs: Seq[spl.Expr],
-                               by: Seq[spl.Field] = Seq()): LogicalPlan = {
+                               by: Seq[spl.Field],
+                               includeCurrentRow: Boolean,
+                               wLength: Int): LogicalPlan = {
     val partitionSpec = by.map(attr)
     val sortOrderSpec = sortOrder(Seq((Some("+"), spl.Field(ctx.timeFieldName))))
-    val includeCurrentRow = params.getOrElse("current", "true").toBoolean
-    val wLength = params.getOrElse("window", "0").toInt
     if (wLength < 0) {
       throw new AnalysisException(s"window parameter can't be negative: $wLength")
     }
-    val wUpper = if (includeCurrentRow) Literal(0) else Literal(-1)
+    val wUpper = Literal(if (includeCurrentRow) 0 else -1)
     val wLower = if (wLength > 0) Subtract(wUpper, Literal(wLength - 1)) else UnboundedPreceding
     val wFrame = SpecifiedWindowFrame(RowFrame, wLower, wUpper)
     determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, wFrame)
