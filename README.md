@@ -46,7 +46,7 @@ Secondary batch of commands:
 | ---: | :---: | :---: | :---: |
 | makeresults |  |  |  |
 | tstats |  |  |  |
-| mvexpand |  |  |  |
+| mvexpand | ✅ | ✅ | ✅ |
 | chart |  |  |  |
 | timechart |  |  |  |
 | export |  |  |  |
