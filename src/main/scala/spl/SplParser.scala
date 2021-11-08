@@ -226,6 +226,9 @@ object SplParser {
   def eventStats[_:P]: P[EventStatsCommand] = ("eventstats" ~ fieldAndValueList ~ statsCall
       ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map(EventStatsCommand.tupled)
 
+  def streamStats[_:P]: P[StreamStatsCommand] = ("streamstats" ~ fieldAndValueList ~ statsCall
+    ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map(StreamStatsCommand.tupled)
+
   /**
    * Specific field repetition which exclude the term sortby
    * to avoid any conflict with the sortby command during the parsing
@@ -317,6 +320,7 @@ object SplParser {
                                         | _return
                                         | fillNull
                                         | eventStats
+                                        | streamStats
                                         | dedup
                                         | inputLookup
                                         | format

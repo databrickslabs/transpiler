@@ -95,6 +95,9 @@ object SplToCatalyst extends Logging {
             // TODO implement allnum option
             applyEventStats(ctx, tree, params, funcs, by)
 
+          case spl.StreamStatsCommand(params, funcs, by) =>
+            applyStreamStats(ctx, tree, params, funcs, by)
+
           case dedupCmd: spl.DedupCommand =>
             applyDedup(ctx, tree, dedupCmd)
 
@@ -655,7 +658,29 @@ object SplToCatalyst extends Logging {
     // TODO implement allnum option
     val partitionSpec = by.map(attr)
     val sortOrderSpec = sortOrder(by.map(field => (Some("+"), field)))
-    val windowSpec = WindowSpecDefinition(partitionSpec, sortOrderSpec, UnspecifiedFrame)
+    val windowFrame = UnspecifiedFrame
+    determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, windowFrame)
+  }
+
+  private def applyStreamStats(ctx: LogicalContext,
+                               tree: LogicalPlan,
+                               params: Map[String, String],
+                               funcs: Seq[spl.Expr],
+                               by: Seq[spl.Field] = Seq()): LogicalPlan = {
+    val partitionSpec = by.map(attr)
+    val sortOrderSpec = sortOrder(Seq((Some("+"), spl.Field(ctx.timeFieldName))))
+    val includeCurrentRow = params.getOrElse("current","true").toBoolean
+    val windowFrame = SpecifiedWindowFrame(RowFrame, UnboundedPreceding, if (includeCurrentRow) CurrentRow  else Literal(-1))
+    determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, windowFrame)
+  }
+
+  private def determineWindowStats(ctx: LogicalContext,
+                                   tree: LogicalPlan,
+                                   funcs: Seq[spl.Expr],
+                                   partitionSpec: Seq[Expression],
+                                   sortOrderSpec: Seq[SortOrder],
+                                   windowFrame: WindowFrame): LogicalPlan = {
+    val windowSpec = WindowSpecDefinition(partitionSpec, sortOrderSpec, windowFrame)
     funcs.foldLeft(tree) {
       case (plan, spl.Alias(expr, name)) =>
         withColumn(ctx, plan, name, WindowExpression(expression(ctx, expr), windowSpec))

@@ -929,6 +929,30 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), tree))
     }
 
+    test("streamstats max(colA) AS maxA by colC") {
+        check(spl.StreamStatsCommand(
+            Map(),
+            Seq(
+                spl.Alias(
+                    spl.Call("max", Seq(spl.Field("colA"))),
+                    "maxA"
+                ),
+            ),
+            Seq(spl.Field("colC"))
+        ),
+            (_, tree) => Project(Seq(
+                Alias(
+                    WindowExpression(
+                        AggregateExpression(Max(UnresolvedAttribute("colA")), Complete, isDistinct = false),
+                        WindowSpecDefinition(
+                            Seq(UnresolvedAttribute("colC")),
+                            Seq(SortOrder(UnresolvedAttribute("_time"), Ascending)),
+                            SpecifiedWindowFrame(RowFrame, UnboundedPreceding, CurrentRow)
+                        )
+                    ), "maxA")()
+            ), tree))
+    }
+
     test("dedup host") {
         check(spl.DedupCommand(
             1,

@@ -446,6 +446,23 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("streamstats count") {
+    executes("index=flow | eval _time=ts | streamstats count() AS n | " +
+      "eval cat=if(n < 4, \"A\",\"B\") | table _time cat n | " +
+      "streamstats max(n) AS max_n, min(n) by cat | streamstats current=false max(n) AS max_n_lag by cat",
+      """+-------------------+---+---+-----+------+---------+
+        ||_time              |cat|n  |max_n|min(n)|max_n_lag|
+        |+-------------------+---+---+-----+------+---------+
+        ||2021-11-04 09:12:34|A  |1  |1    |1     |null     |
+        ||2021-11-04 09:13:04|A  |2  |2    |1     |1        |
+        ||2021-11-04 09:16:31|A  |3  |3    |1     |2        |
+        ||2021-11-04 12:14:01|B  |4  |4    |4     |null     |
+        ||2021-11-04 12:14:02|B  |5  |5    |4     |4        |
+        ||2021-11-05 03:43:54|B  |6  |6    |4     |5        |
+        |+-------------------+---+---+-----+------+---------+
+        |""".stripMargin)
+  }
+
   test("dedup 1 b c") {
     executes("index=dummy_with_duplicates | dedup 1 b c",
       """+---+---+---+---+-----+

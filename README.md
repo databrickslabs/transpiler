@@ -50,7 +50,7 @@ Secondary batch of commands:
 | chart |  |  |  |
 | timechart |  |  |  |
 | export |  |  |  |
-| streamstats |  |  |  |
+| streamstats | ✅ | ✅ | ✅ |
 | geom |  |  |  |
 | addtotals |  |  |  |
 | foreach |  |  |  |
