@@ -92,6 +92,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     spark.createDataset(dummySubstrings).createOrReplaceTempView("dummy_substrings")
     spark.createDataset(dummyWithDuplicates).createOrReplaceTempView("dummy_with_duplicates")
     spark.createDataset(countryByContinent).createOrReplaceTempView("countries")
+    spark.createDataset(dummyWithArray).createOrReplaceTempView("dummy_with_array")
   }
 
   test("bin span") {
@@ -521,6 +522,30 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||Europe   |Albania;Bulgaria;Belarus|
         ||Africa   |Congo;Egypt;Algeria     |
         |+---------+------------------------+
+        |""".stripMargin)
+  }
+
+  test("mvexpand d") {
+    executes("index=dummy_with_array | mvexpand d | len(d) = 3",
+      """+---+---+---+---+---+-----+
+        ||a  |b  |c  |d  |n  |valid|
+        |+---+---+---+---+---+-----+
+        ||a  |b  |c  |cde|1  |true |
+        |+---+---+---+---+---+-----+
+        |""".stripMargin)
+  }
+
+  test("mvexpand d limit=1") {
+    executes("index=dummy_with_array | mvexpand d limit=1",
+      """+---+---+---+---+---+-----+
+        ||a  |b  |c  |d  |n  |valid|
+        |+---+---+---+---+---+-----+
+        ||a  |b  |c  |a  |1  |true |
+        ||d  |e  |f  |d  |2  |false|
+        ||g  |h  |i  |g  |3  |true |
+        ||h  |g  |f  |h  |4  |false|
+        ||e  |d  |c  |e  |5  |true |
+        |+---+---+---+---+---+-----+
         |""".stripMargin)
   }
 }
