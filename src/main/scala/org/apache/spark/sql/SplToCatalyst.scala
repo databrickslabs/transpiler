@@ -658,8 +658,7 @@ object SplToCatalyst extends Logging {
     // TODO implement allnum option
     val partitionSpec = by.map(attr)
     val sortOrderSpec = sortOrder(by.map(field => (Some("+"), field)))
-    val windowFrame = UnspecifiedFrame
-    determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, windowFrame)
+    determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, UnspecifiedFrame)
   }
 
   private def applyStreamStats(ctx: LogicalContext,
@@ -670,8 +669,14 @@ object SplToCatalyst extends Logging {
     val partitionSpec = by.map(attr)
     val sortOrderSpec = sortOrder(Seq((Some("+"), spl.Field(ctx.timeFieldName))))
     val includeCurrentRow = params.getOrElse("current","true").toBoolean
-    val windowFrame = SpecifiedWindowFrame(RowFrame, UnboundedPreceding, if (includeCurrentRow) CurrentRow  else Literal(-1))
-    determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, windowFrame)
+    val wLength = params.getOrElse("window","0").toInt
+    if (wLength < 0) {
+      throw new AnalysisException(s"window parameter can't be negative: $wLength")
+    }
+    val wUpper = if (includeCurrentRow) Literal(0) else Literal(-1)
+    val wLower = if (wLength > 0) Subtract(wUpper, Literal(wLength - 1)) else UnboundedPreceding
+    val wFrame = SpecifiedWindowFrame(RowFrame, wLower, wUpper)
+    determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, wFrame)
   }
 
   private def determineWindowStats(ctx: LogicalContext,

@@ -947,7 +947,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         WindowSpecDefinition(
                             Seq(UnresolvedAttribute("colC")),
                             Seq(SortOrder(UnresolvedAttribute("_time"), Ascending)),
-                            SpecifiedWindowFrame(RowFrame, UnboundedPreceding, CurrentRow)
+                            SpecifiedWindowFrame(RowFrame, UnboundedPreceding, Literal(0))
                         )
                     ), "maxA")()
             ), tree))
