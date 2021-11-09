@@ -9,6 +9,7 @@ private class LogicalContext(
    val indexName: String = "main",
    val timeFieldName: String = "_time",
    val rawFieldName: String = "_raw",
+   val spark: Option[SparkSession] = None,
    val splFieldToAttr: (spl.Field) => NamedExpression = (field: spl.Field) => UnresolvedAttribute(Seq(field.value)),
    val analyzePlan: (LogicalPlan) => Seq[Attribute] = (plan: LogicalPlan) => Seq[Attribute](),
    var output: Seq[NamedExpression] = Seq()) {
@@ -16,10 +17,11 @@ private class LogicalContext(
   def copy(indexName: String = this.indexName,
            timeFieldName: String = this.timeFieldName,
            rawFieldName: String = this.rawFieldName,
+           spark: Option[SparkSession] = this.spark,
            splFieldToAttr: (spl.Field) => NamedExpression = this.splFieldToAttr,
            analyzePlan: (LogicalPlan) => Seq[Attribute] = this.analyzePlan,
            output: Seq[NamedExpression] = this.output) =
-    new LogicalContext(indexName, timeFieldName, rawFieldName, splFieldToAttr, analyzePlan, output)
+    new LogicalContext(indexName, timeFieldName, rawFieldName, spark, splFieldToAttr, analyzePlan, output)
 }
 
 object Transpiler {
@@ -44,7 +46,8 @@ object Transpiler {
         val queryExecution = spark.sessionState.executePlan(table)
         queryExecution.assertAnalyzed()
         queryExecution.analyzed.output
-      }
+      },
+      spark = Some(spark)
     )))
   }
   /** Generates PySpark code out of SPL search */

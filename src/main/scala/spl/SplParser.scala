@@ -300,6 +300,13 @@ object SplParser {
     case (field, Some(limit)) => MvExpandCommand(field, Some(limit.value))
   }
 
+  def makeresults[_:P]: P[MakeResultsCommand] = ("makeresults" ~ commandOptions) map {
+    case options => MakeResultsCommand(
+      count = options.getInt("count", 1),
+      annotate = options.getBoolean("annotate", false)
+    )
+  }
+
   // bin [<bin-options>...] <field> [AS <newfield>]
   def bin[_:P]: P[BinCommand] = "bin" ~ commandOptions ~ (aliasedField | field) map {
     case (options, field) => BinCommand(field,
@@ -332,6 +339,7 @@ object SplParser {
                                         | dedup
                                         | inputLookup
                                         | format
+                                        | makeresults
                                         | mvcombine
                                         | mvexpand
                                         | bin

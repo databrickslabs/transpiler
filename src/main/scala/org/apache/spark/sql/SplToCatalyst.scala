@@ -1,5 +1,6 @@
 package org.apache.spark.sql
 
+import java.time.LocalDateTime
 import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.control.NonFatal
@@ -12,6 +13,7 @@ import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.util.IntervalUtils
 import org.apache.spark.unsafe.types.UTF8String
+import scala.util.Random
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
@@ -238,6 +240,7 @@ object SplToCatalyst extends Logging {
     case _ => Set()
   }
 
+
   /** Removes `index` filters, as they are lifted to the top of the tree */
   private def overwriteSplSearch(x: spl.Expr): spl.Expr = x match {
     case spl.Binary(left, spl.And, right) if isFilter(left, "index") => right
@@ -256,6 +259,10 @@ object SplToCatalyst extends Logging {
     val indices = p.commands.flatMap {
       case spl.SearchCommand(expr) => findIndices(expr)
       case inputLookup: spl.InputLookup => Set(inputLookup.tableName)
+      case spl.MakeResultsCommand(count, annotate) => {
+        val tmpIndexName = createTempTable(ctx, count, annotate)
+        Seq(tmpIndexName)
+      }
       case _ => Seq()
     }
     if (indices.size > 1) {
@@ -268,12 +275,27 @@ object SplToCatalyst extends Logging {
     // The idea is to remove the `index` filters, as they are lifted to the top of the tree
     (table, p.copy(commands = p.commands.filterNot {
         case s: spl.SearchCommand => isFilter(s.expr, "index")
+        case spl.MakeResultsCommand(_, _) => true
         case _ => false
       }.map {
         case s: spl.SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
         case c: spl.Command => c
       }
     ))
+  }
+
+  private def createTempTable(ctx: LogicalContext, count: Int, annotate: Boolean): String = {
+    if (ctx.spark.isEmpty) {
+      throw new AnalysisException("Error in creating temporary table, missing SparkSession")
+    }
+    val spark: SparkSession = ctx.spark.get
+    val ts = java.sql.Timestamp.valueOf(LocalDateTime.now)
+    import spark.implicits._
+    // ToDo: if annotate is set to true use SplBaseRowExtended instead
+    val data = Seq.fill(count)(SplBaseRow(ts))
+    val tmpIndexName = ctx.indexName + s"_${Random.alphanumeric.take(4).mkString("")}"
+    spark.createDataset(data).createOrReplaceTempView(tmpIndexName)
+    tmpIndexName
   }
 
   private def leftJoinUsing(ctx: LogicalContext, dataset: String,

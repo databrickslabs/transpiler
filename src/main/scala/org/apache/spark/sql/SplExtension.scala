@@ -157,3 +157,11 @@ case class FillNullShim(value: String, columns: Set[String], child: LogicalPlan)
   override def output: Seq[Attribute] = throw new UnresolvedException(this, "FillNullShim")
   override lazy val resolved: Boolean = false
 }
+
+sealed trait SplRow
+case class SplBaseRow(_time: java.sql.Timestamp) extends SplRow
+case class SplBaseRowExtended(_raw: Option[String],
+                              _time: java.sql.Timestamp,
+                              host: Option[String],
+                              source: Option[String],
+                              sourceType: Option[String]) extends SplRow
