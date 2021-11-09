@@ -174,6 +174,24 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
+  test(
+    (".withColumn('minimum', F.max(F.col('colA')).over(" +
+      "Window.partitionBy(F.col('colB')).orderBy(F.col('_time').asc()).rowsBetween(Window.unboundedPreceding, Window.currentRow)))").stripMargin) {
+    g(
+      Project(Seq(
+        Alias(
+          WindowExpression(
+            AggregateExpression(Max(UnresolvedAttribute("colA")), Complete, isDistinct = false),
+            WindowSpecDefinition(
+              Seq(UnresolvedAttribute("colB")),
+              Seq(SortOrder(UnresolvedAttribute("_time"), Ascending)),
+              SpecifiedWindowFrame(RowFrame, UnboundedPreceding, CurrentRow)
+            )
+          ), "minimum")()
+      ), src)
+    )
+  }
+
   test(".limit(10)\n.groupBy()\n.agg(F.array_join(F.collect_list(" +
       "F.format_string('((a=%s) AND (b=%s))', F.col('a'), F.col('b'))), 'OR').alias('search'))") {
     g(

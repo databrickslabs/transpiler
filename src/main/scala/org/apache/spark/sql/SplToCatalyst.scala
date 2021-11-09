@@ -95,6 +95,9 @@ object SplToCatalyst extends Logging {
             // TODO implement allnum option
             applyEventStats(ctx, tree, params, funcs, by)
 
+          case spl.StreamStatsCommand(funcs, by, current, window) =>
+            applyStreamStats(ctx, tree, funcs, by, current, window)
+
           case dedupCmd: spl.DedupCommand =>
             applyDedup(ctx, tree, dedupCmd)
 
@@ -655,7 +658,33 @@ object SplToCatalyst extends Logging {
     // TODO implement allnum option
     val partitionSpec = by.map(attr)
     val sortOrderSpec = sortOrder(by.map(field => (Some("+"), field)))
-    val windowSpec = WindowSpecDefinition(partitionSpec, sortOrderSpec, UnspecifiedFrame)
+    determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, UnspecifiedFrame)
+  }
+
+  private def applyStreamStats(ctx: LogicalContext,
+                               tree: LogicalPlan,
+                               funcs: Seq[spl.Expr],
+                               by: Seq[spl.Field],
+                               includeCurrentRow: Boolean,
+                               wLength: Int): LogicalPlan = {
+    val partitionSpec = by.map(attr)
+    val sortOrderSpec = sortOrder(Seq((Some("+"), spl.Field(ctx.timeFieldName))))
+    if (wLength < 0) {
+      throw new AnalysisException(s"window parameter can't be negative: $wLength")
+    }
+    val wUpper = Literal(if (includeCurrentRow) 0 else -1)
+    val wLower = if (wLength > 0) Subtract(wUpper, Literal(wLength - 1)) else UnboundedPreceding
+    val wFrame = SpecifiedWindowFrame(RowFrame, wLower, wUpper)
+    determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, wFrame)
+  }
+
+  private def determineWindowStats(ctx: LogicalContext,
+                                   tree: LogicalPlan,
+                                   funcs: Seq[spl.Expr],
+                                   partitionSpec: Seq[Expression],
+                                   sortOrderSpec: Seq[SortOrder],
+                                   windowFrame: WindowFrame): LogicalPlan = {
+    val windowSpec = WindowSpecDefinition(partitionSpec, sortOrderSpec, windowFrame)
     funcs.foldLeft(tree) {
       case (plan, spl.Alias(expr, name)) =>
         withColumn(ctx, plan, name, WindowExpression(expression(ctx, expr), windowSpec))

@@ -140,6 +140,11 @@ case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) ex
 
 case class EventStatsCommand(params: Map[String, String], funcs: Seq[Expr], by: Seq[Field] = Seq()) extends Command
 
+case class StreamStatsCommand(funcs: Seq[Expr],
+                              by: Seq[Field] = Seq(),
+                              current: Boolean = true,
+                              window: Int = 0) extends Command
+
 case class DedupCommand(numResults: Int,
                         fields: Seq[Field],
                         keepEvents: Boolean,
