@@ -239,7 +239,7 @@ object SplToCatalyst extends Logging {
     case spl.Binary(left, _, right) => findIndices(left) ++ findIndices(right)
     case _ => Set()
   }
- 
+
   /** Removes `index` filters, as they are lifted to the top of the tree */
   private def overwriteSplSearch(x: spl.Expr): spl.Expr = x match {
     case spl.Binary(left, spl.And, right) if isFilter(left, "index") => right
