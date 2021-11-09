@@ -447,7 +447,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("streamstats count") {
-    executes("index=flow | eval _time=ts | streamstats count() AS n | " +
+    executes("index=flow | eval _time=ts | streamstats count(_time) AS n | " +
       "eval cat=if(n < 4, \"A\",\"B\") | table _time cat n | " +
       "streamstats max(n) AS max_n, min(n) by cat | streamstats current=false window=2 min(n) AS min_n_lag",
       """+-------------------+---+---+-----+------+---------+
