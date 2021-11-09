@@ -160,8 +160,8 @@ case class FillNullShim(value: String, columns: Set[String], child: LogicalPlan)
 
 sealed trait SplRow
 case class SplBaseRow(_time: java.sql.Timestamp) extends SplRow
-case class SplBaseRowExtended(_raw: Option[String],
-                              _time: java.sql.Timestamp,
-                              host: Option[String],
-                              source: Option[String],
-                              sourceType: Option[String]) extends SplRow
+case class SplExtendedRow(_raw: Option[String],
+                          _time: java.sql.Timestamp,
+                          host: Option[String],
+                          source: Option[String],
+                          sourceType: Option[String]) extends SplRow

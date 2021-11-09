@@ -1184,6 +1184,16 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    /**
+    test("makeresults count=5") {
+        check(spl.MakeResultsCommand(5),
+            (_, _) => {
+                UnresolvedRelation(Seq("main"))
+            }
+        )
+    }
+     **/
+
     test("bin spans") {
         check(spl.BinCommand(
             spl.Alias(spl.Field("ts"), "time_bin"),
@@ -1204,7 +1214,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                       callback: (spl.Command, LogicalPlan) => LogicalPlan,
                       injectOutput: Seq[NamedExpression] = Seq()): Unit = this.synchronized {
         val pipeline = spl.Pipeline(Seq(command))
-        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(output = injectOutput), pipeline)
+        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(
+            new LogicalContext(
+                output = injectOutput,
+                spark = Some(SparkSession.builder().master("local[1]").getOrCreate())),
+            pipeline)
         val expectedPlan = pipeline.commands.foldLeft(
             UnresolvedRelation(Seq("main")).asInstanceOf[LogicalPlan]) {
             (tree, cmd) => callback(cmd, tree)

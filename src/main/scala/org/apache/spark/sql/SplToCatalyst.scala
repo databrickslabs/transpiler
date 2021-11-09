@@ -291,7 +291,7 @@ object SplToCatalyst extends Logging {
     val spark: SparkSession = ctx.spark.get
     val ts = java.sql.Timestamp.valueOf(LocalDateTime.now)
     import spark.implicits._
-    // ToDo: if annotate is set to true use SplBaseRowExtended instead
+    // ToDo: if annotate is set to true use SplExtendedRow instead
     val data = Seq.fill(count)(SplBaseRow(ts))
     val tmpIndexName = ctx.indexName + s"_${Random.alphanumeric.take(4).mkString("")}"
     spark.createDataset(data).createOrReplaceTempView(tmpIndexName)
