@@ -249,6 +249,23 @@ object SplParser {
         )
     }
 
+  def tstats[_:P] = ("tstats" ~ commandOptions ~ statsCall ~
+    (W("from") ~ token).? ~(W("where") ~ expr).? ~(W("by") ~ fieldList).?).map {
+    case (options, funcs, from, where, by) => {
+      TStatsCommand(
+        options.getBoolean("append", false),
+        options.getIntOption("fillnullvalue"),
+        options.getBoolean("prestats", false),
+        funcs,
+        from,
+        where,
+        by
+      )
+
+    }
+
+  }
+
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Rex
   def rex[_: P]: P[RexCommand] = ("rex" ~ commandOptions ~ doubleQuoted) map {
     case (kv, regex) =>

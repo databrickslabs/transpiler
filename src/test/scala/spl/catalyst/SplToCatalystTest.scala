@@ -144,6 +144,38 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ))
     }
 
+    test("TStatsCommand to Aggregate") {
+        check(ast.TStatsCommand(
+            false,
+            None,
+            false,
+            Seq(ast.Call("count", Seq())),
+            None,
+            Some(ast.Binary(
+                ast.Binary(
+                    ast.Field("index"),
+                    ast.Equals,
+                    ast.Field("main")),
+                ast.And,
+                ast.Binary(
+                    ast.Field("host"),
+                    ast.Equals,
+                    ast.StrValue("localhost"))
+            )),
+            None),
+            (_, tree) =>
+                Aggregate(
+                    Seq(UnresolvedAttribute("host")),
+                    Seq(
+                        UnresolvedAttribute("host"),
+                        Alias(
+                            AggregateExpression(
+                                Count(Seq(Literal.create(1))),
+                                Complete, isDistinct = false
+                            ), "count")()),
+                    tree))
+    }
+
     test("sum(connection_time)") {
         check(ast.StatsCommand(
             partitions = 1,

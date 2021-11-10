@@ -123,6 +123,15 @@ case class StatsCommand(partitions: Int,
                         by: Seq[Field] = Seq(),
                         dedupSplitVals: Boolean = false) extends Command
 
+case class TStatsCommand(append: Boolean = false,
+                         fillNullValue: Option[Int] = None,
+                         prestats: Boolean = false,
+                         funcs: Seq[Expr],
+                         from: Option[String],
+                         where: Option[Expr],
+                         by: Option[Seq[Expr]]
+                        ) extends Command
+
 case class RexCommand(field: Option[String],
                       maxMatch: Int,
                       offsetField: Option[String],
