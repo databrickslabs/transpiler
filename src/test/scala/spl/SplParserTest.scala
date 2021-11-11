@@ -1,7 +1,13 @@
 package spl
 
-class SplParserTest extends ParserSuite {
+import org.scalatest.BeforeAndAfterAll
+
+class SplParserTest extends ParserSuite with BeforeAndAfterAll {
+
   import spl.SplParser._
+
+  val subQuery: String = """search index=dummy | eval host=$host_var$ | eval this=\"that\" | dedup 10 keepevents=true keepempty=false consecutive=true host ip port"""
+  val testQuery: String =  s"""map search="${subQuery}""""
 
   test("false") {
     p(bool(_), Bool(false))
@@ -856,5 +862,55 @@ class SplParserTest extends ParserSuite {
       Some(0),
       Some(20),
       Some("latest")))
+  }
+
+  test("map search=\"search index=dummy | eval host=$host_var$\" maxsearches=20") {
+    p(command(_), MapCommand(
+      Pipeline(
+        Seq(
+          SearchCommand(
+            Binary(
+              Field("index"),
+              Equals,
+              Field("dummy")
+            )
+          ),
+          EvalCommand(Seq(
+            (Field("host"), Variable("host_var"))
+          ))
+        )
+      ),
+      maxSearches = 20))
+  }
+
+  test("""map search="search index=dummy | eval host=$host_var$ | eval this=\"that\" | dedup 10 keepevents=true keepempty=false consecutive=true host ip port"""") {
+      p(_map(_), MapCommand(
+      Pipeline(
+        Seq(
+          SearchCommand(
+            Binary(
+              Field("index"),
+              Equals,
+              Field("dummy")
+            )
+          ),
+          EvalCommand(Seq(
+            (Field("host"), Variable("host_var"))
+          )),
+          EvalCommand(Seq(
+            (Field("this"), StrValue("that"))
+          )),
+          DedupCommand(10,
+            Seq(Field("host"), Field("ip"), Field("port")),
+            keepEvents = true,
+            keepEmpty = false,
+            consecutive = true,
+            SortCommand(Seq(
+              (Some("+"), Field("_no"))
+            ))
+          )
+        )
+      ),
+    maxSearches = 10))
   }
 }

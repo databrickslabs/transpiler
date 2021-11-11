@@ -2,6 +2,7 @@ package spl
 
 import fastparse.MultiLineWhitespace._
 import fastparse._
+import org.apache.spark.sql.Transpiler
 
 /**
  * SPL parser and AST
@@ -65,13 +66,25 @@ object SplParser {
       | !"\""
     ).rep.! ~ "\"" )
 
+  def doubleQuotedAlt[_: P]: P[String] = P("\"" ~ (CharsWhile(!"\"\\".contains(_: Char)) | "\\\"").rep.! ~ "\"")
   def wildcard[_:P]: P[Wildcard] = (doubleQuoted.filter(_.contains("*")) | token.filter(_.contains("*"))) map Wildcard
   def strValue[_:P]: P[StrValue] = doubleQuoted map StrValue
   def field[_:P]: P[Field] = token.filter(!Seq("t", "f").contains(_)) map Field
+  def variable[_:P]: P[Variable] = "$" ~~ token.filter(!Seq("t", "f").contains(_)) ~~ "$" map Variable
   def byte[_:P]: P[String] = digit.rep(min=1, max=3).!
   def cidr[_:P]: P[IPv4CIDR] = (byte.rep(sep=".", exactly=4) ~ "/" ~ byte).! map IPv4CIDR
   def fieldAndValue[_:P]: P[FV] = (token ~ "=" ~ (doubleQuoted|token)) map { case (k, v) => FV(k, v) }
   def fieldAndConstant[_:P]: P[FC] = (token ~ "=" ~ constant) map { case (k, v) => FC(k, v) }
+  def quotedSearch[_:P]: P[Pipeline] = ("search" ~ "=" ~ (doubleQuotedAlt)) map { subSearch => {
+      val unescapedSearch = StringContext treatEscapes subSearch
+      parse(unescapedSearch, pipeline(_)) match {
+        case Parsed.Success(value, _) => value
+        case f: Parsed.Failure =>
+          throw new AssertionError(f.msg)
+      }
+    }
+  }
+
   def commandOptions[_: P]: P[CommandOptions] = fieldAndConstant.rep map CommandOptions
   @deprecated("use commandOptions") def fieldAndValueList[_: P]: P[Map[String, String]] = fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
   @deprecated("use commandOptions") def fieldAndBoolList[_: P]: P[Map[String, Boolean]] = fieldAndBool.rep map(x => x.map(y => y.field -> y.value).toMap)
@@ -87,7 +100,7 @@ object SplParser {
     case (sign, i) => IntValue(if (sign.equals("-")) -1 * i.toInt else i.toInt)
   }
 
-  def constant[_:P]: P[Constant] = cidr | wildcard | strValue | relativeTime | timeSpan | int | field | bool
+  def constant[_:P]: P[Constant] = cidr | variable | wildcard | strValue | relativeTime | timeSpan | int | field | bool
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
     | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P | Add.P | Subtract.P
@@ -301,6 +314,13 @@ object SplParser {
     )
   }
 
+  def _map[_:P]: P[MapCommand] = "map" ~ quotedSearch ~ commandOptions map {
+    case (subPipe, options) => MapCommand(
+      subPipe,
+      options.getInt("maxsearches", 10)
+    )
+  }
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -323,6 +343,7 @@ object SplParser {
                                         | mvcombine
                                         | mvexpand
                                         | bin
+                                        | _map
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline

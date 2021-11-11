@@ -18,6 +18,7 @@ case class TimeSpan(value: Int, scale: String) extends SplSpan
 case class SnapTime(span: Option[TimeSpan], snap: String, snapOffset: Option[TimeSpan]) extends Constant
 case class Field(value: String) extends Constant with FieldLike with FieldOrAlias
 case class Wildcard(value: String) extends Constant with FieldLike
+case class Variable(value: String) extends Constant
 case class IPv4CIDR(value: String) extends Constant {
   private val subnet = new SubnetUtils(value)
   def low: String = subnet.getInfo.getLowAddress
@@ -27,6 +28,7 @@ case class IPv4CIDR(value: String) extends Constant {
 case class FV(field: String, value: String) extends LeafExpr
 case class FB(field: String, value: Boolean) extends LeafExpr
 case class FC(field: String, value: Constant) extends LeafExpr
+case class FP(field: String, value: Pipeline) extends LeafExpr
 
 case class CommandOptions(options: Seq[FC]) {
   private val inner = options.map(y => y.field -> y.value).toMap
@@ -173,6 +175,8 @@ case class FormatCommand(mvSep: String,
 case class MvCombineCommand(delim: Option[String], field: Field) extends Command
 
 case class MvExpandCommand(field: Field, limit: Option[Int]) extends Command
+
+case class MapCommand(search: Pipeline, maxSearches: Int) extends Command
 
 case class BinCommand(field: FieldOrAlias,
                       // Sets the size of each bin, using a span length based on time or logarithm-based span.

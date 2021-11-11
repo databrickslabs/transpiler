@@ -32,7 +32,7 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | sort | ✅ | ✅ | ✅ |
 | return | ✅ | ✅ | ✅ |
 | mvcombine | ✅ | ✅ | ✅ |
-| map |  |  |  |
+| map | ✅ |  |  |
 | inputlookup | ✅ | ✅ | ✅ |
 | head | ✅ | ✅ | ✅ |
 | format | ✅ | ✅ | ✅ |
