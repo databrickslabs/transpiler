@@ -80,6 +80,9 @@ object SplParser {
     }
   }}
 
+  def fieldAndSpan[_: P]: P[(Field, TimeSpan)] = (field ~ "span" ~ "=" ~ timeSpan) map
+    { case (f: Field, s: TimeSpan) => (f, s)}
+
   def commandOptions[_: P]: P[CommandOptions] = fieldAndConstant.rep map CommandOptions
 
   def fieldList[_: P]: P[Seq[Field]] = field.rep(sep = ",")
@@ -232,7 +235,8 @@ object SplParser {
   // https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/Stats
   def aliasedCall[_: P]: P[Alias] = call ~ W("as") ~ token map Alias.tupled
   def statsCall[_: P]: P[Seq[Expr with Product with Serializable]] = (aliasedCall | call |
-    token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?)
+    token.filter(s => !(Seq("by", "from", "where") contains s.toLowerCase()))
+      .map(Call(_))).rep(1, ",".?)
 
   def stats[_: P]: P[StatsCommand] = ("stats" ~ commandOptions ~ statsCall ~
     (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq())) ~
@@ -249,9 +253,12 @@ object SplParser {
         )
     }
 
-  def tstats[_:P] = ("tstats" ~ commandOptions ~ statsCall ~
-    (W("from") ~ token).? ~(W("where") ~ expr).? ~(W("by") ~ fieldList).?).map {
-    case (options, funcs, from, where, by) => {
+  def tstats[_: P]: P[TStatsCommand] = ("tstats" ~ commandOptions ~ statsCall ~
+    (W("from") ~ token).? ~ (W("where") ~ expr).? ~ (W("by") ~
+    (fieldAndSpan | field).rep(sep = ",")).?).map {
+    case (options, funcs, from, where, by) =>
+      val span = extractSpan(by)
+      val filteredBy = filterSpan(by)
       TStatsCommand(
         options.getBoolean("append", false),
         options.getIntOption("fillnullvalue"),
@@ -259,12 +266,27 @@ object SplParser {
         funcs,
         from,
         where,
-        by
+        filteredBy,
+        span
       )
-
-    }
-
   }
+
+  def extractSpan(fieldOrSpan: Option[Seq[Any]]): Option[TimeSpan] = fieldOrSpan match {
+    case Some(s) => s.filter({
+      case (_, _) => true
+      case _ => false
+    }).map({case (_, ts: TimeSpan) => ts}).headOption
+    case _ => None
+  }
+
+  def filterSpan(fieldOrSpan: Option[Seq[Any]]): Seq[Field] = fieldOrSpan match {
+    case Some(s) => s.filter({
+      case (_, _) => false
+      case _ => true
+    }).map({case f: Field => f})
+    case _ => Seq()
+  }
+
 
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Rex
   def rex[_: P]: P[RexCommand] = ("rex" ~ commandOptions ~ doubleQuoted) map {
@@ -450,6 +472,7 @@ object SplParser {
     | fillNull
     | eventStats
     | streamStats
+    | tstats
     | dedup
     | inputLookup
     | format

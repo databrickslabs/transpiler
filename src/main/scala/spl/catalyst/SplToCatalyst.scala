@@ -80,8 +80,8 @@ object SplToCatalyst extends Logging {
             // TODO find a way to implement max_match, offset_field and mode
             applyRex(ctx, tree, rc)
 
-          case ast.TStatsCommand(append, fillNullValue, prestats, funcs, from, where, by) =>
-            applyTStatsCommand(ctx, tree, append, fillNullValue, prestats, funcs, from, where, by)
+          case ast.TStatsCommand(append, fillNullValue, prestats, funcs, from, where, by, span) =>
+            applyTStatsCommand(ctx, tree, append, fillNullValue, prestats, funcs, from, where, by, span)
 
           case ast.RenameCommand(aliases) =>
             applyRename(ctx, tree, aliases)
@@ -384,8 +384,8 @@ object SplToCatalyst extends Logging {
   private def determineTable(ctx: LogicalContext, p: ast.Pipeline): (LogicalPlan, ast.Pipeline) = {
     val indices = p.commands.flatMap {
       case ast.SearchCommand(expr) => findIndices(expr)
+      case ast.TStatsCommand(_, _, _, _, _, Some(expr), _, _) => findIndices(expr)
       case inputLookup: ast.InputLookup => Set(inputLookup.tableName)
-      case ast.TStatsCommand(_, _, _, _, _, Some(expr), _) => findIndices(expr)
       case _ => Seq()
     }
     if (indices.size > 1) {
@@ -398,11 +398,9 @@ object SplToCatalyst extends Logging {
     // The idea is to remove the `index` filters, as they are lifted to the top of the tree
     (table, p.copy(commands = p.commands.filterNot {
       case s: ast.SearchCommand => isFilter(s.expr, "index")
-      case ast.TStatsCommand(_, _, _, _, _, Some(expr), _) => isFilter(expr, "index")
       case _ => false
     }.map {
       case s: ast.SearchCommand => s.copy(expr = overwriteSplSearch(s.expr))
-      case t: ast.TStatsCommand => t.copy(where = Some(overwriteSplSearch(t.where.get)))
       case c: ast.Command => c
     }
     ))
@@ -908,8 +906,25 @@ object SplToCatalyst extends Logging {
                                  funcs: Seq[ast.Expr],
                                  from: Option[String],
                                  where: Option[ast.Expr],
-                                 by: Option[Seq[ast.Expr]]): LogicalPlan = {
-    tree
+                                 by: Seq[ast.Expr],
+                                 span: Option[ast.TimeSpan]): LogicalPlan = {
+    val windowExprSeq = getWindowExprSeq(ctx, span)
+    val groupBy = by.map(attr)
+    val agg = aggregates(ctx, funcs)
+    newAggregateIgnoringABI(windowExprSeq ++ groupBy, windowExprSeq ++ groupBy ++ agg, tree)
+    //ToDo: Remove 'index' statement from where and filter subsequently by where expr
+  }
+
+  private def getWindowExprSeq(ctx: LogicalContext, span: Option[ast.TimeSpan]): Seq[NamedExpression] = {
+    val windowExpr = span match {
+      case Some(ts) => {
+        val windowDuration = s"${ts.value} ${ts.scale}"
+        val timeColumn = UnresolvedAttribute(ctx.timeFieldName)
+        Seq(Alias(TimeWindow.apply(timeColumn, windowDuration, windowDuration, "0 seconds"),"window")())
+      }
+      case _ => Seq()
+    }
+    windowExpr
   }
 
   /**

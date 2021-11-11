@@ -129,7 +129,8 @@ case class TStatsCommand(append: Boolean = false,
                          funcs: Seq[Expr],
                          from: Option[String],
                          where: Option[Expr],
-                         by: Option[Seq[Expr]]
+                         by: Seq[Field] = Seq(),
+                         span: Option[TimeSpan]
                         ) extends Command
 
 case class RexCommand(field: Option[String],
