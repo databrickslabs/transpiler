@@ -103,7 +103,8 @@ object PythonGenerator {
 
   private def unfoldWheres(expr: Expression): String = expr match {
     case And(left, right) => s"${unfoldWheres(left)}\n${unfoldWheres(right)}"
-    case _ => s".where(${q(expression(expr))})"
+    // case _ => s".where(${q(expression(expr))})"
+    case _ => s".where(${expressionCode(expr)})"
   }
 
   private def genSortOrderCode(sortOrder: SortOrder) = {
@@ -143,7 +144,29 @@ object PythonGenerator {
     }
   }
 
+  private val jvmToPythonOverrides = Map(
+    "&&" -> "&",
+    "=" -> "==",
+    "||" -> "|"
+  )
+
   private def expressionCode(expr: Expression): String = expr match {
+    case b: BinaryOperator =>
+      val symbol = jvmToPythonOverrides.getOrElse(b.symbol, b.symbol)
+      s"(${expressionCode(b.left)} $symbol ${expressionCode(b.right)})"
+    case Size(left, _) =>
+      s"F.size(${expressionCode(left)})"
+    case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
+      // Look for _invoke_higher_order_function() in pyspark/sql/functions.py
+      s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})')"
+    case In(attr, items) =>
+      s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
+    case Alias(child, name) =>
+      s"${expressionCode(child)}.alias('$name')"
+    case UnresolvedAlias(child, aliasFunc) =>
+      expressionCode(child)
+    case RLike(left, right) =>
+      s"${expressionCode(left)}.rlike(${expressionCode(right)})"
     case Literal(value, t @ BooleanType) =>
       val pyBool = if (value.asInstanceOf[Boolean]) "True" else "False"
       s"F.lit($pyBool)"
