@@ -2,8 +2,6 @@ package spl
 
 import fastparse.MultiLineWhitespace._
 import fastparse._
-import org.apache.spark.sql.Transpiler
-
 /**
  * SPL parser and AST
  *
