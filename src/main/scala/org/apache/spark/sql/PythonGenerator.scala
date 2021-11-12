@@ -156,9 +156,11 @@ object PythonGenerator {
       s"(${expressionCode(b.left)} $symbol ${expressionCode(b.right)})"
     case Size(left, _) =>
       s"F.size(${expressionCode(left)})"
+    case Length(expr) =>
+      s"F.length(${expressionCode(expr)})"
     case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
       // Look for _invoke_higher_order_function() in pyspark/sql/functions.py
-      s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})')"
+      s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
     case Alias(child, name) =>
@@ -221,6 +223,8 @@ object PythonGenerator {
       s"F.col(${q(attr.name)})"
     case attr: UnresolvedAttribute =>
       s"F.col(${q(attr.name)})"
+    case attr: UnresolvedNamedLambdaVariable =>
+      s"${attr.name}"
     case TimeWindow(col, window, slide, _) if window == slide =>
       val interval = IntervalUtils.stringToInterval(UTF8String.fromString(s"$window microseconds"))
       s"F.window(${expressionCode(col)}, '$interval')"
