@@ -287,7 +287,6 @@ object SplParser {
     case _ => Seq()
   }
 
-
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Rex
   def rex[_: P]: P[RexCommand] = ("rex" ~ commandOptions ~ doubleQuoted) map {
     case (kv, regex) =>

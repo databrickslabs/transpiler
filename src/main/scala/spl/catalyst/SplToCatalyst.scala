@@ -920,7 +920,7 @@ object SplToCatalyst extends Logging {
       case Some(ts) => {
         val windowDuration = s"${ts.value} ${ts.scale}"
         val timeColumn = UnresolvedAttribute(ctx.timeFieldName)
-        Seq(Alias(TimeWindow.apply(timeColumn, windowDuration, windowDuration, "0 seconds"),"window")())
+        Seq(Alias(new TimeWindow(timeColumn, Literal(windowDuration)), "window")())
       }
       case _ => Seq()
     }

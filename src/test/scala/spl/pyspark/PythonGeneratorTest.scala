@@ -265,6 +265,26 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
+  test(".groupBy(F.window(F.col('_time'), '5 hours') AS 'window', 'host')\n" +
+    ".agg(F.count(F.col('host')).alias('cnt'))") {
+    g(
+      Aggregate(
+        Seq(
+          Alias(new TimeWindow(UnresolvedAttribute("_time"),Literal("5 hour")),"window")(),
+          UnresolvedAttribute("host")
+        ),
+        Seq(
+          Alias(new TimeWindow(UnresolvedAttribute("_time"),Literal("5 hour")),"window")(),
+          UnresolvedAttribute("host"),
+          Alias(
+            AggregateExpression(
+              Count(Seq(UnresolvedAttribute("host"))),
+              Complete, isDistinct = false
+            ), "cnt")()
+        ) , src)
+    )
+  }
+
   test(".withColumn('country', F.explode(F.col('country')))") {
     g(Project(
       Seq(

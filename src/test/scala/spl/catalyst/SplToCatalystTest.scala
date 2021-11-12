@@ -166,8 +166,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             Some(ast.TimeSpan(1, "day"))),
             (_, tree) =>
                 Aggregate(
-                    Seq(UnresolvedAttribute("host")),
                     Seq(
+                        Alias(new TimeWindow(UnresolvedAttribute("_time"),
+                            Literal("1 day")), "window")(),
+                        UnresolvedAttribute("host")),
+                    Seq(
+                        Alias(new TimeWindow(UnresolvedAttribute("_time"),
+                            Literal("1 day")), "window")(),
                         UnresolvedAttribute("host"),
                         Alias(
                             AggregateExpression(
