@@ -27,7 +27,14 @@ object PythonGenerator {
             val columnNames = exprs.map(_.name).map(q).mkString(", ")
             s"$childCode\n.select($columnNames)"
           case Alias(child, name) =>
-            s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
+            child match {
+              case UnresolvedAttribute(nameParts) =>
+                if (nameParts.length > 1)
+                  s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
+                else
+                  s"$childCode\n.withColumnRenamed(${q(nameParts.mkString("."))}, ${q(name)})"
+              case _ => s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
+            }
           case ur: UnresolvedRegex =>
             s"$childCode\n.selectExpr(${q(expression(ur))})"
           case _ =>
@@ -158,7 +165,7 @@ object PythonGenerator {
       s"F.size(${expressionCode(left)})"
     case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
       // Look for _invoke_higher_order_function() in pyspark/sql/functions.py
-      s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})')"
+      s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
     case Alias(child, name) =>
@@ -180,6 +187,12 @@ object PythonGenerator {
       s"F.count(${children.map(expressionCode).mkString(", ")})"
     case Sum(child) =>
       s"F.sum(${expressionCode(child)})"
+    case Length(child) =>
+      s"F.length(${expressionCode(child)})"
+    case Size(child, boolean) =>
+      s"F.size(${expressionCode(child)})"
+    case Cast(colExpr, dataType, _) =>
+      s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)})"
     case Min(expr) =>
       s"F.min(${expressionCode(expr)})"
     case Max(expr) =>
@@ -215,8 +228,8 @@ object PythonGenerator {
     case namedStruct: CreateNamedStruct =>
       s"F.struct(${namedStruct.valExprs.map(expressionCode).mkString(", ")})"
     case fs: FormatString =>
-      val stringPattern :: columns = fs.children.toSeq
-      s"F.format_string(${q(stringPattern.toString())}, ${columns.map(expressionCode).mkString(", ")})"
+      val items = fs.children.toList
+      s"F.format_string(${q(items.head.toString())}, ${items.tail.map(expressionCode).mkString(", ")})"
     case attr: AttributeReference =>
       s"F.col(${q(attr.name)})"
     case attr: UnresolvedAttribute =>
@@ -224,6 +237,8 @@ object PythonGenerator {
     case TimeWindow(col, window, slide, _) if window == slide =>
       val interval = IntervalUtils.stringToInterval(UTF8String.fromString(s"$window microseconds"))
       s"F.window(${expressionCode(col)}, '$interval')"
+    case UnresolvedNamedLambdaVariable(nameParts) =>
+      nameParts.mkString(", ")
     case _ => s"F.expr(${q(expr.sql)})"
   }
 

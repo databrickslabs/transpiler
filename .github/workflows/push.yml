@@ -15,6 +15,13 @@ jobs:
         with:
           java-version: 11
 
+      - uses: "actions/setup-python@v2"
+        with:
+          python-version: "3.9"
+
+      - name: Install pySpark
+        run: "pip install pyspark==3.2.0"
+
       - name: Checkout
         uses: actions/checkout@v2
 

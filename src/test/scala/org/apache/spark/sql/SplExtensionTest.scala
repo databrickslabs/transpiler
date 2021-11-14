@@ -4,12 +4,21 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.must.Matchers._
 
 case class Dummy(a: String, b: String, c: String, n: Int, valid: Boolean)
-case class DummyWithArray(a: String, b: String, c: String, d: Seq[String], n: Int, valid: Boolean)
-case class DummyWithIntArray(a: String, b: String, c: String, d: Seq[Int], n: Int, valid: Boolean)
-case class DummyKeyValue(key: String, value: String)
-case class SingleRawField(_raw: String)
-case class CountryByContinent(continent: String, country: String)
-case class Flow(ts: java.sql.Timestamp, src_ip: String, dst_ip: String, service: String)
+
+case class FakeData(id: Int,
+                    gender: String,
+                    email: String,
+                    ipAddress: String,
+                    array: Seq[String],
+                    country: String,
+                    cardType: String,
+                    cardNumber: Long,
+                    isStolen: Boolean,
+                    timestamp: java.sql.Timestamp,
+                    _raw: String)
+
+case class FakeDataForJoin(id: Int, sport: String)
+
 
 class SplExtensionTest extends AnyFunSuite {
   val dummy = Seq(

@@ -6,7 +6,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("thing") {
     generates("n>2 | stats count() by valid",
       """(spark.table('main')
-        |.where('(`n` > 2)')
+        |.where((F.col('n') > F.lit(2)))
         |.groupBy('valid')
         |.agg(F.count(F.lit(1)).alias('count')))
         |""".stripMargin)
@@ -15,7 +15,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("stats sum test w/ groupBy") {
     generates("n>2 | stats sum(n) by valid",
       """(spark.table('main')
-        |.where('(`n` > 2)')
+        |.where((F.col('n') > F.lit(2)))
         |.groupBy('valid')
         |.agg(F.sum(F.col('n')).alias('sum')))
         |""".stripMargin)
@@ -24,7 +24,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("stats sum test w/o groupBy") {
     generates("n>2 | stats sum(n)",
       """(spark.table('main')
-        |.where('(`n` > 2)')
+        |.where((F.col('n') > F.lit(2)))
         |.groupBy()
         |.agg(F.sum(F.col('n')).alias('sum')))
         |""".stripMargin)
@@ -33,7 +33,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("stats sum test w/o groupBy, w/ AS stmt") {
     generates("n>2 | stats sum(n) AS total_sum",
       """(spark.table('main')
-        |.where('(`n` > 2)')
+        |.where((F.col('n') > F.lit(2)))
         |.groupBy()
         |.agg(F.sum(F.col('n')).alias('total_sum')))
         |""".stripMargin)
@@ -64,7 +64,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("eval count=mvcount(d)") {
     generates("eval count=mvcount(d)",
       """(spark.table('main')
-        |.withColumn('count', F.expr('size(`d`)')))
+        |.withColumn('count', F.size(F.col('d'))))
         |""".stripMargin)
   }
 
@@ -85,7 +85,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("count=mvcount(d)") {
     generates("eval count=mvcount(d)",
       """(spark.table('main')
-        |.withColumn('count', F.expr('size(`d`)')))
+        |.withColumn('count', F.size(F.col('d'))))
         |""".stripMargin)
   }
 }
