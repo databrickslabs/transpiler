@@ -136,6 +136,8 @@ object SplToCatalyst extends Logging {
         }), Complete, isDistinct = false)
     case "sum" =>
       Sum(attr(call.args.head))
+    case "tonumber" =>
+      Cast(attr(call.args.head), DoubleType)
     case "min" =>
       // TODO: would currently fail on wildcard attributes
       determineMin(ctx, call)
@@ -452,6 +454,10 @@ object SplToCatalyst extends Logging {
 
   private def applyRename(ctx: LogicalContext, tree: LogicalPlan, aliases: Seq[spl.Alias]): LogicalPlan = {
     val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
+
+    if (ctx.output.isEmpty)
+      ctx.output = aliases.map(alias => attr(alias.expr))
+
     Project(ctx.output.map(item =>
       aliasMap.get(item.name) match {
         case Some(alias) => Alias(attr(alias.expr), alias.name)()
