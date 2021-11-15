@@ -17,10 +17,12 @@ jobs:
 
       - uses: "actions/setup-python@v2"
         with:
-          python-version: "3.9"
+          python-version: "3.8"
 
       - name: Install pySpark
-        run: "pip install pyspark==3.2.0"
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install pyspark
 
       - name: Checkout
         uses: actions/checkout@v2
