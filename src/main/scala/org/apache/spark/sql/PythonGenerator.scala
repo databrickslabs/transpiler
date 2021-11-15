@@ -26,15 +26,10 @@ object PythonGenerator {
           case _: UnresolvedAttribute =>
             val columnNames = exprs.map(_.name).map(q).mkString(", ")
             s"$childCode\n.select($columnNames)"
+          case Alias(UnresolvedAttribute(nameParts), name) if (nameParts.length == 1) =>
+            s"$childCode\n.withColumnRenamed(${q(nameParts.mkString("."))}, ${q(name)})"
           case Alias(child, name) =>
-            child match {
-              case UnresolvedAttribute(nameParts) =>
-                if (nameParts.length > 1)
-                  s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
-                else
-                  s"$childCode\n.withColumnRenamed(${q(nameParts.mkString("."))}, ${q(name)})"
-              case _ => s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
-            }
+            s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
           case ur: UnresolvedRegex =>
             s"$childCode\n.selectExpr(${q(expression(ur))})"
           case _ =>
@@ -237,8 +232,8 @@ object PythonGenerator {
     case TimeWindow(col, window, slide, _) if window == slide =>
       val interval = IntervalUtils.stringToInterval(UTF8String.fromString(s"$window microseconds"))
       s"F.window(${expressionCode(col)}, '$interval')"
-    case UnresolvedNamedLambdaVariable(nameParts) =>
-      nameParts.mkString(", ")
+    case attr: UnresolvedNamedLambdaVariable =>
+      s"${attr.name}"
     case _ => s"F.expr(${q(expr.sql)})"
   }
 
