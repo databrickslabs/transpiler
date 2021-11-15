@@ -21,8 +21,7 @@ jobs:
 
       - name: Install pySpark
         run: |
-          python3 -m pip install --upgrade pip setuptools wheel
-          python3 -m pip install pyspark==3.2.0
+          pip install pyspark==3.2.0
 
       - name: Checkout
         uses: actions/checkout@v2
