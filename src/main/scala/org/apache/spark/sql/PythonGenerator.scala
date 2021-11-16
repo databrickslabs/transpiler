@@ -158,9 +158,18 @@ object PythonGenerator {
       s"F.size(${expressionCode(left)})"
     case Length(expr) =>
       s"F.length(${expressionCode(expr)})"
+    case Last(child, ignoreNulls) =>
+      val pyBool = if (ignoreNulls.asInstanceOf[Boolean]) "True" else "False"
+      s"F.last(${expressionCode(child)}, $pyBool)"
+    case First(child, ignoreNulls) =>
+      val pyBool = if (ignoreNulls.asInstanceOf[Boolean]) "True" else "False"
+      s"F.first(${expressionCode(child)}, $pyBool)"
     case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
       // Look for _invoke_higher_order_function() in pyspark/sql/functions.py
       s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
+    case CaseWhen(Seq((pred, trueVal)), falseVal) =>
+      val otherwiseStmt = if(falseVal isDefined) s".otherwise(${expressionCode(falseVal.get)}" else ""
+      s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})" + otherwiseStmt
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
     case Alias(child, name) =>
@@ -194,6 +203,8 @@ object PythonGenerator {
       s"F.array_join(${expressionCode(array)}, ${delimiter.sql})"
     case CollectList(child, x, y) =>
       s"F.collect_list(${expressionCode(child)})"
+    case CollectSet(child, _, _) =>
+      s"F.collect_set(${expressionCode(child)})"
     case RowNumber() =>
       s"F.row_number()"
     case AggregateExpression(aggFn, mode, isDistinct, filter, resultId) =>

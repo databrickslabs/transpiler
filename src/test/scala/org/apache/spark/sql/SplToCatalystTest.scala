@@ -168,9 +168,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Project(
                     Seq(Alias(
-                        If(
-                            EqualTo(UnresolvedAttribute("a"), Literal("b")),
-                            Literal(1),
+                        CaseWhen(
+                            Seq((EqualTo(UnresolvedAttribute("a"), Literal("b")), Literal(1))),
                             Literal(0)
                         ),
                         "a_eq_b"
