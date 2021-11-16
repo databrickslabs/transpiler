@@ -118,7 +118,28 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("date=strftime(_time, \"%Y-%m-%d %T\")") {
     generates("eval date=strftime(_time, \"%Y-%m-%d %T\")",
       """(spark.table('main')
-        |.withColumn('date', F.expr("date_format(`_time`, 'yyyy-MM-dd HH:mm:ss')")))
+        |.withColumn('date', F.date_format(F.col('_time'), 'yyyy-MM-dd HH:mm:ss')))
+        |""".stripMargin)
+  }
+
+  test("min=min(n, 100)") {
+    generates("eval min=min(n, 100)",
+      """(spark.table('main')
+        |.withColumn('min', F.least(F.col('n'), F.lit(100))))
+        |""".stripMargin)
+  }
+
+  test("max=max(n, 0)") {
+    generates("eval max=max(n, 0)",
+      """(spark.table('main')
+        |.withColumn('max', F.greatest(F.col('n'), F.lit(0))))
+        |""".stripMargin)
+  }
+
+  test("rounded=round(42.003, 0)") {
+    generates("eval rounded=round(42.003, 0)",
+      """(spark.table('main')
+        |.withColumn('rounded', F.round(F.lit(42.003), 0)))
         |""".stripMargin)
   }
 }

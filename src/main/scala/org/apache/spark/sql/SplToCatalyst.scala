@@ -141,9 +141,7 @@ object SplToCatalyst extends Logging {
       determineMin(ctx, call)
     case "max" =>
       // TODO: would currently fail on wildcard attributes
-      AggregateExpression(
-        Max(attr(call.args.head)),
-        Complete, isDistinct = false)
+      determineMax(ctx, call)
     case "len" =>
       Length(attrOrExpr(ctx, call.args.head))
     case "substr" =>
@@ -205,6 +203,17 @@ object SplToCatalyst extends Logging {
            Complete, isDistinct = false)
        case Seq(_, _*) =>
          Least(call.args.map(attrOrExpr(ctx, _)))
+    }
+  }
+
+  private def determineMax(ctx: LogicalContext, call: spl.Call): Expression = {
+    call.args match {
+      case Seq(spl.Field(v)) =>
+        AggregateExpression(
+          Max(attrOrExpr(ctx, call.args.head)),
+          Complete, isDistinct = false)
+      case Seq(_, _*) =>
+        Greatest(call.args.map(attrOrExpr(ctx, _)))
     }
   }
 
@@ -574,6 +583,7 @@ object SplToCatalyst extends Logging {
     case spl.Field(value) => Literal.create(value)
     case spl.StrValue(value) => Literal.create(value)
     case spl.IntValue(value) => Literal.create(value)
+    case spl.DoubleValue(value) => Literal.create(value)
   }
 
   private def rexParseNamedGroup(inputString: String): mutable.Map[String, Int] = {

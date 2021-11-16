@@ -13,6 +13,7 @@ sealed trait FieldOrAlias
 case class Null() extends Constant
 case class Bool(value: Boolean) extends Constant
 case class IntValue(value: Int) extends Constant
+case class DoubleValue(value: Double) extends Constant
 case class StrValue(value: String) extends Constant
 case class TimeSpan(value: Int, scale: String) extends SplSpan
 case class SnapTime(span: Option[TimeSpan], snap: String, snapOffset: Option[TimeSpan]) extends Constant

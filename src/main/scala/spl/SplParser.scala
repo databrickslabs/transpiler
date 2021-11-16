@@ -87,7 +87,11 @@ object SplParser {
     case (sign, i) => IntValue(if (sign.equals("-")) -1 * i.toInt else i.toInt)
   }
 
-  def constant[_:P]: P[Constant] = cidr | wildcard | strValue | relativeTime | timeSpan | int | field | bool
+  private[spl] def double[_: P]: P[DoubleValue] = ("+" | "-").?.! ~~ digit.rep(1).! ~~ "." ~~ digit.rep(1).! map {
+    case (sign, i, j) => DoubleValue(if (sign.equals("-")) -1 * (i + "." + j).toDouble else (i + "." + j).toDouble)
+  }
+
+  def constant[_:P]: P[Constant] = cidr | wildcard | strValue | relativeTime | timeSpan | double | int | field | bool
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
     | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P | Add.P | Subtract.P
