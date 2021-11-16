@@ -116,7 +116,9 @@ object SplToCatalyst extends Logging {
     case "isnull" =>
       IsNull(attrOrExpr(ctx, call.args.head))
     case "if" =>
-      If(attrOrExpr(ctx, call.args.head), attrOrExpr(ctx, call.args(1)),attrOrExpr(ctx, call.args(2)))
+      val branches = Seq((attrOrExpr(ctx, call.args.head), attrOrExpr(ctx, call.args(1))))
+      val elseValue = Some(attrOrExpr(ctx, call.args(2)))
+      CaseWhen(branches, elseValue)
     case "ctime" =>
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
@@ -162,6 +164,9 @@ object SplToCatalyst extends Logging {
     case "strftime" =>
       DateFormatClass(attrOrExpr(ctx, call.args.head), Literal.create(call.args.lift(1) match {
         case Some(spl.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
+          case (a, (b, c)) => a.replaceAll(b, c)
+        }
+        case Some(spl.StrValue(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
           case (a, (b, c)) => a.replaceAll(b, c)
         }
         case _ => throw new AnalysisException(s"Invalid strftime format given")
