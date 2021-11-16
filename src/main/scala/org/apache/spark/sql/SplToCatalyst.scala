@@ -132,9 +132,7 @@ object SplToCatalyst extends Logging {
       Sum(attr(call.args.head))
     case "min" =>
       // TODO: would currently fail on wildcard attributes
-      AggregateExpression(
-        Min(attrOrExpr(ctx, call.args.head)),
-        Complete, isDistinct = false)
+      determineMin(ctx, call)
     case "max" =>
       // TODO: would currently fail on wildcard attributes
       AggregateExpression(
@@ -162,15 +160,7 @@ object SplToCatalyst extends Logging {
     case "latest" =>
       Last(attrOrExpr(ctx, call.args.head), ignoreNulls = true)
     case "strftime" =>
-      DateFormatClass(attrOrExpr(ctx, call.args.head), Literal.create(call.args.lift(1) match {
-        case Some(spl.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
-          case (a, (b, c)) => a.replaceAll(b, c)
-        }
-        case Some(spl.StrValue(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
-          case (a, (b, c)) => a.replaceAll(b, c)
-        }
-        case _ => throw new AnalysisException(s"Invalid strftime format given")
-      }))
+      determineStrftime(ctx, call)
     case "mvcount" =>
       Size(attrOrExpr(ctx, call.args.head))
     case "mvindex" =>
@@ -195,6 +185,29 @@ object SplToCatalyst extends Logging {
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
+  }
+
+  private def determineMin(ctx: LogicalContext, call: spl.Call): Expression = {
+    call.args match {
+       case Seq(spl.Field(v)) =>
+         AggregateExpression(
+           Min(attrOrExpr(ctx, call.args.head)),
+           Complete, isDistinct = false)
+       case Seq(_, _*) =>
+         Least(call.args.map(attrOrExpr(ctx, _)))
+    }
+  }
+
+  private def determineStrftime(ctx: LogicalContext, call: spl.Call): Expression = {
+    DateFormatClass(attrOrExpr(ctx, call.args.head), Literal.create(call.args.lift(1) match {
+      case Some(spl.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
+        case (a, (b, c)) => a.replaceAll(b, c)
+      }
+      case Some(spl.StrValue(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
+        case (a, (b, c)) => a.replaceAll(b, c)
+      }
+      case _ => throw new AnalysisException(s"Invalid strftime format given")
+    }))
   }
 
   private def mvFilter(ctx: LogicalContext, field: spl.Field, expr: spl.Expr) = {
