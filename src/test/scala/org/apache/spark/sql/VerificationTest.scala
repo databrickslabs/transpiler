@@ -369,6 +369,20 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("index=dummy_with_duplicates | eval m=min(n,3)") {
+    executes("index=dummy_with_duplicates | eval m=min(n,3)",
+      """+---+---+---+---+-----+---+
+        ||a  |b  |c  |n  |valid|m  |
+        |+---+---+---+---+-----+---+
+        ||a  |b  |c  |1  |true |1  |
+        ||b  |b  |c  |2  |true |2  |
+        ||c  |b  |c  |3  |true |3  |
+        ||d  |e  |f  |4  |false|3  |
+        ||e  |e  |f  |5  |true |3  |
+        |+---+---+---+---+-----+---+
+        |""".stripMargin)
+  }
+
   test("dedup 1 b c") {
     executes("index=dummy_with_duplicates | dedup 1 b c",
       """+---+---+---+---+-----+
