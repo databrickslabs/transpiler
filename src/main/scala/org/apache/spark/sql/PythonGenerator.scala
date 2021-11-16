@@ -167,8 +167,8 @@ object PythonGenerator {
     case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
       s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
     case CaseWhen(Seq((pred, trueVal)), falseVal) =>
-      val otherwiseStmt = if(falseVal isDefined) s".otherwise(${expressionCode(falseVal.get)}" else ""
-      s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})" + otherwiseStmt
+      val otherwiseStmt = if (falseVal isDefined) s".otherwise(${expressionCode(falseVal.get)}" else ""
+      s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})$otherwiseStmt"
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
     case Alias(child, name) =>
