@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.plans.UsingJoin
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.util.IntervalUtils
-import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType}
 import org.apache.spark.unsafe.types.UTF8String
 
 private case class GeneratorContext(maxLineWidth: Int = 120)
@@ -183,18 +183,26 @@ object PythonGenerator {
       s"F.lit($pyBool)"
     case Literal(value, t @ IntegerType) =>
       s"F.lit($value)"
+    case Literal(value, t @ DoubleType) =>
+      s"F.lit($value)"
     case Literal(value, t @ StringType) =>
       s"F.lit(${q(value.toString)})"
     case Alias(child, name) =>
       s"${expressionCode(child)}.alias(${q(name)})"
     case Count(children) =>
       s"F.count(${children.map(expressionCode).mkString(", ")})"
+    case Round(child, scale) =>
+      s"F.round(${expressionCode(child)}, ${expression(scale)})"
     case Sum(child) =>
       s"F.sum(${expressionCode(child)})"
     case Min(expr) =>
       s"F.min(${expressionCode(expr)})"
     case Max(expr) =>
       s"F.max(${expressionCode(expr)})"
+    case Least(children) =>
+      s"F.least(${children.map(expressionCode).mkString(", ")})"
+    case Greatest(children) =>
+      s"F.greatest(${children.map(expressionCode).mkString(", ")})"
     case MonotonicallyIncreasingID() =>
       s"F.monotonically_increasing_id()"
     case Concat(children) =>
@@ -207,6 +215,8 @@ object PythonGenerator {
       s"F.collect_set(${expressionCode(child)})"
     case RowNumber() =>
       s"F.row_number()"
+    case DateFormatClass(left, right, _) =>
+      s"F.date_format(${expressionCode(left)}, ${expression(right)})"
     case AggregateExpression(aggFn, mode, isDistinct, filter, resultId) =>
       expressionCode(aggFn)
     case CurrentRow =>
