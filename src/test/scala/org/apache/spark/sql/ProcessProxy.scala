@@ -93,6 +93,7 @@ trait ProcessProxy extends Logging {
          |spark = SparkSession.builder.getOrCreate()
          |
          |import pyspark.sql.functions as F
+         |from pyspark.sql.window import Window
          |df = $code
          |print(df._jdf.showString(20, $truncate, False))
          |""".stripMargin)

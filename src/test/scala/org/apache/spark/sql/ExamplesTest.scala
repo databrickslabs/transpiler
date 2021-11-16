@@ -115,6 +115,13 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("mvfiltered=mvfilter(d > 3)") {
+    generates("eval mvfiltered=mvfilter(d > 3)",
+      """(spark.table('main')
+        |.withColumn('mvfiltered', F.filter(F.col('d'), lambda d: (d > F.lit(3)))))
+        |""".stripMargin)
+  }
+
   test("date=strftime(_time, \"%Y-%m-%d %T\")") {
     generates("eval date=strftime(_time, \"%Y-%m-%d %T\")",
       """(spark.table('main')
@@ -140,6 +147,20 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     generates("eval rounded=round(42.003, 0)",
       """(spark.table('main')
         |.withColumn('rounded', F.round(F.lit(42.003), 0)))
+        |""".stripMargin)
+  }
+
+  test("sub=substr(a, 3, 5)") {
+    generates("eval sub=substr(a, 3, 5)",
+      """(spark.table('main')
+        |.withColumn('sub', F.substring(F.col('a'), 3, 5)))
+        |""".stripMargin)
+  }
+
+  test("lenA=len(a)") {
+    generates("eval lenA=len(a)",
+      """(spark.table('main')
+        |.withColumn('lenA', F.length(F.col('a'))))
         |""".stripMargin)
   }
 }

@@ -165,7 +165,6 @@ object PythonGenerator {
       val pyBool = if (ignoreNulls.asInstanceOf[Boolean]) "True" else "False"
       s"F.first(${expressionCode(child)}, $pyBool)"
     case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
-      // Look for _invoke_higher_order_function() in pyspark/sql/functions.py
       s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
     case CaseWhen(Seq((pred, trueVal)), falseVal) =>
       val otherwiseStmt = if(falseVal isDefined) s".otherwise(${expressionCode(falseVal.get)}" else ""
@@ -251,6 +250,8 @@ object PythonGenerator {
       s"F.window(${expressionCode(col)}, '$interval')"
     case Explode(child) =>
       s"F.explode(${expressionCode(child)})"
+    case Substring(str, pos, len) =>
+      s"F.substring(${expressionCode(str)}, ${expression(pos)}, ${expression(len)})"
     case _ => s"F.expr(${q(expr.sql)})"
   }
 
