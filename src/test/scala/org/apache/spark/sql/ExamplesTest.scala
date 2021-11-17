@@ -39,10 +39,36 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("stats values(d) as set") {
+    generates("stats values(d) as set",
+      """(spark.table('main')
+        |.groupBy()
+        |.agg(F.collect_set(F.col('d')).alias('set')))
+        |""".stripMargin)
+  }
+
+  test("stats latest(d) as latest") {
+    generates("stats latest(d) as latest",
+      """(spark.table('main')
+        |.orderBy(F.col('_time').asc())
+        |.groupBy()
+        |.agg(F.last(F.col('d'), True).alias('latest')))
+        |""".stripMargin)
+  }
+
+  test("stats earliest(d) as earliest") {
+    generates("stats earliest(d) as earliest",
+      """(spark.table('main')
+        |.orderBy(F.col('_time').asc())
+        |.groupBy()
+        |.agg(F.first(F.col('d'), True).alias('earliest')))
+        |""".stripMargin)
+  }
+
   test("eval n_large=if(n > 3, 1, 0)") {
     generates("eval n_large=if(n > 3, 1, 0)",
       """(spark.table('main')
-        |.withColumn('n_large', F.expr('(IF((`n` > 3), 1, 0))')))
+        |.withColumn('n_large', F.when((F.col('n') > F.lit(3)), F.lit(1)).otherwise(F.lit(0)))
         |""".stripMargin)
   }
 
@@ -86,6 +112,55 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     generates("eval count=mvcount(d)",
       """(spark.table('main')
         |.withColumn('count', F.size(F.col('d'))))
+        |""".stripMargin)
+  }
+
+  test("mvfiltered=mvfilter(d > 3)") {
+    generates("eval mvfiltered=mvfilter(d > 3)",
+      """(spark.table('main')
+        |.withColumn('mvfiltered', F.filter(F.col('d'), lambda d: (d > F.lit(3)))))
+        |""".stripMargin)
+  }
+
+  test("date=strftime(_time, \"%Y-%m-%d %T\")") {
+    generates("eval date=strftime(_time, \"%Y-%m-%d %T\")",
+      """(spark.table('main')
+        |.withColumn('date', F.date_format(F.col('_time'), 'yyyy-MM-dd HH:mm:ss')))
+        |""".stripMargin)
+  }
+
+  test("min=min(n, 100)") {
+    generates("eval min=min(n, 100)",
+      """(spark.table('main')
+        |.withColumn('min', F.least(F.col('n'), F.lit(100))))
+        |""".stripMargin)
+  }
+
+  test("max=max(n, 0)") {
+    generates("eval max=max(n, 0)",
+      """(spark.table('main')
+        |.withColumn('max', F.greatest(F.col('n'), F.lit(0))))
+        |""".stripMargin)
+  }
+
+  test("rounded=round(42.003, 0)") {
+    generates("eval rounded=round(42.003, 0)",
+      """(spark.table('main')
+        |.withColumn('rounded', F.round(F.lit(42.003), 0)))
+        |""".stripMargin)
+  }
+
+  test("sub=substr(a, 3, 5)") {
+    generates("eval sub=substr(a, 3, 5)",
+      """(spark.table('main')
+        |.withColumn('sub', F.substring(F.col('a'), 3, 5)))
+        |""".stripMargin)
+  }
+
+  test("lenA=len(a)") {
+    generates("eval lenA=len(a)",
+      """(spark.table('main')
+        |.withColumn('lenA', F.length(F.col('a'))))
         |""".stripMargin)
   }
 }

@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.plans.UsingJoin
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.util.IntervalUtils
-import org.apache.spark.sql.types.{BooleanType, IntegerType, StringType}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType}
 import org.apache.spark.unsafe.types.UTF8String
 
 private case class GeneratorContext(maxLineWidth: Int = 120)
@@ -158,9 +158,19 @@ object PythonGenerator {
       s"(${expressionCode(b.left)} $symbol ${expressionCode(b.right)})"
     case Size(left, _) =>
       s"F.size(${expressionCode(left)})"
+    case Length(expr) =>
+      s"F.length(${expressionCode(expr)})"
+    case Last(child, ignoreNulls) =>
+      val pyBool = if (ignoreNulls.asInstanceOf[Boolean]) "True" else "False"
+      s"F.last(${expressionCode(child)}, $pyBool)"
+    case First(child, ignoreNulls) =>
+      val pyBool = if (ignoreNulls.asInstanceOf[Boolean]) "True" else "False"
+      s"F.first(${expressionCode(child)}, $pyBool)"
     case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
-      // Look for _invoke_higher_order_function() in pyspark/sql/functions.py
       s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
+    case CaseWhen(Seq((pred, trueVal)), falseVal) =>
+      val otherwiseStmt = if (falseVal isDefined) s".otherwise(${expressionCode(falseVal.get)}" else ""
+      s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})$otherwiseStmt"
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
     case Alias(child, name) =>
@@ -174,12 +184,16 @@ object PythonGenerator {
       s"F.lit($pyBool)"
     case Literal(value, t @ IntegerType) =>
       s"F.lit($value)"
+    case Literal(value, t @ DoubleType) =>
+      s"F.lit($value)"
     case Literal(value, t @ StringType) =>
       s"F.lit(${q(value.toString)})"
     case Alias(child, name) =>
       s"${expressionCode(child)}.alias(${q(name)})"
     case Count(children) =>
       s"F.count(${children.map(expressionCode).mkString(", ")})"
+    case Round(child, scale) =>
+      s"F.round(${expressionCode(child)}, ${expression(scale)})"
     case Sum(child) =>
       s"F.sum(${expressionCode(child)})"
     case Length(child) =>
@@ -192,6 +206,10 @@ object PythonGenerator {
       s"F.min(${expressionCode(expr)})"
     case Max(expr) =>
       s"F.max(${expressionCode(expr)})"
+    case Least(children) =>
+      s"F.least(${children.map(expressionCode).mkString(", ")})"
+    case Greatest(children) =>
+      s"F.greatest(${children.map(expressionCode).mkString(", ")})"
     case MonotonicallyIncreasingID() =>
       s"F.monotonically_increasing_id()"
     case Concat(children) =>
@@ -200,8 +218,12 @@ object PythonGenerator {
       s"F.array_join(${expressionCode(array)}, ${delimiter.sql})"
     case CollectList(child, x, y) =>
       s"F.collect_list(${expressionCode(child)})"
+    case CollectSet(child, _, _) =>
+      s"F.collect_set(${expressionCode(child)})"
     case RowNumber() =>
       s"F.row_number()"
+    case DateFormatClass(left, right, _) =>
+      s"F.date_format(${expressionCode(left)}, ${expression(right)})"
     case AggregateExpression(aggFn, mode, isDistinct, filter, resultId) =>
       expressionCode(aggFn)
     case CurrentRow =>
@@ -229,9 +251,13 @@ object PythonGenerator {
       s"F.col(${q(attr.name)})"
     case attr: UnresolvedAttribute =>
       s"F.col(${q(attr.name)})"
+    case attr: UnresolvedNamedLambdaVariable =>
+      s"${attr.name}"
     case TimeWindow(col, window, slide, _) if window == slide =>
       val interval = IntervalUtils.stringToInterval(UTF8String.fromString(s"$window microseconds"))
       s"F.window(${expressionCode(col)}, '$interval')"
+    case Substring(str, pos, len) =>
+      s"F.substring(${expressionCode(str)}, ${expression(pos)}, ${expression(len)})"
     case attr: UnresolvedNamedLambdaVariable =>
       s"${attr.name}"
     case _ => s"F.expr(${q(expr.sql)})"
