@@ -26,6 +26,8 @@ object PythonGenerator {
           case _: UnresolvedAttribute =>
             val columnNames = exprs.map(_.name).map(q).mkString(", ")
             s"$childCode\n.select($columnNames)"
+          case Alias(UnresolvedAttribute(nameParts), name) if (nameParts.length == 1) =>
+            s"$childCode\n.withColumnRenamed(${q(nameParts.mkString("."))}, ${q(name)})"
           case Alias(child, name) =>
             s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
           case ur: UnresolvedRegex =>
@@ -194,6 +196,12 @@ object PythonGenerator {
       s"F.round(${expressionCode(child)}, ${expression(scale)})"
     case Sum(child) =>
       s"F.sum(${expressionCode(child)})"
+    case Length(child) =>
+      s"F.length(${expressionCode(child)})"
+    case Size(child, boolean) =>
+      s"F.size(${expressionCode(child)})"
+    case Cast(colExpr, dataType, _) =>
+      s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)})"
     case Min(expr) =>
       s"F.min(${expressionCode(expr)})"
     case Max(expr) =>
@@ -237,8 +245,8 @@ object PythonGenerator {
     case namedStruct: CreateNamedStruct =>
       s"F.struct(${namedStruct.valExprs.map(expressionCode).mkString(", ")})"
     case fs: FormatString =>
-      val stringPattern :: columns = fs.children.toSeq
-      s"F.format_string(${q(stringPattern.toString())}, ${columns.map(expressionCode).mkString(", ")})"
+      val items = fs.children.toList
+      s"F.format_string(${q(items.head.toString())}, ${items.tail.map(expressionCode).mkString(", ")})"
     case attr: AttributeReference =>
       s"F.col(${q(attr.name)})"
     case attr: UnresolvedAttribute =>
@@ -250,6 +258,8 @@ object PythonGenerator {
       s"F.window(${expressionCode(col)}, '$interval')"
     case Substring(str, pos, len) =>
       s"F.substring(${expressionCode(str)}, ${expression(pos)}, ${expression(len)})"
+    case attr: UnresolvedNamedLambdaVariable =>
+      s"${attr.name}"
     case _ => s"F.expr(${q(expr.sql)})"
   }
 

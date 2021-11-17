@@ -51,7 +51,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".where('((`a` = 1) OR (`b` = 2))')") {
+  test(".where(((F.col('a') == F.lit(1)) | (F.col('b') == F.lit(2))))") {
     g(Filter(
       Or(
         EqualTo(UnresolvedAttribute("a"), Literal.create(1)),
@@ -59,7 +59,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       ), src))
   }
 
-  test(".where('a = 1')\n.where('b = 2')") {
+  test(".where((F.col('a') == F.lit(1)))\n.where((F.col('b') == F.lit(2)))") {
     g(Filter(
       And(
         EqualTo(UnresolvedAttribute("a"), Literal.create(1)),
@@ -91,7 +91,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       src))
   }
 
-  test(".join(spark.table('dst')\n.withColumn('c', F.col('b')),\n['c'], 'left_outer')") {
+  test(".join(spark.table('dst')\n.withColumnRenamed('b', 'c'),\n['c'], 'left_outer')") {
     g(Join(src,
       Project(Seq(
         Alias(UnresolvedAttribute("b"), "c")()
