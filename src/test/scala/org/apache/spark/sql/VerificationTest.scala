@@ -412,27 +412,60 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("b_not_null") {
-    executes("index=dummy_with_null | eval b_not_null=if(isnotnull(b), 1, 0)",
-      """+---+----+----+---+-----+----------+
-        ||a  |b   |c   |n  |valid|b_not_null|
-        |+---+----+----+---+-----+----------+
-        ||a  |null|null|1  |true |0         |
-        ||d  |e   |f   |2  |false|1         |
-        |+---+----+----+---+-----+----------+
+    executes("index=fake | fields +email | eval b_not_null=if(isnotnull(email), 1, 0)",
+      """+--------------------------+----------+
+        ||email                     |b_not_null|
+        |+--------------------------+----------+
+        ||jcraisford0@imdb.com      |1         |
+        ||null                      |0         |
+        ||slockyer2@fotki.com       |1         |
+        ||null                      |0         |
+        ||abasilotta4@mediafire.com |1         |
+        ||bhaskins5@w3.org          |1         |
+        ||arootham6@harvard.edu     |1         |
+        ||cmacentee7@mayoclinic.com |1         |
+        ||wgasnoll8@mit.edu         |1         |
+        ||nhartnup9@opensource.org  |1         |
+        ||sflewetta@linkedin.com    |1         |
+        ||gstureb@nsw.gov.au        |1         |
+        ||null                      |0         |
+        ||kstainburnd@bloomberg.com |1         |
+        ||dcanacotte@stumbleupon.com|1         |
+        ||null                      |0         |
+        ||sbrunettig@msu.edu        |1         |
+        ||llesurfh@google.pl        |1         |
+        ||bkillfordi@cisco.com      |1         |
+        ||ehartoppj@istockphoto.com |1         |
+        |+--------------------------+----------+
         |""".stripMargin)
   }
 
-  test( "null_if_n_gt_3") {
-    executes("index=dummy | eval n_null=if(n > 3, null(), n) | table n n_null",
-      """+---+------+
-        ||n  |n_null|
-        |+---+------+
-        ||1  |1     |
-        ||2  |2     |
-        ||3  |3     |
-        ||4  |null  |
-        ||5  |null  |
-        |+---+------+
+  test( "null_if_id_gt_3") {
+    executes("index=fake | eval id_null=if(id > 10, null(), id) | table id id_null",
+      """+---+-------+
+        ||id |id_null|
+        |+---+-------+
+        ||1  |1      |
+        ||2  |2      |
+        ||3  |3      |
+        ||4  |4      |
+        ||5  |5      |
+        ||6  |6      |
+        ||7  |7      |
+        ||8  |8      |
+        ||9  |9      |
+        ||10 |10     |
+        ||11 |null   |
+        ||12 |null   |
+        ||13 |null   |
+        ||14 |null   |
+        ||15 |null   |
+        ||16 |null   |
+        ||17 |null   |
+        ||18 |null   |
+        ||19 |null   |
+        ||20 |null   |
+        |+---+-------+
         |""".stripMargin)
   }
 
@@ -698,26 +731,23 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("mvexpand d") {
-    executes("index=dummy_with_array | mvexpand d | len(d) = 3",
-      """+---+---+---+---+---+-----+
-        ||a  |b  |c  |d  |n  |valid|
-        |+---+---+---+---+---+-----+
-        ||a  |b  |c  |cde|1  |true |
-        |+---+---+---+---+---+-----+
+    executes("index=fake | fields +id, array | mvexpand array | where id=1",
+      """+---+-----+
+        ||id |array|
+        |+---+-----+
+        ||1  |G+   |
+        ||1  |F+   |
+        |+---+-----+
         |""".stripMargin)
   }
 
   test("mvexpand d limit=1") {
-    executes("index=dummy_with_array | mvexpand d limit=1",
-      """+---+---+---+---+---+-----+
-        ||a  |b  |c  |d  |n  |valid|
-        |+---+---+---+---+---+-----+
-        ||a  |b  |c  |a  |1  |true |
-        ||d  |e  |f  |d  |2  |false|
-        ||g  |h  |i  |g  |3  |true |
-        ||h  |g  |f  |h  |4  |false|
-        ||e  |d  |c  |e  |5  |true |
-        |+---+---+---+---+---+-----+
+    executes("index=fake | fields +id, array | mvexpand array limit=1 | where id=1",
+      """+---+-----+
+        ||id |array|
+        |+---+-----+
+        ||1  |G+   |
+        |+---+-----+
         |""".stripMargin)
   }
 }

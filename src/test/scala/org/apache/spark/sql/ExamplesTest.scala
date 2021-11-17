@@ -68,7 +68,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("eval n_large=if(n > 3, 1, 0)") {
     generates("eval n_large=if(n > 3, 1, 0)",
       """(spark.table('main')
-        |.withColumn('n_large', F.when((F.col('n') > F.lit(3)), F.lit(1)).otherwise(F.lit(0)))
+        |.withColumn('n_large', F.when((F.col('n') > F.lit(3)), F.lit(1)).otherwise(F.lit(0))))
         |""".stripMargin)
   }
 

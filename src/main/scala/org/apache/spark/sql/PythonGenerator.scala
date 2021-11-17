@@ -7,7 +7,7 @@ import org.apache.spark.sql.catalyst.plans.UsingJoin
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.util.IntervalUtils
-import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType, NullType}
 import org.apache.spark.unsafe.types.UTF8String
 
 private case class GeneratorContext(maxLineWidth: Int = 120)
@@ -193,6 +193,8 @@ object PythonGenerator {
       s"F.lit($value)"
     case Literal(value, t @ StringType) =>
       s"F.lit(${q(value.toString)})"
+    case Literal(value, t @ NullType) =>
+      s"F.lit(None)"
     case Alias(child, name) =>
       s"${expressionCode(child)}.alias(${q(name)})"
     case Count(children) =>
@@ -265,6 +267,10 @@ object PythonGenerator {
       s"F.explode(${expressionCode(child)})"
     case Substring(str, pos, len) =>
       s"F.substring(${expressionCode(str)}, ${expression(pos)}, ${expression(len)})"
+    case IsNotNull(child) =>
+      s"${expressionCode(child)}.isNotNull()"
+    case IsNull(child) =>
+      s"${expressionCode(child)}.isNull()"
     case UnresolvedNamedLambdaVariable(nameParts) =>
       nameParts.mkString(", ")
     case _ => s"F.expr(${q(expr.sql)})"

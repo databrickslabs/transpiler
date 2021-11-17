@@ -460,9 +460,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Project(
                     Seq(Alias(
-                        If(
-                            GreaterThan(UnresolvedAttribute("x"),Literal(0)),
-                            UnresolvedAttribute("x"),
+                        CaseWhen(
+                            Seq((GreaterThan(UnresolvedAttribute("x"), Literal(0)), UnresolvedAttribute("x"))),
                             Literal(null)
                         ),
                         "x_no_neg"
@@ -488,15 +487,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Project(
                     Seq(Alias(
-                        If(
-                            IsNotNull(UnresolvedAttribute("x")),
-                            Literal("yes"),
-                            Literal("no")
-                        ),
-                        "x_not_null"
-                    )()
-                    )
-                    , tree)
+                        CaseWhen(Seq(
+                            (IsNotNull(UnresolvedAttribute("x")), Literal("yes"))),
+                            Literal("no")),
+                        "x_not_null")()
+                    ), tree)
         )
     }
 
