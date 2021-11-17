@@ -116,7 +116,9 @@ object SplToCatalyst extends Logging {
     case "isnull" =>
       IsNull(attrOrExpr(ctx, call.args.head))
     case "if" =>
-      If(attrOrExpr(ctx, call.args.head), attrOrExpr(ctx, call.args(1)),attrOrExpr(ctx, call.args(2)))
+      val branches = Seq((attrOrExpr(ctx, call.args.head), attrOrExpr(ctx, call.args(1))))
+      val elseValue = Some(attrOrExpr(ctx, call.args(2)))
+      CaseWhen(branches, elseValue)
     case "ctime" =>
       val field = attr(call.args.head)
       Column(field).cast("date").as(field.name).named
@@ -128,16 +130,14 @@ object SplToCatalyst extends Logging {
         }), Complete, isDistinct = false)
     case "sum" =>
       Sum(attr(call.args.head))
+    case "tonumber" =>
+      Cast(attr(call.args.head), DoubleType)
     case "min" =>
       // TODO: would currently fail on wildcard attributes
-      AggregateExpression(
-        Min(attrOrExpr(ctx, call.args.head)),
-        Complete, isDistinct = false)
+      determineMin(ctx, call)
     case "max" =>
       // TODO: would currently fail on wildcard attributes
-      AggregateExpression(
-        Max(attr(call.args.head)),
-        Complete, isDistinct = false)
+      determineMax(ctx, call)
     case "len" =>
       Length(attrOrExpr(ctx, call.args.head))
     case "substr" =>
@@ -160,12 +160,7 @@ object SplToCatalyst extends Logging {
     case "latest" =>
       Last(attrOrExpr(ctx, call.args.head), ignoreNulls = true)
     case "strftime" =>
-      DateFormatClass(attrOrExpr(ctx, call.args.head), Literal.create(call.args.lift(1) match {
-        case Some(spl.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
-          case (a, (b, c)) => a.replaceAll(b, c)
-        }
-        case _ => throw new AnalysisException(s"Invalid strftime format given")
-      }))
+      determineStrftime(ctx, call)
     case "mvcount" =>
       Size(attrOrExpr(ctx, call.args.head))
     case "mvindex" =>
@@ -190,6 +185,40 @@ object SplToCatalyst extends Logging {
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
+  }
+
+  private def determineMin(ctx: LogicalContext, call: spl.Call): Expression = {
+    call.args match {
+       case Seq(spl.Field(v)) =>
+         AggregateExpression(
+           Min(attrOrExpr(ctx, call.args.head)),
+           Complete, isDistinct = false)
+       case Seq(_, _*) =>
+         Least(call.args.map(attrOrExpr(ctx, _)))
+    }
+  }
+
+  private def determineMax(ctx: LogicalContext, call: spl.Call): Expression = {
+    call.args match {
+      case Seq(spl.Field(v)) =>
+        AggregateExpression(
+          Max(attrOrExpr(ctx, call.args.head)),
+          Complete, isDistinct = false)
+      case Seq(_, _*) =>
+        Greatest(call.args.map(attrOrExpr(ctx, _)))
+    }
+  }
+
+  private def determineStrftime(ctx: LogicalContext, call: spl.Call): Expression = {
+    DateFormatClass(attrOrExpr(ctx, call.args.head), Literal.create(call.args.lift(1) match {
+      case Some(spl.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
+        case (a, (b, c)) => a.replaceAll(b, c)
+      }
+      case Some(spl.StrValue(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
+        case (a, (b, c)) => a.replaceAll(b, c)
+      }
+      case _ => throw new AnalysisException(s"Invalid strftime format given")
+    }))
   }
 
   private def mvFilter(ctx: LogicalContext, field: spl.Field, expr: spl.Expr) = {
@@ -415,6 +444,10 @@ object SplToCatalyst extends Logging {
 
   private def applyRename(ctx: LogicalContext, tree: LogicalPlan, aliases: Seq[spl.Alias]): LogicalPlan = {
     val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
+
+    if (ctx.output.isEmpty)
+      ctx.output = aliases.map(alias => attr(alias.expr))
+
     Project(ctx.output.map(item =>
       aliasMap.get(item.name) match {
         case Some(alias) => Alias(attr(alias.expr), alias.name)()
@@ -546,6 +579,7 @@ object SplToCatalyst extends Logging {
     case spl.Field(value) => Literal.create(value)
     case spl.StrValue(value) => Literal.create(value)
     case spl.IntValue(value) => Literal.create(value)
+    case spl.DoubleValue(value) => Literal.create(value)
   }
 
   private def rexParseNamedGroup(inputString: String): mutable.Map[String, Int] = {
