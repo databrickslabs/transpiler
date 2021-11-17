@@ -99,14 +99,17 @@ object SplToCatalyst extends Logging {
             applyStreamStats(ctx, tree, funcs, by, current, window)
 
           case dedupCmd: spl.DedupCommand =>
+            assertCtxOutputNonEmpty(ctx, dedupCmd)
             applyDedup(ctx, tree, dedupCmd)
 
           case fc: spl.FormatCommand =>
             // TODO Implement behaviour with mvsep when multiple value field is present
+            assertCtxOutputNonEmpty(ctx, fc)
             applyFormat(ctx, tree, fc)
 
-          case spl.MvCombineCommand(delim, field) =>
-            applyMvCombine(ctx, tree, field, delim)
+          case mv: spl.MvCombineCommand =>
+            assertCtxOutputNonEmpty(ctx, mv)
+            applyMvCombine(ctx, tree, mv.field, mv.delim)
 
           case spl.MvExpandCommand(field, limit) =>
             applyMvExpand(ctx, tree, field, limit)
@@ -195,6 +198,11 @@ object SplToCatalyst extends Logging {
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
+  }
+
+  private def assertCtxOutputNonEmpty(ctx: LogicalContext, command: spl.Command): Unit = {
+    if (ctx.output.isEmpty)
+      throw EmptyContextOutput(command)
   }
 
   private def determineMin(ctx: LogicalContext, call: spl.Call): Expression = {
@@ -829,6 +837,10 @@ object SplToCatalyst extends Logging {
     val projectWindow = withColumn(ctx, tree, alias, new TimeWindow(field, duration))
     withColumn(ctx, projectWindow, alias, UnresolvedAttribute(Seq(alias, "start")))
   }
+}
+
+case class EmptyContextOutput(command: spl.Command) extends Exception {
+  override def getMessage: String = s"Unable to tanslate ${command.getClass.getCanonicalName} due to empty context output"
 }
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {

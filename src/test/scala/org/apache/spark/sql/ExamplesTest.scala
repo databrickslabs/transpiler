@@ -163,4 +163,25 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.withColumn('lenA', F.length(F.col('a'))))
         |""".stripMargin)
   }
+
+  test("dedup 10 host") {
+    generates("dedup 10 host",
+      """(spark.table('main')
+        |# Error in dedup: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.DedupCommand due to empty context output)
+        |""".stripMargin)
+  }
+
+  test("format maxresults=10") {
+    generates("format maxresults=10",
+      """(spark.table('main')
+        |# Error in format: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.FormatCommand due to empty context output)
+        |""".stripMargin)
+  }
+
+  test("mvcombine host") {
+    generates("mvcombine host",
+      """(spark.table('main')
+        |# Error in mvcombine: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.MvCombineCommand due to empty context output)
+        |""".stripMargin)
+  }
 }
