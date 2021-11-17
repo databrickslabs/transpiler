@@ -265,7 +265,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".groupBy(F.window(F.col('_time'), '5 hours') AS 'window', 'host')\n" +
+  test(".groupBy(F.window(F.col('_time'), '5 hours').alias('window'), 'host')\n" +
     ".agg(F.count(F.col('host')).alias('cnt'))") {
     g(
       Aggregate(

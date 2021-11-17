@@ -88,11 +88,11 @@ object PythonGenerator {
 
     case a: Aggregate =>
       // matching against class name, as not all Spark implementations have compatible ABI
-      val grpExprsRev = a.groupingExpressions.map(_.sql)
+      val grpExprsRev = a.groupingExpressions.map(_.toString)
       // Removing col used for grouping from the agg expression
-      val aggExprRev = a.aggregateExpressions.filter(item => !grpExprsRev.contains(item.sql))
+      val aggExprRev = a.aggregateExpressions.filter(item => !grpExprsRev.contains(item.toString))
       val aggs = smartDelimiters(ctx, aggExprRev.map(expressionCode))
-      val groupBy = exprList(ctx, a.groupingExpressions)
+      val groupBy = exprCodeList(ctx, a.groupingExpressions)
       s"${fromPlan(ctx, a.child)}\n.groupBy($groupBy)\n.agg($aggs)"
 
     case Join(left, right, joinType, condition, _) =>
@@ -139,6 +139,7 @@ object PythonGenerator {
 
   private def exprList(ctx: GeneratorContext, exprs: Seq[Expression]) =
     smartDelimiters(ctx, exprs.map(expression).map(q))
+
 
   private def toPythonList(ctx: GeneratorContext, elements: Seq[String]): String =
     s"[${smartDelimiters(ctx, elements.map(q))}]"
@@ -330,7 +331,6 @@ object PythonGenerator {
       s"${attr.name} = ${expression(value)}"
     case In(attr: UnresolvedAttribute, items) =>
       s"${attr.name} IN (${items.map(expression).mkString(", ")})"
-    case TimeWindow(col, window, slide, _) if window == slide => expressionCode(expr)
     case UnresolvedAlias(child, aliasFunc) => expression(child)
     case Alias(child, name) => s"${expression(child)} AS $name"
     case RLike(left, right) => s"${left.sql} RLIKE ${right.sql}"
