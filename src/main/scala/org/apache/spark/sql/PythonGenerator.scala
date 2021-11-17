@@ -26,6 +26,8 @@ object PythonGenerator {
           case _: UnresolvedAttribute =>
             val columnNames = exprs.map(_.name).map(q).mkString(", ")
             s"$childCode\n.select($columnNames)"
+          case Alias(UnresolvedAttribute(nameParts), name) if (nameParts.length == 1) =>
+            s"$childCode\n.withColumnRenamed(${q(nameParts.mkString("."))}, ${q(name)})"
           case Alias(child, name) =>
             child match {
               case UnresolvedAttribute(nameParts) =>
