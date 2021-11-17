@@ -527,6 +527,25 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("id > 10 | eval min=min(id,10), max=max(id,15)") {
+    executes("index=fake | id > 10 | eval min=min(id,15), max=max(id,15) | fields + id, min, max",
+      """+---+---+---+
+        ||id |min|max|
+        |+---+---+---+
+        ||11 |11 |15 |
+        ||12 |12 |15 |
+        ||13 |13 |15 |
+        ||14 |14 |15 |
+        ||15 |15 |15 |
+        ||16 |15 |16 |
+        ||17 |15 |17 |
+        ||18 |15 |18 |
+        ||19 |15 |19 |
+        ||20 |15 |20 |
+        |+---+---+---+
+        |""".stripMargin)
+  }
+
   test("dedup 1 gender static") {
     executes("index=fake | eval static=10 | fields + gender, static | dedup 1 gender static",
       """+------+------+
