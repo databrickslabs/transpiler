@@ -184,4 +184,18 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |# Error in mvcombine: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.MvCombineCommand due to empty context output)
         |""".stripMargin)
   }
+
+  test("makeresults count=10") {
+    generates("makeresults count=10",
+      """(spark.range(0, 10, 1)
+        |.withColumn('_raw', F.lit(None))
+        |.withColumn('_time', F.current_timestamp())
+        |.withColumn('host', F.lit(None))
+        |.withColumn('source', F.lit(None))
+        |.withColumn('sourcetype', F.lit(None))
+        |.withColumn('splunk_server', F.lit('local'))
+        |.withColumn('splunk_server_group', F.lit(None))
+        |.select('_time'))
+        |""".stripMargin)
+  }
 }

@@ -15,7 +15,10 @@ import org.apache.spark.unsafe.types.UTF8String
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
-    val (table, pipe) = determineTable(ctx, p)
+    val (table, pipe) = p.commands.head match {
+      case _: spl.MakeResults => (null, p)
+      case _ => determineTable(ctx, p)
+    }
     pipe.commands.foldLeft(table) {
       wrapCommand(ctx) {
         (tree, command) => command match {
@@ -116,6 +119,9 @@ object SplToCatalyst extends Logging {
 
           case bc: spl.BinCommand =>
             applyBin(ctx, tree, bc)
+
+          case mr: spl.MakeResults =>
+            applyMakeResults(ctx, mr)
         }
       }
     }
@@ -751,6 +757,9 @@ object SplToCatalyst extends Logging {
     )
 
   private def applyDedup(ctx: LogicalContext, tree: LogicalPlan, cmd: spl.DedupCommand) = {
+    if (ctx.output.isEmpty)
+      ctx.output = cmd.fields.map(item => UnresolvedAttribute(item.value))
+
     val windowExpr = getSortByWindowExpr(cmd.fields, cmd.sortBy)
     Project(ctx.output, Filter(
       LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(cmd.numResults)),
@@ -814,6 +823,40 @@ object SplToCatalyst extends Logging {
           }, field.value)(),
       ), tree
     )
+  }
+
+  private def applyMakeResults(ctx: LogicalContext, mr: spl.MakeResults) = {
+    val genPlan = withColumn(ctx,
+      withColumn(ctx,
+        withColumn(ctx,
+          withColumn(ctx,
+            withColumn(ctx,
+              withColumn(ctx,
+                withColumn(ctx,
+                  Range(0, mr.count, 1, numSlices=None),
+                  "_raw", Literal(null)),
+                "_time", CurrentTimestamp()),
+              "host", Literal(null)),
+            "source", Literal(null)),
+          "sourcetype", Literal(null)),
+        "splunk_server", Literal(mr.splunkServer)),
+      "splunk_server_group", Literal(mr.splunkServerGroup))
+
+    if (!mr.annotate) {
+      Project(Seq(
+        UnresolvedAttribute("_time")
+      ), genPlan)
+    } else {
+      Project(Seq(
+        UnresolvedAttribute("_raw"),
+        UnresolvedAttribute("_time"),
+        UnresolvedAttribute("host"),
+        UnresolvedAttribute("source"),
+        UnresolvedAttribute("sourcetype"),
+        UnresolvedAttribute("splunk_server"),
+        UnresolvedAttribute("splunk_server_group")
+      ), genPlan)
+    }
   }
 
   private def applyMvExpand(ctx: LogicalContext, tree: LogicalPlan, field: spl.Field, limit: Option[Int]) = {

@@ -316,6 +316,16 @@ object SplParser {
     )
   }
 
+  def makeResults[_:P]: P[MakeResults] = ("makeresults" ~ commandOptions) map {
+    options =>
+      MakeResults(
+        count = options.getInt("count", 1),
+        annotate = options.getBoolean("annotate"),
+        splunkServer = options.getString("splunk_server", "local"),
+        splunkServerGroup = options.getString("splunk_server_group", null)
+      )
+  }
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -339,6 +349,7 @@ object SplParser {
                                         | mvcombine
                                         | mvexpand
                                         | bin
+                                        | makeResults
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline

@@ -1194,6 +1194,61 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ), tree)))
     }
 
+    test("makeresults count=10 annotate=t splunk_server_group=group0") {
+        check(spl.MakeResults(
+            count = 10,
+            annotate = true,
+            splunkServer = "local",
+            splunkServerGroup = "group0"),
+        (_, tree) =>
+            Project(Seq(
+                UnresolvedAttribute("_raw"),
+                UnresolvedAttribute("_time"),
+                UnresolvedAttribute("host"),
+                UnresolvedAttribute("source"),
+                UnresolvedAttribute("sourcetype"),
+                UnresolvedAttribute("splunk_server"),
+                UnresolvedAttribute("splunk_server_group")),
+                Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")(),
+                    Alias(Literal(null), "source")(),
+                    Alias(Literal(null), "sourcetype")(),
+                    Alias(Literal("local"), "splunk_server")(),
+                    Alias(Literal("group0"), "splunk_server_group")(),
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")(),
+                    Alias(Literal(null), "source")(),
+                    Alias(Literal(null), "sourcetype")(),
+                    Alias(Literal("local"), "splunk_server")()
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")(),
+                    Alias(Literal(null), "source")(),
+                    Alias(Literal(null), "sourcetype")()
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")(),
+                    Alias(Literal(null), "source")()
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")()
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                ), Range(0, 10, 1, None))))))))
+            )
+        )
+    }
+
     private def check(command: spl.Command,
                       callback: (spl.Command, LogicalPlan) => LogicalPlan,
                       injectOutput: Seq[NamedExpression] = Seq()): Unit = this.synchronized {
