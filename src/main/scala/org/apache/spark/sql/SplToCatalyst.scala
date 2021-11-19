@@ -122,6 +122,9 @@ object SplToCatalyst extends Logging {
 
           case mr: spl.MakeResults =>
             applyMakeResults(ctx, mr)
+
+          case at: spl.AddTotals =>
+            applyAddTotals(ctx, tree, at)
         }
       }
     }
@@ -879,6 +882,23 @@ object SplToCatalyst extends Logging {
     // technically, we can do it in one stage, but generated code would be less readable
     val projectWindow = withColumn(ctx, tree, alias, new TimeWindow(field, duration))
     withColumn(ctx, projectWindow, alias, UnresolvedAttribute(Seq(alias, "start")))
+  }
+
+  private def applyAddTotals(ctx: LogicalContext, tree: LogicalPlan, at: spl.AddTotals) = {
+    // TOOO implement `col` & `label` & `labelfield` parameters behaviour
+    // When no columns are of numeric type this function will return 0.0 whereas it should be null
+    if (ctx.output.isEmpty && at.fields.isEmpty) {
+      throw EmptyContextOutput(at)
+    }
+
+    if (at.row) {
+      val fieldsToSum = if (at.fields.isEmpty) ctx.output else at.fields.map(attr)
+      withColumn(ctx, tree, at.fieldName, fieldsToSum.map(expr =>
+        CaseWhen(Seq((IsNotNull(Cast(expr, DoubleType)), expr)), Some(Literal(0.0))).asInstanceOf[Expression]
+      ).reduceLeft {
+        (toReturnExpr, expr) => Add(expr, toReturnExpr)
+      })
+    } else tree
   }
 }
 

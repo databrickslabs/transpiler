@@ -52,7 +52,7 @@ Secondary batch of commands:
 | export |  |  |  |
 | streamstats | ✅ | ✅ | ✅ |
 | geom |  |  |  |
-| addtotals |  |  |  |
+| addtotals | ✅ | ✅ | ✅ |
 | foreach |  |  |  |
 
  
