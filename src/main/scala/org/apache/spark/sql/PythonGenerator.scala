@@ -1,14 +1,19 @@
 package org.apache.spark.sql
 
 import scala.util.matching.Regex
+import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.UsingJoin
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.util.IntervalUtils
-import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType, NullType}
-import org.apache.spark.unsafe.types.UTF8String
+import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.types.{
+  BooleanType,
+  DoubleType,
+  IntegerType,
+  NullType,
+  StringType}
 
 private case class GeneratorContext(maxLineWidth: Int = 120)
 
@@ -84,6 +89,9 @@ object PythonGenerator {
       }
       val how = q(tp.sql.replace(" ", "_").toLowerCase)
       s"${fromPlan(ctx, left)}\n.join(${fromPlan(ctx, right)},\n${toPythonList(ctx, on)}, $how)"
+
+    case r: Range =>
+      s"spark.range(${r.start}, ${r.end}, ${r.step})"
 
     case FillNullShim(value, columns, child) =>
       val childCode = fromPlan(ctx, child)
@@ -275,7 +283,10 @@ object PythonGenerator {
       s"${expressionCode(child)}.isNull()"
     case UnresolvedNamedLambdaVariable(nameParts) =>
       nameParts.mkString(", ")
-    case _ => s"F.expr(${q(expr.sql)})"
+    case CurrentTimestamp() =>
+      s"F.current_timestamp()"
+    case _ =>
+      s"F.expr(${q(expr.sql)})"
   }
 
   /** Simplified SQL rendering of Spark expressions */

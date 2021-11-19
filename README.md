@@ -44,7 +44,7 @@ Secondary batch of commands:
 
 | Command/Feature | Parser | Catalyst | Codegen |
 | ---: | :---: | :---: | :---: |
-| makeresults |  |  |  |
+| makeresults | ✅ | ✅ | ✅ |
 | tstats |  |  |  |
 | mvexpand | ✅ | ✅ | ✅ |
 | chart |  |  |  |
