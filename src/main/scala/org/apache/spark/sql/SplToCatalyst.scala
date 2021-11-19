@@ -15,7 +15,10 @@ import org.apache.spark.unsafe.types.UTF8String
 
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: spl.Pipeline): LogicalPlan = {
-    val (table, pipe) = determineTable(ctx, p)
+    val (table, pipe) = p.commands.head match {
+      case _: spl.MakeResults => (null, p)
+      case _ => determineTable(ctx, p)
+    }
     pipe.commands.foldLeft(table) {
       wrapCommand(ctx) {
         (tree, command) => command match {
@@ -99,20 +102,26 @@ object SplToCatalyst extends Logging {
             applyStreamStats(ctx, tree, funcs, by, current, window)
 
           case dedupCmd: spl.DedupCommand =>
+            assertCtxOutputNonEmpty(ctx, dedupCmd)
             applyDedup(ctx, tree, dedupCmd)
 
           case fc: spl.FormatCommand =>
             // TODO Implement behaviour with mvsep when multiple value field is present
+            assertCtxOutputNonEmpty(ctx, fc)
             applyFormat(ctx, tree, fc)
 
-          case spl.MvCombineCommand(delim, field) =>
-            applyMvCombine(ctx, tree, field, delim)
+          case mv: spl.MvCombineCommand =>
+            assertCtxOutputNonEmpty(ctx, mv)
+            applyMvCombine(ctx, tree, mv.field, mv.delim)
 
           case spl.MvExpandCommand(field, limit) =>
             applyMvExpand(ctx, tree, field, limit)
 
           case bc: spl.BinCommand =>
             applyBin(ctx, tree, bc)
+
+          case mr: spl.MakeResults =>
+            applyMakeResults(ctx, mr)
         }
       }
     }
@@ -195,6 +204,11 @@ object SplToCatalyst extends Logging {
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new AnalysisException(s"Unknown SPL function: $approx")
+  }
+
+  private def assertCtxOutputNonEmpty(ctx: LogicalContext, command: spl.Command): Unit = {
+    if (ctx.output.isEmpty)
+      throw EmptyContextOutput(command)
   }
 
   private def determineMin(ctx: LogicalContext, call: spl.Call): Expression = {
@@ -743,6 +757,9 @@ object SplToCatalyst extends Logging {
     )
 
   private def applyDedup(ctx: LogicalContext, tree: LogicalPlan, cmd: spl.DedupCommand) = {
+    if (ctx.output.isEmpty)
+      ctx.output = cmd.fields.map(item => UnresolvedAttribute(item.value))
+
     val windowExpr = getSortByWindowExpr(cmd.fields, cmd.sortBy)
     Project(ctx.output, Filter(
       LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(cmd.numResults)),
@@ -808,6 +825,40 @@ object SplToCatalyst extends Logging {
     )
   }
 
+  private def applyMakeResults(ctx: LogicalContext, mr: spl.MakeResults) = {
+    val genPlan = withColumn(ctx,
+      withColumn(ctx,
+        withColumn(ctx,
+          withColumn(ctx,
+            withColumn(ctx,
+              withColumn(ctx,
+                withColumn(ctx,
+                  Range(0, mr.count, 1, numSlices=None),
+                  "_raw", Literal(null)),
+                "_time", CurrentTimestamp()),
+              "host", Literal(null)),
+            "source", Literal(null)),
+          "sourcetype", Literal(null)),
+        "splunk_server", Literal(mr.splunkServer)),
+      "splunk_server_group", Literal(mr.splunkServerGroup))
+
+    if (!mr.annotate) {
+      Project(Seq(
+        UnresolvedAttribute("_time")
+      ), genPlan)
+    } else {
+      Project(Seq(
+        UnresolvedAttribute("_raw"),
+        UnresolvedAttribute("_time"),
+        UnresolvedAttribute("host"),
+        UnresolvedAttribute("source"),
+        UnresolvedAttribute("sourcetype"),
+        UnresolvedAttribute("splunk_server"),
+        UnresolvedAttribute("splunk_server_group")
+      ), genPlan)
+    }
+  }
+
   private def applyMvExpand(ctx: LogicalContext, tree: LogicalPlan, field: spl.Field, limit: Option[Int]) = {
     val attribute = attr(field)
     val expr = if(limit isEmpty) attribute else Slice(attribute, Literal(1), Literal(limit.get))
@@ -829,6 +880,10 @@ object SplToCatalyst extends Logging {
     val projectWindow = withColumn(ctx, tree, alias, new TimeWindow(field, duration))
     withColumn(ctx, projectWindow, alias, UnresolvedAttribute(Seq(alias, "start")))
   }
+}
+
+case class EmptyContextOutput(command: spl.Command) extends Exception {
+  override def getMessage: String = s"Unable to tanslate ${command.getClass.getCanonicalName} due to empty context output"
 }
 
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
