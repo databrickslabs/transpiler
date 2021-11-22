@@ -873,4 +873,15 @@ class SplParserTest extends ParserSuite {
       splunkServer = "local",
       splunkServerGroup = "group0"))
   }
+
+  test("addtotals row=t col=f fieldname=num_total num_1 num_2") {
+    p(command(_), spl.AddTotals(
+      fields = Seq(Field("num_1"), Field("num_2")),
+      row = true,
+      col = false,
+      fieldName = "num_total",
+      labelField = null,
+      label = "Total"
+    ))
+  }
 }
