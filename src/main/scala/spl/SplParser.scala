@@ -326,6 +326,18 @@ object SplParser {
       )
   }
 
+  def addTotals[_:P]: P[AddTotals] = "addtotals" ~ commandOptions ~ field.rep(1).? map {
+    case (options: CommandOptions, fields: Option[Seq[Field]]) =>
+      AddTotals(
+        fields.getOrElse(Seq.empty[Field]),
+        row = options.getBoolean("row", default = true),
+        col = options.getBoolean("col"),
+        fieldName = options.getString("fieldname", "Total"),
+        labelField = options.getString("labelfield", null),
+        label = options.getString("label", "Total")
+      )
+  }
+
   def command[_:P]: P[Command] = (stats | table
                                         | where
                                         | lookup
@@ -350,6 +362,7 @@ object SplParser {
                                         | mvexpand
                                         | bin
                                         | makeResults
+                                        | addTotals
                                         | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline

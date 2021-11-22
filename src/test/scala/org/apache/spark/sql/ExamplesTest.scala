@@ -198,4 +198,11 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.select('_time'))
         |""".stripMargin)
   }
+
+  test("addtotals fieldname=num_total num_man num_woman") {
+    generates("addtotals fieldname=num_total num_man num_woman",
+      """(spark.table('main')
+        |.withColumn('num_total', (F.when(F.col('num_woman').cast('double').isNotNull(), F.col('num_woman')).otherwise(F.lit(0.0)) + F.when(F.col('num_man').cast('double').isNotNull(), F.col('num_man')).otherwise(F.lit(0.0)))))
+        |""".stripMargin)
+  }
 }
