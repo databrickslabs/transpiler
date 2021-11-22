@@ -8,7 +8,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     generates("n>2 | stats count() by valid",
       """(spark.table('main')
         |.where((F.col('n') > F.lit(2)))
-        |.groupBy('valid')
+        |.groupBy(F.col('valid'))
         |.agg(F.count(F.lit(1)).alias('count')))
         |""".stripMargin)
   }
@@ -17,7 +17,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     generates("n>2 | stats sum(n) by valid",
       """(spark.table('main')
         |.where((F.col('n') > F.lit(2)))
-        |.groupBy('valid')
+        |.groupBy(F.col('valid'))
         |.agg(F.sum(F.col('n')).alias('sum')))
         |""".stripMargin)
   }

@@ -92,7 +92,7 @@ object PythonGenerator {
       // Removing col used for grouping from the agg expression
       val aggExprRev = a.aggregateExpressions.filter(item => !grpExprsRev.contains(item.toString))
       val aggs = smartDelimiters(ctx, aggExprRev.map(expressionCode))
-      val groupBy = exprList(ctx, a.groupingExpressions)
+      val groupBy = exprCodeList(ctx, a.groupingExpressions)
       s"${fromPlan(ctx, a.child)}\n.groupBy($groupBy)\n.agg($aggs)"
 
     case Join(left, right, joinType, condition, _) =>

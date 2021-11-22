@@ -105,7 +105,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     ), global = true, src))
   }
 
-  test(".groupBy('host')\n.agg(F.count().alias('count'))") {
+  test(".groupBy(F.col('host'))\n.agg(F.count().alias('count'))") {
     g(Aggregate(
       Seq(UnresolvedAttribute("host")),
       Seq(Alias(Count(Seq()),
@@ -240,7 +240,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".groupBy('ip', 'port')\n.agg(" +
+  test(".groupBy(F.col('ip'), F.col('port'))\n.agg(" +
     "F.array_join(F.collect_list(F.col('host')), ',').alias('host'))") {
     g(
       Aggregate(
@@ -265,16 +265,17 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".groupBy(F.window(F.col('_time'), '5 hours').alias('window'), 'host')\n" +
+  test(".groupBy(F.window(F.col('_time'), '5 hours').alias('window'), F.col('host'))\n" +
     ".agg(F.count(F.col('host')).alias('cnt'))") {
+    val windowExpr = Alias(new TimeWindow(UnresolvedAttribute("_time"),Literal("5 hour")),"window")()
     g(
       Aggregate(
         Seq(
-          Alias(new TimeWindow(UnresolvedAttribute("_time"),Literal("5 hour")),"window")(),
+          windowExpr,
           UnresolvedAttribute("host")
         ),
         Seq(
-          Alias(new TimeWindow(UnresolvedAttribute("_time"),Literal("5 hour")),"window")(),
+          windowExpr,
           UnresolvedAttribute("host"),
           Alias(
             AggregateExpression(
