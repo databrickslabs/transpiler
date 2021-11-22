@@ -764,4 +764,33 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |+----+----+------+----------+-------------+-------------------+
         |""".stripMargin)
   }
+
+  test("addtotals") {
+    executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum | addtotals fieldname=my_total",
+      """+---+------+----------+--------+
+        ||id |gender|anotherNum|my_total|
+        |+---+------+----------+--------+
+        ||1  |M     |10        |11.0    |
+        ||2  |M     |10        |12.0    |
+        ||3  |M     |10        |13.0    |
+        ||4  |F     |10        |14.0    |
+        ||5  |F     |10        |15.0    |
+        ||6  |F     |10        |16.0    |
+        ||7  |M     |10        |17.0    |
+        ||8  |F     |10        |18.0    |
+        ||9  |F     |10        |19.0    |
+        ||10 |M     |10        |20.0    |
+        ||11 |M     |10        |21.0    |
+        ||12 |M     |10        |22.0    |
+        ||13 |M     |10        |23.0    |
+        ||14 |F     |10        |24.0    |
+        ||15 |F     |10        |25.0    |
+        ||16 |F     |10        |26.0    |
+        ||17 |M     |10        |27.0    |
+        ||18 |M     |10        |28.0    |
+        ||19 |F     |10        |29.0    |
+        ||20 |M     |10        |30.0    |
+        |+---+------+----------+--------+
+        |""".stripMargin)
+  }
 }
