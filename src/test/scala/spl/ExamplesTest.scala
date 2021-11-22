@@ -265,10 +265,10 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     spark.conf.set("spl.index", "main")
   }
 
-  test("tstats sum(n) AS sumN WHERE index=main BY host, date") {
-    generates("tstats sum(n) AS sumN WHERE index=main BY host, date",
+  test("tstats sum(n) AS sumN WHERE index=main BY host, _time span=1d") {
+    generates("tstats sum(n) AS sumN WHERE index=main BY host, _time span=1d",
       """(spark.table('main')
-        |.groupBy(F.col('host'), F.col('date'))
+        |.groupBy(F.window(F.col('_time'), '24 hours').alias('window'), F.col('host'))
         |.agg(F.sum(F.col('n')).alias('sumN')))
         |""".stripMargin)
   }
