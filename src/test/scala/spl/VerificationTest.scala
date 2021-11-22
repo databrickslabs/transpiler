@@ -1,7 +1,8 @@
-package org.apache.spark.sql
+package spl
 
 import java.sql.Timestamp
 
+import org.apache.spark.sql.{FakeData, FakeDataForJoin, ProcessProxy}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
 

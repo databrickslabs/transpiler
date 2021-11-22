@@ -1,11 +1,11 @@
 package splunkql
 
-import java.io.{FileInputStream, InputStream}
+import java.io.InputStream
+
+import org.ini4j.Ini
+import spl.Transpiler
 
 import scala.collection.JavaConverters._
-import fastparse.{Parsed, parse}
-import org.apache.spark.sql.{PythonGenerator, SplToCatalyst, Transpiler}
-import org.ini4j.Ini
 
 case class SavedSearch(name: String, search: String, cron: String)
 

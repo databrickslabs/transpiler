@@ -1,7 +1,8 @@
-package spl
+package spl.parser
 
 import fastparse.MultiLineWhitespace._
 import fastparse._
+import spl.ast._
 
 /**
  * SPL parser and AST
@@ -155,8 +156,8 @@ object SplParser {
    * TODO: refactor to use command options
    */
   def head[_:P]: P[HeadCommand] = ("head" ~ ((int | "limit=" ~ int) | expr)
-                                          ~ ("keeplast=" ~ bool).?
-                                          ~ ("null=" ~ bool).?).map(item => {
+    ~ ("keeplast=" ~ bool).?
+    ~ ("null=" ~ bool).?).map(item => {
     HeadCommand(item._1, item._2.getOrElse(Bool(false)), item._3.getOrElse(Bool(false)))
   })
 
@@ -184,7 +185,7 @@ object SplParser {
   // https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/Stats
   def aliasedCall[_:P] = call ~ W("as") ~ token map Alias.tupled
   def statsCall[_:P] = (aliasedCall | call |
-      token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?)
+    token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?)
 
   def stats[_:P] = ("stats" ~ fieldAndValueList ~ statsCall ~
     (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq())) ~
@@ -206,17 +207,17 @@ object SplParser {
   def _regex[_:P]: P[RegexCommand] = "regex" ~ (field ~ ("="|"!=").!).? ~ doubleQuoted map RegexCommand.tupled
   def join[_:P]: P[JoinCommand] = ("join" ~ commandOptions ~ field.rep(min = 1, sep = ",") ~ subSearch) map {
     case (options, fields, pipeline) => JoinCommand(
-        joinType = options.getString("type", "inner"),
-        useTime = options.getBoolean("usetime"),
-        earlier = options.getBoolean("earlier", default = true),
-        overwrite = options.getBoolean("overwrite"),
-        max = options.getInt("max", 1),
-        fields = fields,
-        subSearch = pipeline)
+      joinType = options.getString("type", "inner"),
+      useTime = options.getBoolean("usetime"),
+      earlier = options.getBoolean("earlier", default = true),
+      overwrite = options.getBoolean("overwrite"),
+      max = options.getInt("max", 1),
+      fields = fields,
+      subSearch = pipeline)
   }
 
   def _return[_:P]: P[ReturnCommand] = "return" ~ int.? ~ (
-      fieldAndValue.rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map {
+    fieldAndValue.rep(1) | ("$" ~~ field).rep(1) | field.rep(1)) map {
     case (maybeValue, exprs) =>
       ReturnCommand(maybeValue.getOrElse(IntValue(1)), exprs map {
         case fv: FV => Alias(Field(fv.value), fv.field).asInstanceOf[FieldOrAlias]
@@ -225,10 +226,10 @@ object SplParser {
   }
 
   def fillNull[_:P]: P[FillNullCommand] = ("fillnull" ~ ("value=" ~~ (doubleQuoted|token)).?
-                                                      ~ field.rep(1).?) map FillNullCommand.tupled
+    ~ field.rep(1).?) map FillNullCommand.tupled
 
   def eventStats[_:P]: P[EventStatsCommand] = ("eventstats" ~ fieldAndValueList ~ statsCall
-      ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map(EventStatsCommand.tupled)
+    ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map(EventStatsCommand.tupled)
 
   def streamStats[_:P]: P[StreamStatsCommand] = ("streamstats" ~ commandOptions ~ statsCall
     ~ (W("by") ~ fieldList).?.map(fields => fields.getOrElse(Seq()))).map {
@@ -250,12 +251,12 @@ object SplParser {
   }.rep(1)
 
   def dedup[_:P]: P[DedupCommand] = (
-      "dedup" ~ int.? ~ commandOptions ~ dedupFieldRep
-              ~ ("sortby" ~ (("+"|"-").!.? ~~ field).rep(1)).?) map {
+    "dedup" ~ int.? ~ commandOptions ~ dedupFieldRep
+      ~ ("sortby" ~ (("+"|"-").!.? ~~ field).rep(1)).?) map {
     case (limit, kv, fields, sortByQuery) =>
       val sortByCommand = sortByQuery match {
         case Some(query) => SortCommand(query)
-        case _ => SortCommand(Seq((Some("+"), spl.Field("_no"))))
+        case _ => SortCommand(Seq((Some("+"), Field("_no"))))
       }
       DedupCommand(
         numResults = limit.getOrElse(IntValue(1)).value,
@@ -297,7 +298,7 @@ object SplParser {
   }
 
   def mvcombine[_:P]: P[MvCombineCommand] = ("mvcombine" ~ ("delim" ~ "=" ~ doubleQuoted).?
-                                                         ~ field) map MvCombineCommand.tupled
+    ~ field) map MvCombineCommand.tupled
 
   def mvexpand[_:P]: P[MvExpandCommand] = ("mvexpand" ~ field ~ ("limit" ~ "=" ~ int).?) map {
     case (field, None) => MvExpandCommand(field, None)
@@ -338,34 +339,34 @@ object SplParser {
       )
   }
 
-  def command[_:P]: P[Command] = (stats | table
-                                        | where
-                                        | lookup
-                                        | collect
-                                        | convert
-                                        | eval
-                                        | head
-                                        | fields
-                                        | sort
-                                        | rex
-                                        | rename
-                                        | _regex
-                                        | join
-                                        | _return
-                                        | fillNull
-                                        | eventStats
-                                        | streamStats
-                                        | dedup
-                                        | inputLookup
-                                        | format
-                                        | mvcombine
-                                        | mvexpand
-                                        | bin
-                                        | makeResults
-                                        | addTotals
-                                        | impliedSearch)
+  def command[_:P]: P[Command] = (stats
+    | table
+    | where
+    | lookup
+    | collect
+    | convert
+    | eval
+    | head
+    | fields
+    | sort
+    | rex
+    | rename
+    | _regex
+    | join
+    | _return
+    | fillNull
+    | eventStats
+    | streamStats
+    | dedup
+    | inputLookup
+    | format
+    | mvcombine
+    | mvexpand
+    | bin
+    | makeResults
+    | addTotals
+    | impliedSearch)
 
   def subSearch[_:P]: P[Pipeline] = "[".? ~ (command rep(sep="|")) ~ "]".? map Pipeline
   def pipeline[_:P]: P[Pipeline] = (command rep(sep="|")) ~ End map Pipeline
 }
-
