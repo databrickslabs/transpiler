@@ -662,6 +662,17 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("tstats count(timestamp) AS c where index=fake by gender") {
+    executes("tstats count(timestamp) AS c where index=fake by gender | sort gender",
+      """+------+---+
+        ||gender|c  |
+        |+------+---+
+        ||F     |9  |
+        ||M     |11 |
+        |+------+---+
+        |""".stripMargin)
+  }
+
   test("streamstats count") {
     executes("index=fake | eval _time=timestamp | streamstats count(_time) AS n | " +
       "eval cat=if(n < 4, \"A\",\"B\") | table _time cat n " +

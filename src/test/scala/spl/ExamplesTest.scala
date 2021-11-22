@@ -260,9 +260,17 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |  F.col('splunk_server_group')),
         |['id'], 'inner'))
         |""".stripMargin, generatedCode, "Code does not match")
-     spark.conf.set("spl.field._time", "_time")
-     spark.conf.set("spl.field._raw", "_raw")
-     spark.conf.set("spl.index", "main")
+    spark.conf.set("spl.field._time", "_time")
+    spark.conf.set("spl.field._raw", "_raw")
+    spark.conf.set("spl.index", "main")
+  }
+
+  test("tstats sum(n) AS sumN WHERE index=main BY host, date") {
+    generates("tstats sum(n) AS sumN WHERE index=main BY host, date",
+      """(spark.table('main')
+        |.groupBy(F.col('host'), F.col('date'))
+        |.agg(F.sum(F.col('n')).alias('sumN')))
+        |""".stripMargin)
   }
 
   test("in_range=if(cidrmatch('10.0.0.0/24', src_ip), 1, 0)") {
