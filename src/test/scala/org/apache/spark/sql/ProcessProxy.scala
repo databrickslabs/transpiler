@@ -103,7 +103,7 @@ trait ProcessProxy extends Logging {
     file
   }
 
-  private def readableAssert(expected: String, actual: String, caption: String): Unit =
+  def readableAssert(expected: String, actual: String, caption: String): Unit =
     if (actual != expected) {
       Assertions.fail(s"""FAILURE: $caption
         |${sideBySide(actual, expected).mkString("\n")}

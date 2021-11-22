@@ -565,17 +565,13 @@ object SplToCatalyst extends Logging {
     case ast.Binary(left, ast.NotEquals, ast.Wildcard(pattern)) =>
       Not(like(ctx, left, pattern))
     case ast.Binary(ast.Field("earliest"), ast.Equals, expr) =>
-      val timeColumn = "_time"
-      GreaterThanOrEqual(UnresolvedAttribute(timeColumn), relativeTime(expr))
+      GreaterThanOrEqual(UnresolvedAttribute(ctx.timeFieldName), relativeTime(expr))
     case ast.Binary(ast.Field("_index_earliest"), ast.Equals, expr) =>
-      val timeColumn = "_time"
-      GreaterThanOrEqual(UnresolvedAttribute(timeColumn), relativeTime(expr))
+      GreaterThanOrEqual(UnresolvedAttribute(ctx.timeFieldName), relativeTime(expr))
     case ast.Binary(ast.Field("latest"), ast.Equals, expr) =>
-      val timeColumn = "_time"
-      LessThanOrEqual(UnresolvedAttribute(timeColumn), relativeTime(expr))
+      LessThanOrEqual(UnresolvedAttribute(ctx.timeFieldName), relativeTime(expr))
     case ast.Binary(ast.Field("_index_latest"), ast.Equals, expr) =>
-      val timeColumn = "_time"
-      LessThanOrEqual(UnresolvedAttribute(timeColumn), relativeTime(expr))
+      LessThanOrEqual(UnresolvedAttribute(ctx.timeFieldName), relativeTime(expr))
     case ast.Binary(left, symbol, right) => symbol match {
       case straight: ast.Straight => straight match {
         case relational: ast.Relational => relational match {
@@ -840,8 +836,8 @@ object SplToCatalyst extends Logging {
               withColumn(ctx,
                 withColumn(ctx,
                   Range(0, mr.count, 1, numSlices=None),
-                  "_raw", Literal(null)),
-                "_time", CurrentTimestamp()),
+                  ctx.rawFieldName, Literal(null)),
+                ctx.timeFieldName, CurrentTimestamp()),
               "host", Literal(null)),
             "source", Literal(null)),
           "sourcetype", Literal(null)),
@@ -850,12 +846,12 @@ object SplToCatalyst extends Logging {
 
     if (!mr.annotate) {
       Project(Seq(
-        UnresolvedAttribute("_time")
+        UnresolvedAttribute(ctx.timeFieldName)
       ), genPlan)
     } else {
       Project(Seq(
-        UnresolvedAttribute("_raw"),
-        UnresolvedAttribute("_time"),
+        UnresolvedAttribute(ctx.rawFieldName),
+        UnresolvedAttribute(ctx.timeFieldName),
         UnresolvedAttribute("host"),
         UnresolvedAttribute("source"),
         UnresolvedAttribute("sourcetype"),

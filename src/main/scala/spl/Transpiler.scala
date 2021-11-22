@@ -18,24 +18,34 @@ object Transpiler {
     }
 
   /** Converts SPL AST to Databricks Runtime internal Logical Execution Plan */
-  private def logicalPlan(search: String, logicalContext: LogicalContext = new LogicalContext()): LogicalPlan = {
+  private def logicalPlan(search: String, logicalContext: LogicalContext = new LogicalContext()): LogicalPlan =
     SplToCatalyst.pipeline(logicalContext, parsePipeline(search))
-  }
 
   /** Executes SPL query on Databricks Runtime */
-  def toDataFrame(spark: SparkSession, search: String): DataFrame = {
-    WrappedDataset.ofRows(spark, logicalPlan(search, new LogicalContext(
-      // TODO: make indexName, timeFieldName, rawFieldName configurable through Spark config
-      // TODO: introduce callback for column renames, probably with a simple rule framework
-      analyzePlan = (table: LogicalPlan) => {
-        val queryExecution = spark.sessionState.executePlan(table)
-        queryExecution.assertAnalyzed()
-        queryExecution.analyzed.output
-      }
-    )))
-  }
+  def toDataFrame(spark: SparkSession, search: String): DataFrame =
+    WrappedDataset.ofRows(spark, logicalPlan(search, configuredLogicalContext(spark)))
+
+  private def configuredLogicalContext(spark: SparkSession) = new LogicalContext(
+    // TODO: introduce callback for column renames, probably with a simple rule framework
+    analyzePlan = (table: LogicalPlan) => {
+      val queryExecution = spark.sessionState.executePlan(table)
+      queryExecution.assertAnalyzed()
+      queryExecution.analyzed.output
+    },
+    indexName = spark.conf.get("spl.index", "main"),
+    timeFieldName = spark.conf.get("spl.field._time", "_time"),
+    rawFieldName = spark.conf.get("spl.field._raw", "_raw"),
+  )
+
   /** Generates PySpark code out of SPL search */
   def toPython(search: String): String = {
     "(" + PythonGenerator.fromPlan(GeneratorContext(), logicalPlan(search)) + ")\n"
+  }
+
+  /** Generates PySpark code out of SPL search */
+  def toPython(spark: SparkSession, search: String): String = {
+    "(" + PythonGenerator.fromPlan(GeneratorContext(
+      maxLineWidth = spark.conf.get("spl.generator.lineWidth", "120").toInt
+    ), logicalPlan(search, configuredLogicalContext(spark))) + ")\n"
   }
 }
