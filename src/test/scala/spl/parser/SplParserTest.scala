@@ -1,7 +1,8 @@
-package spl
+package spl.parser
 
 class SplParserTest extends ParserSuite {
-  import spl.SplParser._
+  import spl.parser.SplParser._
+  import spl.ast._
 
   test("false") {
     p(bool(_), Bool(false))
@@ -749,14 +750,14 @@ class SplParserTest extends ParserSuite {
     p(dedup(_), DedupCommand(
       10,
       Seq(
-        spl.Field("host"),
-        spl.Field("ip"),
-        spl.Field("port")
+        Field("host"),
+        Field("ip"),
+        Field("port")
       ),
       keepEvents = true,
       keepEmpty = false,
       consecutive = true,
-      SortCommand(Seq((Some("+"), spl.Field("_no"))))
+      SortCommand(Seq((Some("+"), Field("_no"))))
     ))
   }
 
@@ -764,9 +765,9 @@ class SplParserTest extends ParserSuite {
     p(dedup(_), DedupCommand(
       10,
       Seq(
-        spl.Field("host"),
-        spl.Field("ip"),
-        spl.Field("port")
+        Field("host"),
+        Field("ip"),
+        Field("port")
       ),
       keepEvents = true,
       keepEmpty = false,
@@ -875,7 +876,7 @@ class SplParserTest extends ParserSuite {
   }
 
   test("addtotals row=t col=f fieldname=num_total num_1 num_2") {
-    p(command(_), spl.AddTotals(
+    p(command(_), AddTotals(
       fields = Seq(Field("num_1"), Field("num_2")),
       row = true,
       col = false,

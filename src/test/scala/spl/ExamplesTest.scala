@@ -1,5 +1,6 @@
-package org.apache.spark.sql
+package spl
 
+import org.apache.spark.sql.ProcessProxy
 import org.scalatest.funsuite.AnyFunSuite
 
 class ExamplesTest extends AnyFunSuite with ProcessProxy {
@@ -167,21 +168,21 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("dedup 10 host") {
     generates("dedup 10 host",
       """(spark.table('main')
-        |# Error in dedup: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.DedupCommand due to empty context output)
+        |# Error in dedup: spl.catalyst.EmptyContextOutput: Unable to tanslate spl.ast.DedupCommand due to empty context output)
         |""".stripMargin)
   }
 
   test("format maxresults=10") {
     generates("format maxresults=10",
       """(spark.table('main')
-        |# Error in format: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.FormatCommand due to empty context output)
+        |# Error in format: spl.catalyst.EmptyContextOutput: Unable to tanslate spl.ast.FormatCommand due to empty context output)
         |""".stripMargin)
   }
 
   test("mvcombine host") {
     generates("mvcombine host",
       """(spark.table('main')
-        |# Error in mvcombine: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.MvCombineCommand due to empty context output)
+        |# Error in mvcombine: spl.catalyst.EmptyContextOutput: Unable to tanslate spl.ast.MvCombineCommand due to empty context output)
         |""".stripMargin)
   }
 
@@ -204,5 +205,33 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
       """(spark.table('main')
         |.withColumn('num_total', (F.when(F.col('num_woman').cast('double').isNotNull(), F.col('num_woman')).otherwise(F.lit(0.0)) + F.when(F.col('num_man').cast('double').isNotNull(), F.col('num_man')).otherwise(F.lit(0.0)))))
         |""".stripMargin)
+  }
+
+  test("custom configs") {
+    spark.conf.set("spl.field._time", "ts")
+    spark.conf.set("spl.field._raw", "json")
+    spark.conf.set("spl.index", "custom_table")
+    spark.range(10).createTempView("custom_table")
+    val generatedCode = Transpiler.toPython(spark, "foo > 3 | join type=inner id [makeresults count=10 annotate=t]")
+    readableAssert(
+      """(spark.table('custom_table')
+        |.where((F.col('foo') > F.lit(3)))
+        |.join(spark.range(0, 10, 1)
+        |.withColumn('json', F.lit(None))
+        |.withColumn('ts', F.current_timestamp())
+        |.withColumn('host', F.lit(None))
+        |.withColumn('source', F.lit(None))
+        |.withColumn('sourcetype', F.lit(None))
+        |.withColumn('splunk_server', F.lit('local'))
+        |.withColumn('splunk_server_group', F.lit(None))
+        |.select(F.col('json'),
+        |  F.col('ts'),
+        |  F.col('host'),
+        |  F.col('source'),
+        |  F.col('sourcetype'),
+        |  F.col('splunk_server'),
+        |  F.col('splunk_server_group')),
+        |['id'], 'inner'))
+        |""".stripMargin, generatedCode, "Code does not match")
   }
 }

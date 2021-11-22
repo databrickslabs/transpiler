@@ -1,4 +1,4 @@
-package spl
+package spl.ast
 
 import fastparse._
 

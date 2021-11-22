@@ -8,6 +8,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.util.sideBySide
 import org.apache.spark.util.Utils
 import org.scalatest.Assertions
+import spl.Transpiler
 
 import scala.sys.process.{Process, ProcessLogger}
 
@@ -102,7 +103,7 @@ trait ProcessProxy extends Logging {
     file
   }
 
-  private def readableAssert(expected: String, actual: String, caption: String): Unit =
+  def readableAssert(expected: String, actual: String, caption: String): Unit =
     if (actual != expected) {
       Assertions.fail(s"""FAILURE: $caption
         |${sideBySide(actual, expected).mkString("\n")}

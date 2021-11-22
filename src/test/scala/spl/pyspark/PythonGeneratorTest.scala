@@ -1,10 +1,11 @@
-package org.apache.spark.sql
+package spl.pyspark
 
+import org.apache.spark.sql.FillNullShim
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.expressions.{Alias, _}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, CollectList, Complete, Count, Max}
-import org.apache.spark.sql.catalyst.plans.{LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.catalyst.plans.{LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.util.sideBySide
 import org.apache.spark.sql.types.DoubleType
 import org.scalactic.source.Position
@@ -79,13 +80,13 @@ class PythonGeneratorTest extends AnyFunSuite {
 
   test(".orderBy(F.col('a').cast('double').asc())") {
     g(Sort(Seq(
-      SortOrder(Cast(Column("a").expr, DoubleType), Ascending)
+      SortOrder(Cast(UnresolvedAttribute("a"), DoubleType), Ascending)
     ), global = true, src))
   }
 
   test(".groupBy('host')\n.agg(F.count().alias('count'))") {
     g(Aggregate(
-      Seq(Column("host").named),
+      Seq(UnresolvedAttribute("host")),
       Seq(Alias(Count(Seq()),
         "count")()),
       src))
@@ -105,7 +106,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       Project(
         Seq(Alias(
           RegExpExtract(
-            Column("event_type").expr,
+            UnresolvedAttribute("event_type"),
             Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
             Literal(1)), "from")()), src)
     )
@@ -117,11 +118,11 @@ class PythonGeneratorTest extends AnyFunSuite {
       Project(
         Seq(
           Alias(RegExpExtract(
-            Column("event_type").expr,
+            UnresolvedAttribute("event_type"),
             Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
             Literal(1)), "from")(),
           Alias(RegExpExtract(
-            Column("event_type").expr,
+            UnresolvedAttribute("event_type"),
             Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
             Literal(2)), "to")()
         ), src),
@@ -143,7 +144,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       Project(
         Seq(
           UnresolvedRegex("^(?!event_type).*", None, caseSensitive = false),
-          Alias(Column("event_type").expr, "testRenamed")()
+          Alias(UnresolvedAttribute("event_type"), "testRenamed")()
         ), src)
     )
   }
