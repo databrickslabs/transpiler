@@ -233,5 +233,8 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |  F.col('splunk_server_group')),
         |['id'], 'inner'))
         |""".stripMargin, generatedCode, "Code does not match")
+     spark.conf.set("spl.field._time", "_time")
+     spark.conf.set("spl.field._raw", "_raw")
+     spark.conf.set("spl.index", "main")
   }
 }
