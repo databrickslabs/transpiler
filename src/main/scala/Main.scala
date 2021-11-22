@@ -1,4 +1,4 @@
-import org.apache.spark.sql.Transpiler
+import spl.Transpiler
 
 object Main extends App {
   try {

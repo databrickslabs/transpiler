@@ -1,14 +1,14 @@
-package spl
+package spl.parser
 
 import fastparse.internal.Instrument
 import org.apache.spark.sql.catalyst.util.sideBySide
-import org.scalatest.{Assertions, Outcome}
 import org.scalatest.concurrent.TimeLimitedTests
 import org.scalatest.concurrent.TimeLimits.failAfter
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
+import org.scalatest.{Assertions, Outcome}
 
 import scala.collection.mutable
 

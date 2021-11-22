@@ -1,4 +1,6 @@
-package org.apache.spark.sql
+package spl.pyspark
+
+import org.apache.spark.sql.FillNullShim
 
 import scala.util.matching.Regex
 import org.apache.spark.unsafe.types.UTF8String
@@ -8,14 +10,10 @@ import org.apache.spark.sql.catalyst.plans.UsingJoin
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.util.IntervalUtils
 import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.types.{
-  BooleanType,
-  DoubleType,
-  IntegerType,
-  NullType,
-  StringType}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, NullType, StringType}
+import spl.catalyst.UnknownPlanShim
 
-private case class GeneratorContext(maxLineWidth: Int = 120)
+case class GeneratorContext(maxLineWidth: Int = 120)
 
 object PythonGenerator {
   private val pattern: Regex = "((?<![\\\\])['])".r

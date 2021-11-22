@@ -1,4 +1,4 @@
-package spl
+package spl.ast
 
 import org.apache.commons.net.util.SubnetUtils
 
@@ -43,10 +43,10 @@ case class CommandOptions(options: Seq[FC]) {
     getIntOption(key).getOrElse(default)
 
   def getStringOption(key: String): Option[String] = inner.get(key) map {
-      case Field(v) => v
-      case StrValue(v) => v
-      case other: Constant => throwIAE(s"not a string: $other")
-    }
+    case Field(v) => v
+    case StrValue(v) => v
+    case other: Constant => throwIAE(s"not a string: $other")
+  }
 
   def getString(key: String, default: String): String =
     getStringOption(key).getOrElse(default)
@@ -210,6 +210,6 @@ case class BinCommand(field: FieldOrAlias,
                       // (earliest | latest | <time-specifier>) Align the bin times to something
                       // other than base UTC time (epoch 0).
                       alignTime: Option[String] = None
-) extends Command
+                     ) extends Command
 
 case class Pipeline(commands: Seq[Command])
