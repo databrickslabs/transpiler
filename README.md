@@ -49,7 +49,7 @@ Secondary batch of commands:
 
 | Command/Feature | Parser | Catalyst | Codegen |
 | ---: | :---: | :---: | :---: |
-| tstats |  |  |  |
+| tstats | ✅ | ✅ | ✅ |
 | chart |  |  |  |
 | timechart |  |  |  |
 | export |  |  |  |
