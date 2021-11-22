@@ -206,4 +206,32 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.withColumn('num_total', (F.when(F.col('num_woman').cast('double').isNotNull(), F.col('num_woman')).otherwise(F.lit(0.0)) + F.when(F.col('num_man').cast('double').isNotNull(), F.col('num_man')).otherwise(F.lit(0.0)))))
         |""".stripMargin)
   }
+
+  test("custom configs") {
+    spark.conf.set("spl.field._time", "ts")
+    spark.conf.set("spl.field._raw", "json")
+    spark.conf.set("spl.index", "custom_table")
+    spark.range(10).createTempView("custom_table")
+    val generatedCode = Transpiler.toPython(spark, "foo > 3 | join type=inner id [makeresults count=10 annotate=t]")
+    readableAssert(
+      """(spark.table('custom_table')
+        |.where((F.col('foo') > F.lit(3)))
+        |.join(spark.range(0, 10, 1)
+        |.withColumn('json', F.lit(None))
+        |.withColumn('ts', F.current_timestamp())
+        |.withColumn('host', F.lit(None))
+        |.withColumn('source', F.lit(None))
+        |.withColumn('sourcetype', F.lit(None))
+        |.withColumn('splunk_server', F.lit('local'))
+        |.withColumn('splunk_server_group', F.lit(None))
+        |.select(F.col('json'),
+        |  F.col('ts'),
+        |  F.col('host'),
+        |  F.col('source'),
+        |  F.col('sourcetype'),
+        |  F.col('splunk_server'),
+        |  F.col('splunk_server_group')),
+        |['id'], 'inner'))
+        |""".stripMargin, generatedCode, "Code does not match")
+  }
 }

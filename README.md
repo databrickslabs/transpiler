@@ -39,20 +39,20 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | fillnull | ✅ | ✅ | ✅ |
 | eventstats | ✅ | ✅ | ✅ |
 | dedup | ✅ | ✅ | ✅ |
+| makeresults | ✅ | ✅ | ✅ |
+| mvexpand | ✅ | ✅ | ✅ |
+| streamstats | ✅ | ✅ | ✅ |
+| addtotals | ✅ | ✅ | ✅ |
 
 Secondary batch of commands:
 
 | Command/Feature | Parser | Catalyst | Codegen |
 | ---: | :---: | :---: | :---: |
-| makeresults | ✅ | ✅ | ✅ |
 | tstats |  |  |  |
-| mvexpand | ✅ | ✅ | ✅ |
 | chart |  |  |  |
 | timechart |  |  |  |
 | export |  |  |  |
-| streamstats | ✅ | ✅ | ✅ |
 | geom |  |  |  |
-| addtotals | ✅ | ✅ | ✅ |
 | foreach |  |  |  |
 
  
@@ -82,11 +82,22 @@ Secondary batch of commands:
 | len() | ✅ |
 | count() | ✅ |
 
+## Overriding `_time`, `_raw` and index names
+
+Your Delta Lake may have other column names containing timestamps and raw records, so you can override those by 
+setting the following spark conf values from code or cluster config:
+
+```python
+spark.conf.set("spl.field._time", "ts")
+spark.conf.set("spl.field._raw", "json")
+spark.conf.set("spl.index", "custom_table")
+```
+
 ## Developing 
 
 Parsers are implemented using [fastparse](https://github.com/com-lihaoyi/fastparse) (MIT)
 
-Quick installation on Databricks: `mvn -DskipTests=true package && databricks --profile=demo fs cp target/spark-spl-0.2.jar dbfs:/tmp/spark-spl.jar --overwrite`
+Quick installation on Databricks: `mvn -DskipTests=true package && databricks --profile=demo fs cp target/spark-spl-0.3.jar dbfs:/tmp/spark-spl.jar --overwrite`
 
 If you want to use `TERM()` function, you have to enable Spark extension:
 
