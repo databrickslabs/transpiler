@@ -168,9 +168,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Project(
                     Seq(Alias(
-                        If(
-                            EqualTo(UnresolvedAttribute("a"), Literal("b")),
-                            Literal(1),
+                        CaseWhen(
+                            Seq((EqualTo(UnresolvedAttribute("a"), Literal("b")), Literal(1))),
                             Literal(0)
                         ),
                         "a_eq_b"
@@ -461,9 +460,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Project(
                     Seq(Alias(
-                        If(
-                            GreaterThan(UnresolvedAttribute("x"),Literal(0)),
-                            UnresolvedAttribute("x"),
+                        CaseWhen(
+                            Seq((GreaterThan(UnresolvedAttribute("x"), Literal(0)), UnresolvedAttribute("x"))),
                             Literal(null)
                         ),
                         "x_no_neg"
@@ -489,15 +487,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Project(
                     Seq(Alias(
-                        If(
-                            IsNotNull(UnresolvedAttribute("x")),
-                            Literal("yes"),
-                            Literal("no")
-                        ),
-                        "x_not_null"
-                    )()
-                    )
-                    , tree)
+                        CaseWhen(Seq(
+                            (IsNotNull(UnresolvedAttribute("x")), Literal("yes"))),
+                            Literal("no")),
+                        "x_not_null")()
+                    ), tree)
         )
     }
 
@@ -1198,6 +1192,61 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     3600000000L,
                     0), "time_bin")()
             ), tree)))
+    }
+
+    test("makeresults count=10 annotate=t splunk_server_group=group0") {
+        check(spl.MakeResults(
+            count = 10,
+            annotate = true,
+            splunkServer = "local",
+            splunkServerGroup = "group0"),
+        (_, tree) =>
+            Project(Seq(
+                UnresolvedAttribute("_raw"),
+                UnresolvedAttribute("_time"),
+                UnresolvedAttribute("host"),
+                UnresolvedAttribute("source"),
+                UnresolvedAttribute("sourcetype"),
+                UnresolvedAttribute("splunk_server"),
+                UnresolvedAttribute("splunk_server_group")),
+                Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")(),
+                    Alias(Literal(null), "source")(),
+                    Alias(Literal(null), "sourcetype")(),
+                    Alias(Literal("local"), "splunk_server")(),
+                    Alias(Literal("group0"), "splunk_server_group")(),
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")(),
+                    Alias(Literal(null), "source")(),
+                    Alias(Literal(null), "sourcetype")(),
+                    Alias(Literal("local"), "splunk_server")()
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")(),
+                    Alias(Literal(null), "source")(),
+                    Alias(Literal(null), "sourcetype")()
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")(),
+                    Alias(Literal(null), "source")()
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                    Alias(Literal(null), "host")()
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                    Alias(CurrentTimestamp(), "_time")(),
+                ), Project(Seq(
+                    Alias(Literal(null), "_raw")(),
+                ), Range(0, 10, 1, None))))))))
+            )
+        )
     }
 
     private def check(command: spl.Command,

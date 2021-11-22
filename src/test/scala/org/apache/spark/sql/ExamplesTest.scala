@@ -1,0 +1,201 @@
+package org.apache.spark.sql
+
+import org.scalatest.funsuite.AnyFunSuite
+
+class ExamplesTest extends AnyFunSuite with ProcessProxy {
+  test("thing") {
+    generates("n>2 | stats count() by valid",
+      """(spark.table('main')
+        |.where((F.col('n') > F.lit(2)))
+        |.groupBy('valid')
+        |.agg(F.count(F.lit(1)).alias('count')))
+        |""".stripMargin)
+  }
+
+  test("stats sum test w/ groupBy") {
+    generates("n>2 | stats sum(n) by valid",
+      """(spark.table('main')
+        |.where((F.col('n') > F.lit(2)))
+        |.groupBy('valid')
+        |.agg(F.sum(F.col('n')).alias('sum')))
+        |""".stripMargin)
+  }
+
+  test("stats sum test w/o groupBy") {
+    generates("n>2 | stats sum(n)",
+      """(spark.table('main')
+        |.where((F.col('n') > F.lit(2)))
+        |.groupBy()
+        |.agg(F.sum(F.col('n')).alias('sum')))
+        |""".stripMargin)
+  }
+
+  test("stats sum test w/o groupBy, w/ AS stmt") {
+    generates("n>2 | stats sum(n) AS total_sum",
+      """(spark.table('main')
+        |.where((F.col('n') > F.lit(2)))
+        |.groupBy()
+        |.agg(F.sum(F.col('n')).alias('total_sum')))
+        |""".stripMargin)
+  }
+
+  test("stats values(d) as set") {
+    generates("stats values(d) as set",
+      """(spark.table('main')
+        |.groupBy()
+        |.agg(F.collect_set(F.col('d')).alias('set')))
+        |""".stripMargin)
+  }
+
+  test("stats latest(d) as latest") {
+    generates("stats latest(d) as latest",
+      """(spark.table('main')
+        |.orderBy(F.col('_time').asc())
+        |.groupBy()
+        |.agg(F.last(F.col('d'), True).alias('latest')))
+        |""".stripMargin)
+  }
+
+  test("stats earliest(d) as earliest") {
+    generates("stats earliest(d) as earliest",
+      """(spark.table('main')
+        |.orderBy(F.col('_time').asc())
+        |.groupBy()
+        |.agg(F.first(F.col('d'), True).alias('earliest')))
+        |""".stripMargin)
+  }
+
+  test("eval n_large=if(n > 3, 1, 0)") {
+    generates("eval n_large=if(n > 3, 1, 0)",
+      """(spark.table('main')
+        |.withColumn('n_large', F.when((F.col('n') > F.lit(3)), F.lit(1)).otherwise(F.lit(0))))
+        |""".stripMargin)
+  }
+
+  test("eval coalesced=coalesce(b,c)") {
+    generates("index=main | eval coalesced=coalesce(b,c)",
+      """(spark.table('main')
+        |.withColumn('coalesced', F.expr('coalesce(`b`, `c`)')))
+        |""".stripMargin)
+  }
+
+  test("bin span") {
+    generates("bin span=5m n",
+      """(spark.table('main')
+        |.withColumn('n', F.window(F.col('n'), '5 minutes'))
+        |.withColumn('n', F.col('n.start')))
+        |""".stripMargin)
+  }
+
+  test("eval count=mvcount(d)") {
+    generates("eval count=mvcount(d)",
+      """(spark.table('main')
+        |.withColumn('count', F.size(F.col('d'))))
+        |""".stripMargin)
+  }
+
+  test("eval mvsubset=mvindex(d,0,1)") {
+    generates("eval count=mvindex(d,0,1)",
+      """(spark.table('main')
+        |.withColumn('count', F.expr('slice(`d`, 1, 2)')))
+        |""".stripMargin)
+  }
+
+  test("eval mvappended=mvappend(d,d)") {
+    generates("eval mvappended=mvappend(d,d)",
+      """(spark.table('main')
+        |.withColumn('mvappended', F.concat(F.col('d'), F.col('d'))))
+        |""".stripMargin)
+  }
+
+  test("count=mvcount(d)") {
+    generates("eval count=mvcount(d)",
+      """(spark.table('main')
+        |.withColumn('count', F.size(F.col('d'))))
+        |""".stripMargin)
+  }
+
+  test("mvfiltered=mvfilter(d > 3)") {
+    generates("eval mvfiltered=mvfilter(d > 3)",
+      """(spark.table('main')
+        |.withColumn('mvfiltered', F.filter(F.col('d'), lambda d: (d > F.lit(3)))))
+        |""".stripMargin)
+  }
+
+  test("date=strftime(_time, \"%Y-%m-%d %T\")") {
+    generates("eval date=strftime(_time, \"%Y-%m-%d %T\")",
+      """(spark.table('main')
+        |.withColumn('date', F.date_format(F.col('_time'), 'yyyy-MM-dd HH:mm:ss')))
+        |""".stripMargin)
+  }
+
+  test("min=min(n, 100)") {
+    generates("eval min=min(n, 100)",
+      """(spark.table('main')
+        |.withColumn('min', F.least(F.col('n'), F.lit(100))))
+        |""".stripMargin)
+  }
+
+  test("max=max(n, 0)") {
+    generates("eval max=max(n, 0)",
+      """(spark.table('main')
+        |.withColumn('max', F.greatest(F.col('n'), F.lit(0))))
+        |""".stripMargin)
+  }
+
+  test("rounded=round(42.003, 0)") {
+    generates("eval rounded=round(42.003, 0)",
+      """(spark.table('main')
+        |.withColumn('rounded', F.round(F.lit(42.003), 0)))
+        |""".stripMargin)
+  }
+
+  test("sub=substr(a, 3, 5)") {
+    generates("eval sub=substr(a, 3, 5)",
+      """(spark.table('main')
+        |.withColumn('sub', F.substring(F.col('a'), 3, 5)))
+        |""".stripMargin)
+  }
+
+  test("lenA=len(a)") {
+    generates("eval lenA=len(a)",
+      """(spark.table('main')
+        |.withColumn('lenA', F.length(F.col('a'))))
+        |""".stripMargin)
+  }
+
+  test("dedup 10 host") {
+    generates("dedup 10 host",
+      """(spark.table('main')
+        |# Error in dedup: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.DedupCommand due to empty context output)
+        |""".stripMargin)
+  }
+
+  test("format maxresults=10") {
+    generates("format maxresults=10",
+      """(spark.table('main')
+        |# Error in format: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.FormatCommand due to empty context output)
+        |""".stripMargin)
+  }
+
+  test("mvcombine host") {
+    generates("mvcombine host",
+      """(spark.table('main')
+        |# Error in mvcombine: org.apache.spark.sql.EmptyContextOutput: Unable to tanslate spl.MvCombineCommand due to empty context output)
+        |""".stripMargin)
+  }
+
+  test("makeresults count=10") {
+    generates("makeresults count=10",
+      """(spark.range(0, 10, 1)
+        |.withColumn('_raw', F.lit(None))
+        |.withColumn('_time', F.current_timestamp())
+        |.withColumn('host', F.lit(None))
+        |.withColumn('source', F.lit(None))
+        |.withColumn('sourcetype', F.lit(None))
+        |.withColumn('splunk_server', F.lit('local'))
+        |.withColumn('splunk_server_group', F.lit(None))
+        |.select('_time'))
+        |""".stripMargin)
+  }
+}

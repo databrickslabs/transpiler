@@ -857,4 +857,20 @@ class SplParserTest extends ParserSuite {
       Some(20),
       Some("latest")))
   }
+
+  test("makeresults") {
+    p(command(_), MakeResults(
+      count = 1,
+      annotate = false,
+      splunkServer = "local",
+      splunkServerGroup = null))
+  }
+
+  test("makeresults count=10 annotate=t splunk_server_group=group0") {
+    p(command(_), MakeResults(
+      count = 10,
+      annotate = true,
+      splunkServer = "local",
+      splunkServerGroup = "group0"))
+  }
 }
