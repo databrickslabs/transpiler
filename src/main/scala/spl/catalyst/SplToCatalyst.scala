@@ -4,7 +4,7 @@ import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.control.NonFatal
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{FillNullShim, Term}
+import org.apache.spark.sql.{CidrMatch, FillNullShim, Term}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types.{DateType, DoubleType, StringType}
@@ -140,6 +140,10 @@ object SplToCatalyst extends Logging {
       val branches = Seq((attrOrExpr(ctx, call.args.head), attrOrExpr(ctx, call.args(1))))
       val elseValue = Some(attrOrExpr(ctx, call.args(2)))
       CaseWhen(branches, elseValue)
+    case "cidrmatch" =>
+      val cidr = attrOrExpr(ctx, call.args.head)
+      val ip = attrOrExpr(ctx, call.args(1))
+      CidrMatch(cidr, ip)
     case "ctime" =>
       val field = attr(call.args.head)
       Alias(Cast(field, DateType), field.name)()
@@ -626,6 +630,7 @@ object SplToCatalyst extends Logging {
     case ast.StrValue(value) => Literal.create(value)
     case ast.IntValue(value) => Literal.create(value)
     case ast.DoubleValue(value) => Literal.create(value)
+    case ast.IPv4CIDR(value) => Literal.create(value)
     case _ => throw new ConversionFailure(s"constant $constant")
   }
 

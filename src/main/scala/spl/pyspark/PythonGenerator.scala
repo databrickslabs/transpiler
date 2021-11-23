@@ -1,6 +1,6 @@
 package spl.pyspark
 
-import org.apache.spark.sql.FillNullShim
+import org.apache.spark.sql.{CidrMatch, FillNullShim}
 
 import scala.util.matching.Regex
 import org.apache.spark.unsafe.types.UTF8String
@@ -284,6 +284,8 @@ object PythonGenerator {
       s"${expressionCode(child)}.isNull()"
     case CurrentTimestamp() =>
       s"F.current_timestamp()"
+    case CidrMatch(cidr, ip) =>
+      "F.expr(" + "\"" + s"cidr_match(${expression(cidr)}, ${expression(ip)})" + "\")"
     case _ =>
       s"F.expr(${q(expr.sql)})"
   }

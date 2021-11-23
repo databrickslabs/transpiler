@@ -689,6 +689,17 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("if(cidrmatch(\"10.0.0.0/16\", ipAddress) ") {
+    executes("index = fake | eval in_range=if(cidrmatch(10.0.0.0/16, ipAddress), \"yes\", \"no\") | fields +id, ipAddress, in_range",
+      """+---+------+----------------------+--------------+-------+
+        ||id |gender|email                 |ipAddress     |country|
+        |+---+------+----------------------+--------------+-------+
+        ||11 |M     |sflewetta@linkedin.com|129.89.191.159|Tunisia|
+        ||12 |M     |gstureb@nsw.gov.au    |108.79.235.21 |Russia |
+        |+---+------+----------------------+--------------+-------+
+        |""".stripMargin)
+  }
+
   test("format maxresults=2") {
     // scalastyle:off
     executes("index=fake | fields +id, gender, email | format maxresults=2",
