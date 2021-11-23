@@ -808,11 +808,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
-    test("cidrmatch(cidr,\"10.0.0.42\")") {
+    test("cidrmatch(\"10.0.0.0/24\",\"10.0.0.42\")") {
         check(ast.SearchCommand(
             ast.Call("if", Seq(
                 ast.Call("cidrmatch", Seq(
-                    ast.Field("cidr"),
+                    ast.IPv4CIDR("10.0.0.0/24"),
                     ast.StrValue("10.0.0.42")
                 )),
                 ast.StrValue("yes"),
@@ -822,10 +822,28 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Filter(
                     CaseWhen(
                         Seq((
-                          CidrMatch(UnresolvedAttribute("cidr"), Literal("10.0.0.42")),
+                          CidrMatch(Literal("10.0.0.0/24"), Literal("10.0.0.42")),
                           Literal("yes")
                         )),
                         Some(Literal("no"))
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("src_ip = 10.0.0.0/24") {
+        check(ast.SearchCommand(
+            ast.Binary(
+                ast.Field("src_ip"),
+                ast.Equals,
+                ast.IPv4CIDR("10.0.0.0/24")
+            )),
+            (_, tree) => {
+                Filter(
+                    CidrMatch(
+                        Literal("10.0.0.0/24"),
+                        UnresolvedAttribute("src_ip")
                     ),
                     tree)
             }
