@@ -16,7 +16,8 @@ case class IntValue(value: Int) extends Constant
 case class DoubleValue(value: Double) extends Constant
 case class StrValue(value: String) extends Constant
 case class TimeSpan(value: Int, scale: String) extends SplSpan
-case class SnapTime(span: Option[TimeSpan], snap: String, snapOffset: Option[TimeSpan]) extends Constant
+case class SnapTime(span: Option[TimeSpan], snap: String,
+                    snapOffset: Option[TimeSpan]) extends Constant
 case class Field(value: String) extends Constant with FieldLike with FieldOrAlias
 case class Wildcard(value: String) extends Constant with FieldLike
 case class IPv4CIDR(value: String) extends Constant {
@@ -84,7 +85,7 @@ sealed trait Command
 
 case class SearchCommand(expr: Expr) extends Command
 
-case class EvalCommand(fields: Seq[(Field,Expr)]) extends Command
+case class EvalCommand(fields: Seq[(Field, Expr)]) extends Command
 
 case class FieldConversion(func: String, field: Field, alias: Option[Field])
 
@@ -92,12 +93,13 @@ case class ConvertCommand(timeformat: Option[String], convs: Seq[FieldConversion
 
 case class LookupOutput(kv: String, fields: Seq[FieldLike])
 
-case class LookupCommand(dataset: String, fields: Seq[FieldLike], output: Option[LookupOutput]) extends Command {
+case class LookupCommand(dataset: String, fields: Seq[FieldLike],
+                         output: Option[LookupOutput]) extends Command {
   /** Does this lookup command have any aliases from the right side of the join? */
   def hasOutput: Boolean = output.isDefined
 }
 
-case class CollectCommand(args: Map[String,String], fields: Seq[Field]) extends Command
+case class CollectCommand(args: Map[String, String], fields: Seq[Field]) extends Command
 
 case class WhereCommand(expr: Expr) extends Command
 
@@ -139,48 +141,32 @@ case class ReturnCommand(count: IntValue, fields: Seq[FieldOrAlias]) extends Com
 // TODO: Option[Seq[Value]] -> Seq[Value] = Seq()
 case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) extends Command
 
-case class EventStatsCommand(params: Map[String, String], funcs: Seq[Expr], by: Seq[Field] = Seq()) extends Command
+case class EventStatsCommand(params: Map[String, String], funcs: Seq[Expr],
+                             by: Seq[Field] = Seq()) extends Command
 
-case class StreamStatsCommand(funcs: Seq[Expr],
-                              by: Seq[Field] = Seq(),
-                              current: Boolean = true,
+case class StreamStatsCommand(funcs: Seq[Expr], by: Seq[Field] = Seq(), current: Boolean = true,
                               window: Int = 0) extends Command
 
-case class DedupCommand(numResults: Int,
-                        fields: Seq[Field],
-                        keepEvents: Boolean,
-                        keepEmpty: Boolean,
-                        consecutive: Boolean,
+case class DedupCommand(numResults: Int, fields: Seq[Field], keepEvents: Boolean,
+                        keepEmpty: Boolean, consecutive: Boolean,
                         sortBy: SortCommand) extends Command
 
-case class InputLookup(append: Boolean,
-                       strict: Boolean,
-                       start: Int,
-                       max: Int,
-                       tableName: String,
+case class InputLookup(append: Boolean, strict: Boolean, start: Int, max: Int, tableName: String,
                        where: Option[Expr]) extends Command
 
-case class FormatArgs(rowPrefix: String,
-                      colPrefix: String,
-                      colSep: String,
-                      colEnd: String,
-                      rowSep: String,
-                      rowEnd: String)
+case class FormatArgs(rowPrefix: String, colPrefix: String, colSep: String, colEnd: String,
+                      rowSep: String, rowEnd: String)
 
-case class FormatCommand(mvSep: String,
-                         maxResults: Int,
-                         rowPrefix: String,
-                         colPrefix: String,
-                         colSep: String,
-                         colEnd: String,
-                         rowSep: String,
+case class FormatCommand(mvSep: String, maxResults: Int, rowPrefix: String, colPrefix: String,
+                         colSep: String, colEnd: String, rowSep: String,
                          rowEnd: String) extends Command
 
 case class MvCombineCommand(delim: Option[String], field: Field) extends Command
 
 case class MvExpandCommand(field: Field, limit: Option[Int]) extends Command
 
-case class MakeResults(count: Int, annotate: Boolean, splunkServer: String, splunkServerGroup: String) extends Command
+case class MakeResults(count: Int, annotate: Boolean, splunkServer: String,
+                       splunkServerGroup: String) extends Command
 
 case class AddTotals(fields: Seq[Field],
                      row: Boolean,
@@ -189,27 +175,9 @@ case class AddTotals(fields: Seq[Field],
                      labelField: String,
                      label: String) extends Command
 
-case class BinCommand(field: FieldOrAlias,
-                      // Sets the size of each bin, using a span length based on time or logarithm-based span.
-                      span: Option[SplSpan] = None,
-                      // Specifies the smallest span granularity to use automatically inferring span from the data time range.
-                      minSpan: Option[SplSpan] = None,
-                      // Sets the maximum number of bins to discretize into.
-                      bins: Option[Int] = None,
-                      // Sets the minimum and maximum extents for numerical bins. The data in the field
-                      // is analyzed and the beginning and ending values are determined. The start and
-                      // end arguments are used when a span value is not specified. You can use the start
-                      // or end arguments only to expand the range, not to shorten the range. For example,
-                      // if the field represents seconds the values are from 0-59. If you specify a span
-                      // of 10, then the bins are calculated in increments of 10. The bins are 0-9, 10-19,
-                      // 20-29, and so forth. If you do not specify a span, but specify end=1000, the bins
-                      // are calculated based on the actual beginning value and 1000 as the end value.
-                      //If you set end=10 and the values are >10, the end argument has no effect.
-                      start: Option[Int] = None,
-                      end: Option[Int] = None,
-                      // (earliest | latest | <time-specifier>) Align the bin times to something
-                      // other than base UTC time (epoch 0).
-                      alignTime: Option[String] = None
-                     ) extends Command
+case class BinCommand(field: FieldOrAlias, span: Option[SplSpan] = None,
+                      minSpan: Option[SplSpan] = None, bins: Option[Int] = None,
+                      start: Option[Int] = None, end: Option[Int] = None,
+                      alignTime: Option[String] = None) extends Command
 
 case class Pipeline(commands: Seq[Command])

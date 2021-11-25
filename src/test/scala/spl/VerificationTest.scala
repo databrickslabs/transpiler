@@ -8,6 +8,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfterAll {
 
+  // scalastyle:off
   val fakeData = Seq(
     FakeData(1, "M", "jcraisford0@imdb.com", "109.177.141.88", Seq("G+", "F+"), "China", "maestro", 6304276470412087L, true, Timestamp.valueOf("2021-11-05 21:20:32"), """Mon Mar 19 20:16:27 2018 Info: Bounced: DCID 8413617 MID 19338947 From: <twraggsx@phpbb.com> To: <vstovin2l@tripadvisor.com> RID 0 - 5.4.7 - Delivery expired (message too old) ("000", ["timeout"])"""),
     FakeData(2, "M", null, null, Seq("C+"), "China", "jcb", 3538391327116529L, false, Timestamp.valueOf("2021-11-05 21:21:32"), """Mon Mar 19 20:16:27 2018 Info: Bounced: DCID 8413617 MID 19338947 From: <kquipp1q@newyorker.com> To: <kannakin13@ameblo.jp> RID 0 - 5.4.7 - Delivery expired (message too old) ("000", ["timeout"])"""),
@@ -30,6 +31,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     FakeData(19, "F", "bkillfordi@cisco.com", "147.204.95.224", Seq("D+", "G+"), "China", "jcb", 3579944029135021L, false, Timestamp.valueOf("2021-11-05 21:38:32"), """Mon Mar 19 20:16:27 2018 Info: Bounced: DCID 8413617 MID 19338947 From: <emitrovict@storify.com> To: <freeson2m@indiatimes.com> RID 0 - 5.4.7 - Delivery expired (message too old) ("000", ["timeout"])"""),
     FakeData(20, "M", "ehartoppj@istockphoto.com", null, Seq("G+"), "Kuwait", "diners-club-carte-blanche", 30388454305015L, false, Timestamp.valueOf("2021-11-05 21:39:32"), """Mon Mar 19 20:16:27 2018 Info: Bounced: DCID 8413617 MID 19338947 From: <bdilland1@sohu.com> To: <inannetti25@flavors.me> RID 0 - 5.4.7 - Delivery expired (message too old) ("000", ["timeout"])""")
   )
+  // scalastyle:on
 
   val fakeDataForJoin = Seq(
     FakeDataForJoin(1, "Ping Pong"),
@@ -77,7 +79,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("mvcount(array)") {
-    executes("index=fake | eval array_count=mvcount(array) | where array_count=1 | fields + id, gender, email, array, array_count",
+    executes("index=fake | eval array_count=mvcount(array) | where array_count=1 " +
+      "| fields + id, gender, email, array, array_count",
       """+---+------+-------------------------+-----+-----------+
         ||id |gender|email                    |array|array_count|
         |+---+------+-------------------------+-----+-----------+
@@ -119,8 +122,9 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("mvcount(mvfilter(len(array) > 2)))") {
-    executes("index=fake | eval test = mvcount(mvfilter(len(array) = 2)) | eval original_count = mvcount(array) " +
-             "| where tonumber(original_count) > tonumber(test) | fields + array, original_count, test",
+    executes("index=fake | eval test = mvcount(mvfilter(len(array) = 2)) " +
+      "| eval original_count = mvcount(array) " +
+      "| where tonumber(original_count) > tonumber(test) | fields + array, original_count, test",
       """+--------------+--------------+----+
         ||array         |original_count|test|
         |+--------------+--------------+----+
@@ -134,7 +138,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
 
 
   test("id > len(email) - 10") {
-    executes("index=fake | eval email_len = len(email) | id > len(email) - 10 | fields + id, email, email_len",
+    executes("index=fake | eval email_len = len(email) | id > len(email) - 10 " +
+      "| fields + id, email, email_len",
       """+---+-------------------------+---------+
         ||id |email                    |email_len|
         |+---+-------------------------+---------+
@@ -236,6 +241,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\"") {
+    // scalastyle:off
     executes("index=fake | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields +_raw, from, to",
       """+------------------------------+------------------------------+------------------------------+
         ||                          _raw|                          from|                            to|
@@ -262,6 +268,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||Mon Mar 19 20:16:27 2018 In...|            bdilland1@sohu.com|        inannetti25@flavors.me|
         |+------------------------------+------------------------------+------------------------------+
         |""".stripMargin, truncate = 30)
+    // scalastyle:on
   }
 
   test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw") {
@@ -322,8 +329,10 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin, truncate = 30)
   }
 
-  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields +from, to | rename from AS emailFrom, to AS emailTo") {
-    executes("index=fake | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields +from, to | rename from AS emailFrom, to AS emailTo",
+  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields +from, to " +
+    "| rename from AS emailFrom, to AS emailTo") {
+    executes("index=fake | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" " +
+      "| fields +from, to | rename from AS emailFrom, to AS emailTo",
       """+------------------------------+------------------------------+
         ||                     emailFrom|                       emailTo|
         |+------------------------------+------------------------------+
@@ -351,8 +360,10 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin, truncate = 30)
   }
 
-  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | return 4 emailFrom=from emailTo=to") {
-    executes("index=fake | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw | return 4 emailFrom=from emailTo=to",
+  test("rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" | fields - _raw " +
+    "| return 4 emailFrom=from emailTo=to") {
+    executes("index=fake | rex \"From: <(?<from>.*)> To: <(?<to>.*)>\" " +
+      "| fields - _raw | return 4 emailFrom=from emailTo=to",
       """+----------------------+-------------------------+
         ||             emailFrom|                  emailTo|
         |+----------------------+-------------------------+
@@ -365,7 +376,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("join type=inner id [search index=fake_for_join]") {
-    executes("index=fake | join type=inner id [search index=fake_for_join] | fields +id, email, sport",
+    executes("index=fake | join type=inner id [search index=fake_for_join] " +
+      "| fields +id, email, sport",
     """|+---+-------------------------+---------+
         ||id |email                    |sport    |
         |+---+-------------------------+---------+
@@ -384,7 +396,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("join type=inner id [search index=fake_for_join] | fields +id, email, sport") {
-    executes("index=fake | join type=left id [search index=fake_for_join] | fields +id, email, sport",
+    executes("index=fake | join type=left id [search index=fake_for_join] " +
+      "| fields +id, email, sport",
       """+---+--------------------------+---------+
         ||id |email                     |sport    |
         |+---+--------------------------+---------+
@@ -529,7 +542,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("fillnull value=NA a c n valid") {
-    executes("index=fake | fields +id, email, gender, ipAddress | fillnull value=NA email gender",
+    executes("index=fake | fields +id, email, gender, ipAddress " +
+      "| fillnull value=NA email gender",
       """+---+--------------------------+------+---------------+
         ||id |email                     |gender|ipAddress      |
         |+---+--------------------------+------+---------------+
@@ -558,7 +572,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("eventstats max(n) AS max_n, min(n) by gender") {
-    executes("index=fake | eval n = len(email) | fields +id, email, gender, n | eventstats max(n) AS max_n, min(n) by gender",
+    executes("index=fake | eval n = len(email) | fields +id, email, gender, n " +
+      "| eventstats max(n) AS max_n, min(n) by gender",
       """+---+--------------------------+------+----+-----+------+
         ||id |email                     |gender|n   |max_n|min(n)|
         |+---+--------------------------+------+----+-----+------+
@@ -588,8 +603,9 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
 
   test("streamstats count") {
     executes("index=fake | eval _time=timestamp | streamstats count(_time) AS n | " +
-      "eval cat=if(n < 4, \"A\",\"B\") | table _time cat n | " +
-      "streamstats max(n) AS max_n, min(n) by cat | streamstats current=false window=2 min(n) AS min_n_lag",
+      "eval cat=if(n < 4, \"A\",\"B\") | table _time cat n " +
+        "| streamstats max(n) AS max_n, min(n) by cat " +
+        "| streamstats current=false window=2 min(n) AS min_n_lag",
       """+-------------------+---+---+-----+------+---------+
         ||_time              |cat|n  |max_n|min(n)|min_n_lag|
         |+-------------------+---+---+-----+------+---------+
@@ -618,7 +634,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("id > 10 | eval min=min(id,10), max=max(id,15)") {
-    executes("index=fake | id > 10 | eval min=min(id,15), max=max(id,15) | fields + id, min, max",
+    executes("index=fake | id > 10 | eval min=min(id,15), max=max(id,15) " +
+      "| fields + id, min, max",
       """+---+---+---+
         ||id |min|max|
         |+---+---+---+
@@ -637,7 +654,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("dedup 1 gender static") {
-    executes("index=fake | eval static=10 | fields + gender, static | dedup 1 gender static",
+    executes("index=fake | eval static=10 | fields + gender, static " +
+      "| dedup 1 gender static",
       """+------+------+
         ||gender|static|
         |+------+------+
@@ -648,7 +666,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("inputlookup fake where id < 3") {
-    executes("inputlookup fake where id < 3 | fields +id, gender, email, ipAddress, country",
+    executes("inputlookup fake where id < 3 " +
+      "| fields +id, gender, email, ipAddress, country",
       """+---+------+--------------------+--------------+-------+
         ||id |gender|email               |ipAddress     |country|
         |+---+------+--------------------+--------------+-------+
@@ -659,7 +678,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("inputlookup max=2 fake where id > 10") {
-    executes("inputlookup max=2 fake where id > 10 | fields +id, gender, email, ipAddress, country",
+    executes("inputlookup max=2 fake where id > 10 " +
+      "| fields +id, gender, email, ipAddress, country",
       """+---+------+----------------------+--------------+-------+
         ||id |gender|email                 |ipAddress     |country|
         |+---+------+----------------------+--------------+-------+
@@ -670,6 +690,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("format maxresults=2") {
+    // scalastyle:off
     executes("index=fake | fields +id, gender, email | format maxresults=2",
       """+----------------------------------------------------------------------------------------------------+
         ||search                                                                                              |
@@ -677,9 +698,11 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||((id=1) AND (gender=M) AND (email=jcraisford0@imdb.com)) OR ((id=2) AND (gender=M) AND (email=null))|
         |+----------------------------------------------------------------------------------------------------+
         |""".stripMargin)
+    // scalastyle:on
   }
 
   test("format maxresults=2 \"[\" \"[\" \"&&\" \"]\" \"||\" \"]\"") {
+    // scalastyle:off
     executes("index=fake | fields +id, gender, email | format maxresults=2 \"[\" \"[\" \"&&\" \"]\" \"||\" \"]\"",
       """+------------------------------------------------------------------------------------------------+
         ||search                                                                                          |
@@ -687,6 +710,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||[[id=1] && [gender=M] && [email=jcraisford0@imdb.com]] || [[id=2] && [gender=M] && [email=null]]|
         |+------------------------------------------------------------------------------------------------+
         |""".stripMargin)
+    // scalastyle:on
   }
 
   test("mvcombine country") {
@@ -753,7 +777,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("makeresults") {
-    executes("makeresults count=5 annotate=t splunk_server_group=\"group1\" | fields - _time",
+    executes("makeresults count=5 annotate=t splunk_server_group=\"group1\" " +
+      "| fields - _time",
       """+----+----+------+----------+-------------+-------------------+
         ||_raw|host|source|sourcetype|splunk_server|splunk_server_group|
         |+----+----+------+----------+-------------+-------------------+
@@ -767,7 +792,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("addtotals") {
-    executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum | addtotals fieldname=my_total",
+    executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum " +
+      "| addtotals fieldname=my_total",
       """+---+------+----------+--------+
         ||id |gender|anotherNum|my_total|
         |+---+------+----------+--------+

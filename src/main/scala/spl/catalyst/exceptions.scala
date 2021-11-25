@@ -11,11 +11,7 @@ case class EmptyContextOutput(command: Command) extends Exception {
     s"Unable to tanslate ${command.getClass.getCanonicalName} due to empty context output"
 }
 
-/**
- * Partial generation is better than none: Catch-all error
- * to help continuing the process. Results in comment for
- * generated code or AnalysisException for executed plan.
- */
+/** Catch-all error node to continue transpiling as much as possible */
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
   override def output: Seq[Attribute] = child.output
   override def children: Seq[LogicalPlan] = child.children

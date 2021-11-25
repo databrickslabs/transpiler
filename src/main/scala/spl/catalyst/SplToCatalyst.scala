@@ -30,7 +30,8 @@ object SplToCatalyst extends Logging {
             Filter(expression(ctx, expr), tree)
 
           case inputLookup: ast.InputLookup =>
-            // TODO implement `append`, `strict` and `start` options, also inputlookup should accept file name
+            // TODO implement `append`, `strict` and `start` options,
+            //  also inputlookup should accept file name
             applyInputLookup(ctx, tree, inputLookup)
 
           case ast.WhereCommand(expr) =>
@@ -201,7 +202,7 @@ object SplToCatalyst extends Logging {
       val expr = call.args.head
       val fields = extractFields(expr)
       if (fields.size > 1) {
-        throw new ConversionFailure(s"Expression references more than one field. Fields: ${fields}")
+        throw new ConversionFailure(s"Expression references more than one field: $fields")
       }
       mvFilter(ctx, fields.head, expr)
     case "null" =>
@@ -254,8 +255,9 @@ object SplToCatalyst extends Logging {
 
   private def mvFilter(ctx: LogicalContext, field: ast.Field, expr: ast.Expr) = {
     val filterArgument = attrOrExpr(ctx, field)
-    val lambdaCtx = ctx.copy(splFieldToAttr = (field: ast.Field) => UnresolvedNamedLambdaVariable(Seq(field.value)))
-    val filterFunction = LambdaFunction(expression(lambdaCtx, expr), Seq(UnresolvedNamedLambdaVariable(Seq(field.value))))
+    val lctx = ctx.copy(splFieldToAttr = field => UnresolvedNamedLambdaVariable(Seq(field.value)))
+    val filterFunction = LambdaFunction(expression(lctx, expr), Seq(
+      UnresolvedNamedLambdaVariable(Seq(field.value))))
     ArrayFilter(filterArgument, filterFunction)
   }
 
@@ -309,7 +311,7 @@ object SplToCatalyst extends Logging {
       case _ => Seq()
     }
     if (indices.size > 1) {
-      throw new ConversionFailure(s"Only one index allowed, but got: ${indices.mkString(",")}")
+      throw new ConversionFailure(s"Only one index allowed: ${indices.mkString(",")}")
     }
     val tableName = indices.headOption.getOrElse(ctx.indexName)
     val table = UnresolvedRelation(Seq(tableName)).asInstanceOf[LogicalPlan]
@@ -351,16 +353,18 @@ object SplToCatalyst extends Logging {
       }), None, JoinHint.NONE)
   }
 
-  private def fieldOrAlias(ctx: LogicalContext, field: ast.FieldLike): NamedExpression = field match {
-    case ast.Field(fieldName) =>
-      UnresolvedAttribute(fieldName)
-    case ast.AliasedField(ast.Field(fieldName), alias) =>
-      Alias(UnresolvedAttribute(fieldName), alias)()
-    case ast.Alias(expr, alias) =>
-      Alias(expression(ctx, expr), alias)()
-  }
+  private def fieldOrAlias(ctx: LogicalContext, field: ast.FieldLike): NamedExpression =
+    field match {
+      case ast.Field(fieldName) =>
+        UnresolvedAttribute(fieldName)
+      case ast.AliasedField(ast.Field(fieldName), alias) =>
+        Alias(UnresolvedAttribute(fieldName), alias)()
+      case ast.Alias(expr, alias) =>
+        Alias(expression(ctx, expr), alias)()
+    }
 
-  private def aggregate(ctx: LogicalContext, by: Seq[ast.Field], funcs: Seq[ast.Expr], tree: LogicalPlan) = {
+  private def aggregate(ctx: LogicalContext, by: Seq[ast.Field], funcs: Seq[ast.Expr],
+                        tree: LogicalPlan) = {
     // TODO: select _time
     val groupBy = by.map(attr)
     val agg = aggregates(ctx, funcs)
@@ -368,7 +372,6 @@ object SplToCatalyst extends Logging {
       SortOrder(UnresolvedAttribute(ctx.timeFieldName), Ascending, NullsFirst, Seq.empty)
     ), global = true, tree) else tree
     //TODO: hm... ctx.output = Seq()
-
     // new Aggregate(groupBy, agg, child) translates to
     // INVOKESPECIAL Aggregate.<init> (LSeq;Seq;LLogicalPlan;)V
     // and it's not filling in default arguments
@@ -380,13 +383,14 @@ object SplToCatalyst extends Logging {
   // make one of the most important SPL commands to be runnable in Databricks Runtime.
   private def newAggregateIgnoringABI(groupingExpressions: Seq[Expression],
                                       aggregateExpressions: Seq[NamedExpression],
-                                      child: LogicalPlan): Aggregate = aggregateConstructorArgCountABI match {
-    case 3 => Aggregate(groupingExpressions, aggregateExpressions, child)
-    case 4 => aggregateConstructorReflection
-      .newInstance(groupingExpressions, aggregateExpressions, child, None)
-      .asInstanceOf[Aggregate]
-    case _ => throw new ConversionFailure(s"Incompatible runtime detected")
-  }
+                                      child: LogicalPlan): Aggregate =
+    aggregateConstructorArgCountABI match {
+      case 3 => Aggregate(groupingExpressions, aggregateExpressions, child)
+      case 4 => aggregateConstructorReflection
+        .newInstance(groupingExpressions, aggregateExpressions, child, None)
+        .asInstanceOf[Aggregate]
+      case _ => throw new ConversionFailure(s"Incompatible runtime detected")
+    }
 
   private val (aggregateConstructorReflection, aggregateConstructorArgCountABI) = {
     val firstConstructor = classOf[Aggregate].getConstructors.head
@@ -399,14 +403,15 @@ object SplToCatalyst extends Logging {
     case _ => ""
   } exists(Seq("earliest", "latest").contains(_))
 
-  private def aggregates(ctx: LogicalContext, funcs: Seq[ast.Expr]): Seq[NamedExpression] = funcs.map {
-    case call: ast.Call =>
-      Alias(function(ctx, call), call.name)()
-    case ast.Alias(call: ast.Call, name) =>
-      Alias(function(ctx, call), name)()
-    case x: ast.Expr =>
-      throw new NotImplementedError(s"cannot convert aggregate: $x")
-  }
+  private def aggregates(ctx: LogicalContext, funcs: Seq[ast.Expr]): Seq[NamedExpression] =
+    funcs.map {
+      case call: ast.Call =>
+        Alias(function(ctx, call), call.name)()
+      case ast.Alias(call: ast.Call, name) =>
+        Alias(function(ctx, call), name)()
+      case x: ast.Expr =>
+        throw new NotImplementedError(s"cannot convert aggregate: $x")
+    }
 
   private def withColumn(ctx: LogicalContext,
                          tree: LogicalPlan,
@@ -473,12 +478,11 @@ object SplToCatalyst extends Logging {
       case ast.Field(value) => UnresolvedAttribute(value)
     }, tree)
 
-  private def applyRename(ctx: LogicalContext, tree: LogicalPlan, aliases: Seq[ast.Alias]): LogicalPlan = {
+  private def applyRename(ctx: LogicalContext, tree: LogicalPlan,
+                          aliases: Seq[ast.Alias]): LogicalPlan = {
     val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
-
     if (ctx.output.isEmpty)
       ctx.output = aliases.map(alias => attr(alias.expr))
-
     Project(ctx.output.map(item =>
       aliasMap.get(item.name) match {
         case Some(alias) => Alias(attr(alias.expr), alias.name)()
@@ -490,7 +494,7 @@ object SplToCatalyst extends Logging {
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Commontimeformatvariables
   // https://spark.apache.org/docs/latest/sql-ref-datetime-pattern.html
   // and fix whatever is missing...
-  // UNSUPPORTED: %V and %U (week of the year), %w (weekday as decimal), %k, %s	(unix epoch), and others
+  // UNSUPPORTED: %V and %U (week of the year), %w (weekday as decimal), %k, %s	(unix epoch), ...
   private val stftimeToDateFormat = Map(
     "%Y" -> "yyyy",
     "%y" -> "yy",
@@ -575,12 +579,18 @@ object SplToCatalyst extends Logging {
     case ast.Binary(left, symbol, right) => symbol match {
       case straight: ast.Straight => straight match {
         case relational: ast.Relational => relational match {
-          case ast.LessThan => LessThan(attrOrExpr(ctx, left), expression(ctx, right))
-          case ast.GreaterThan => GreaterThan(attrOrExpr(ctx, left), expression(ctx, right))
-          case ast.GreaterEquals => GreaterThanOrEqual(attrOrExpr(ctx, left), expression(ctx, right))
-          case ast.LessEquals => LessThanOrEqual(attrOrExpr(ctx, left), expression(ctx, right))
-          case ast.Equals => EqualTo(attrOrExpr(ctx, left), expression(ctx, right))
-          case ast.NotEquals => Not(EqualTo(attrOrExpr(ctx, left), expression(ctx, right)))
+          case ast.LessThan =>
+            LessThan(attrOrExpr(ctx, left), expression(ctx, right))
+          case ast.GreaterThan =>
+            GreaterThan(attrOrExpr(ctx, left), expression(ctx, right))
+          case ast.GreaterEquals =>
+            GreaterThanOrEqual(attrOrExpr(ctx, left), expression(ctx, right))
+          case ast.LessEquals =>
+            LessThanOrEqual(attrOrExpr(ctx, left), expression(ctx, right))
+          case ast.Equals =>
+            EqualTo(attrOrExpr(ctx, left), expression(ctx, right))
+          case ast.NotEquals =>
+            Not(EqualTo(attrOrExpr(ctx, left), expression(ctx, right)))
         }
         case ast.Or => Or(expression(ctx, left), expression(ctx, right))
         case ast.And => And(expression(ctx, left), expression(ctx, right))
@@ -740,15 +750,14 @@ object SplToCatalyst extends Logging {
         withColumn(ctx, plan, name, WindowExpression(expression(ctx, expr), windowSpec))
       case (plan, expr: ast.Expr) =>
         withColumn(ctx, plan,
-          // when no name/alias is passed to the spl command, spl generates default column name based on the expression
-          // ie. `eventstats min(column) ...` will create a column named "min(column)"
+          // when no name/alias is passed to the spl command, spl generates default column name
+          // based on the expression: `eventstats min(column) ...` -> "min(column)"
           expression(ctx, expr).toString.replace("'", ""),
           WindowExpression(expression(ctx, expr), windowSpec))
     }
   }
 
   /**
-   * TODO: For sorting we need to check that the Lexicographical order in Splunk is the same in Spark
    * https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Dedup
    */
   private def getSortByWindowExpr(fields: Seq[ast.Field], cmd: ast.SortCommand): WindowExpression =
@@ -861,7 +870,8 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  private def applyMvExpand(ctx: LogicalContext, tree: LogicalPlan, field: ast.Field, limit: Option[Int]) = {
+  private def applyMvExpand(ctx: LogicalContext, tree: LogicalPlan, field: ast.Field,
+                            limit: Option[Int]) = {
     val attribute = attr(field)
     val expr = if(limit isEmpty) attribute else Slice(attribute, Literal(1), Literal(limit.get))
     val explodedAttr = Explode(expr)
@@ -893,7 +903,8 @@ object SplToCatalyst extends Logging {
     if (at.row) {
       val fieldsToSum = if (at.fields.isEmpty) ctx.output else at.fields.map(attr)
       withColumn(ctx, tree, at.fieldName, fieldsToSum.map(expr =>
-        CaseWhen(Seq((IsNotNull(Cast(expr, DoubleType)), expr)), Some(Literal(0.0))).asInstanceOf[Expression]
+        CaseWhen(Seq((IsNotNull(Cast(expr, DoubleType)), expr)),
+          Some(Literal(0.0))).asInstanceOf[Expression]
       ).reduceLeft {
         (toReturnExpr, expr) => Add(expr, toReturnExpr)
       })

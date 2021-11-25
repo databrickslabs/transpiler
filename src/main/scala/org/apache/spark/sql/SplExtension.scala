@@ -9,7 +9,7 @@ class SplExtension extends (SparkSessionExtensions => Unit) {
     extensions.injectResolutionRule(spark => new TermExpansion(spark))
     extensions.injectResolutionRule(spark => new FillNullShimExpansion(spark))
     registerTerm(extensions)
-    //registerCidrMatch(extensions)
+    // registerCidrMatch(extensions)
   }
 
   private def registerTerm(extensions: SparkSessionExtensions): Unit = {

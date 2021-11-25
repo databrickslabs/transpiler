@@ -34,10 +34,11 @@ object PythonGenerator {
           case Alias(child, name) =>
             child match {
               case UnresolvedAttribute(nameParts) =>
-                if (nameParts.length > 1)
+                if (nameParts.length > 1) {
                   s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
-                else
+                } else {
                   s"$childCode\n.withColumnRenamed(${q(nameParts.mkString("."))}, ${q(name)})"
+                }
               case _ => s"$childCode\n.withColumn(${q(name)}, ${expressionCode(child)})"
             }
           case ur: UnresolvedRegex =>
@@ -57,7 +58,9 @@ object PythonGenerator {
 
     case Sort(order, global, child) =>
       val orderBy = order.map(item => {
-        val dirStr = if (item.direction == Ascending) "asc()"  else "desc()"
+        val dirStr = if (item.direction == Ascending) {
+          "asc()"
+        } else "desc()"
         item.child match {
           case Cast(colExpr, dataType, _) =>
             s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)}).$dirStr"
@@ -93,10 +96,11 @@ object PythonGenerator {
 
     case FillNullShim(value, columns, child) =>
       val childCode = fromPlan(ctx, child)
-      if (columns.isEmpty)
+      if (columns.isEmpty) {
         s"$childCode\n.na.fill(${q(value)})"
-      else
+      } else {
         s"$childCode\n.na.fill(${q(value)}, ${toPythonList(ctx, columns.toSeq)})"
+      }
 
     case UnknownPlanShim(message, child) =>
       s"${fromPlan(ctx, child)}\n# $message"
@@ -180,9 +184,12 @@ object PythonGenerator {
       val pyBool = if (ignoreNulls.asInstanceOf[Boolean]) "True" else "False"
       s"F.first(${expressionCode(child)}, $pyBool)"
     case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
-      s"F.filter(${expressionCode(left)}, lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
+      s"F.filter(${expressionCode(left)}, " +
+        s"lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
     case CaseWhen(Seq((pred, trueVal)), falseVal) =>
-      val otherwiseStmt = if (falseVal isDefined) s".otherwise(${expressionCode(falseVal.get)})" else ""
+      val otherwiseStmt = if (falseVal isDefined) {
+        s".otherwise(${expressionCode(falseVal.get)})"
+      } else ""
       s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})$otherwiseStmt"
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
@@ -261,7 +268,8 @@ object PythonGenerator {
       s"F.struct(${namedStruct.valExprs.map(expressionCode).mkString(", ")})"
     case fs: FormatString =>
       val items = fs.children.toList
-      s"F.format_string(${q(items.head.toString())}, ${items.tail.map(expressionCode).mkString(", ")})"
+      val exprs = items.tail.map(expressionCode).mkString(", ")
+      s"F.format_string(${q(items.head.toString())}, $exprs)"
     case attr: AttributeReference =>
       s"F.col(${q(attr.name)})"
     case attr: UnresolvedAttribute =>
@@ -269,7 +277,8 @@ object PythonGenerator {
     case attr: UnresolvedNamedLambdaVariable =>
       s"${attr.name}"
     case TimeWindow(col, window, slide, _) if window == slide =>
-      val interval = IntervalUtils.stringToInterval(UTF8String.fromString(s"$window microseconds"))
+      val interval = IntervalUtils.stringToInterval(
+        UTF8String.fromString(s"$window microseconds"))
       s"F.window(${expressionCode(col)}, '$interval')"
     case Explode(child) =>
       s"F.explode(${expressionCode(child)})"
@@ -307,6 +316,7 @@ object PythonGenerator {
 
   /** Sugar for quoting strings */
   private def q(value: String) =
-    if (pattern.findAllIn(value).toList.isEmpty)
-      "'" + value + "'" else "\"" + value + "\""
+    if (pattern.findAllIn(value).toList.isEmpty) {
+      "'" + value + "'"
+    } else "\"" + value + "\""
 }

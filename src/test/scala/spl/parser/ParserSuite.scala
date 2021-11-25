@@ -35,11 +35,14 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   }
 
   case class Debugger() extends Instrument {
-    private val depthStack = mutable.Stack[(Int,Int)]()
 
     private var depth = 0
 
-    private def output(str: String) = println(str)
+    private def output(str: String): Unit = {
+      // scalastyle:off println
+      println(str)
+      // scalastyle:on println
+    }
 
     override def beforeParse(parser: String, index: Int): Unit = {
       val indent = "  " * depth
@@ -57,7 +60,7 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   private def pretty(x: Any): String = pprint.apply(x, width = 40).plainText
 
   def parses[T](input: String, parser: P[_] => P[T], result: T): Unit =
-    parse(input, parser/*, instrument=Debugger()*/) match {
+    parse(input, parser) match {
       case Parsed.Success(value, _) =>
         if (value != result) {
           Assertions.fail(s"""FAILURE: ASTs do not match

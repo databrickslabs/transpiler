@@ -18,7 +18,7 @@ class SearchesFile(is: InputStream) {
     SavedSearch(name, config.get("search"), config.get("cron_schedule"))
   }).filter(_.search != null).map(search => search.name -> search).toMap
 
-  def get(name: String) = searches.get(name)
+  def get(name: String): Option[SavedSearch] = searches.get(name)
 }
 
 case class Macro(name: String, definition: String, iseval: Boolean)
@@ -37,11 +37,11 @@ class MacrosFile(is: InputStream) {
 }
 
 case class SplunkContext(sf: SearchesFile, mf: MacrosFile) {
-  def getSearch(name: String) =
+  def getSearch(name: String): Option[String] =
     sf.get(name).map(savedSearch =>
       mf.expand(savedSearch.search))
 
-  def generatePython(name: String) = {
+  def generatePython(name: String): Option[String] = {
     getSearch(name).map(Transpiler.toPython)
   }
 }
