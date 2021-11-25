@@ -44,4 +44,17 @@ class SplExtensionTest extends AnyFunSuite {
     val rows = result.select("n").as[Int].collect()
     rows mustEqual Seq(1, 2, 5)
   }
+
+  test("cidrmatch") {
+    val spark = SparkSession.builder()
+      .withExtensions(e => new SplExtension().apply(e))
+      .master("local[1]")
+      .getOrCreate()
+
+    import org.apache.spark.sql.{functions => F}
+    val result = spark.range(5)
+      .withColumn("in_range", F.when(F.expr("cidr_match('10.0.0.0/24', '10.0.0.132')"),F.lit(1))
+      .otherwise(F.lit(0)))
+    result.show()
+  }
 }
