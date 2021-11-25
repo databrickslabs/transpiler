@@ -40,7 +40,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     g(Project(
       Seq(
         // TODO: make another case with UnresolvedAttribute here
-        Alias(Literal.create(1), "a")(),
+        Alias(Literal.create(1), "a")()
       ),
       Project(
         Seq(

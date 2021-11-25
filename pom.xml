@@ -112,7 +112,7 @@
             <plugin>
                 <groupId>org.scalastyle</groupId>
                 <artifactId>scalastyle-maven-plugin</artifactId>
-                <version>0.8.0</version>
+                <version>1.0.0</version>
                 <configuration>
                     <verbose>false</verbose>
                     <failOnViolation>true</failOnViolation>
@@ -161,6 +161,17 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
                 <version>4.5.1</version>
+                <configuration>
+                    <scalaVersion>${scala.version}</scalaVersion>
+                    <args>
+                        <arg>-unchecked</arg>
+                        <arg>-deprecation</arg>
+                        <arg>-explaintypes</arg>
+                        <arg>-feature</arg>
+                        <arg>-language:existentials</arg>
+                        <arg>-language:implicitConversions</arg>
+                    </args>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

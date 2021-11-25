@@ -104,3 +104,10 @@ If you want to use `TERM()` function, you have to enable Spark extension:
 ```conf
 spark.sql.extensions org.apache.spark.sql.SplExtension
 ```
+
+`mvn compile` should give no warnings
+
+Scalastyle complaints:
+
+* run `mvn scalastyle:check`
+* `illegal start of simple expression` - open file with `vim` and `:goto <number>`

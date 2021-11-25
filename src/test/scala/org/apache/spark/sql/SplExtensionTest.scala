@@ -26,7 +26,7 @@ class SplExtensionTest extends AnyFunSuite {
     Dummy("d", "e", "f", 2, valid = false),
     Dummy("g", "h", "i", 3, valid = true),
     Dummy("h", "g", "f", 4, valid = false),
-    Dummy("e", "d", "c", 5, valid = true),
+    Dummy("e", "d", "c", 5, valid = true)
   )
 
   test("it filters") {

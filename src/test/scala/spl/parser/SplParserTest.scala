@@ -48,7 +48,7 @@ class SplParserTest extends ParserSuite {
       Field("a"),
       Field("b"),
       Field("c"),
-      Field("d"),
+      Field("d")
     ))
   }
 

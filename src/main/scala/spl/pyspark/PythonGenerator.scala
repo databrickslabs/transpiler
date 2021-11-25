@@ -187,7 +187,7 @@ object PythonGenerator {
       s"F.filter(${expressionCode(left)}, " +
         s"lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
     case CaseWhen(Seq((pred, trueVal)), falseVal) =>
-      val otherwiseStmt = if (falseVal isDefined) {
+      val otherwiseStmt = if (falseVal.isDefined) {
         s".otherwise(${expressionCode(falseVal.get)})"
       } else ""
       s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})$otherwiseStmt"
