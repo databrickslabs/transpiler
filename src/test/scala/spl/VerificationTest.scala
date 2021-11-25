@@ -791,9 +791,9 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
-  /**
   test("cidrmatch") {
-    executes("index=fake | id < 5 | eval in_range = if(cidrmatch(\"109.177.0.0/16\", ipAddress),1,0) | fields +id, ipAddress, in_range",
+    executes("index=fake | id < 5 | eval in_range = if(cidrmatch(\"109.177.0.0/16\", ipAddress),1,0) | " +
+      "fields +id, ipAddress, in_range",
     """+---+---------------+--------+
       ||id |ipAddress      |in_range|
       |+---+---------------+--------+
@@ -804,7 +804,6 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       |+---+---------------+--------+
       |""".stripMargin)
   }
-   **/
 
   test("addtotals") {
     executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum " +

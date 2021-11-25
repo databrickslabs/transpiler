@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
-import org.apache.spark.sql.types.DoubleType
+import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.scalatest.funsuite.AnyFunSuite
 import spl.ast
 
@@ -843,7 +843,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Filter(
                     CidrMatch(
                         Literal("10.0.0.0/24"),
-                        UnresolvedAttribute("src_ip")
+                        // ToDo: Need to fix this!
+                        AttributeReference("src_ip", StringType)(ExprId(174L))
                     ),
                     tree)
             }

@@ -143,7 +143,7 @@ object SplToCatalyst extends Logging {
     case "cidrmatch" =>
       val cidr = attrOrExpr(ctx, call.args.head)
       val ip = attrOrExpr(ctx, call.args(1))
-      CidrMatch(cidr, ip)
+      callCidrMatch(ctx, cidr, ip)
     case "ctime" =>
       val field = attr(call.args.head)
       Alias(Cast(field, DateType), field.name)()
@@ -220,6 +220,17 @@ object SplToCatalyst extends Logging {
   private def assertCtxOutputNonEmpty(ctx: LogicalContext, command: ast.Command): Unit = {
     if (ctx.output.isEmpty) {
       throw EmptyContextOutput(command)
+    }
+  }
+
+  private def callCidrMatch(ctx: LogicalContext, cidr: Expression, ip: Expression): Expression = {
+    ip match {
+      case str: Literal => CidrMatch(cidr, str)
+      case attr: UnresolvedAttribute => {
+        val ipRef = ctx.output.filter(e => e.name.equals(attr.name)).headOption.getOrElse(attr)
+        CidrMatch(cidr, ipRef)
+      }
+      case _ => throw new ConversionFailure(s"ip parameter must be String or Field: ${ip.toString()}")
     }
   }
 
@@ -587,7 +598,8 @@ object SplToCatalyst extends Logging {
     case ast.Binary(ast.Field("_index_latest"), ast.Equals, expr) =>
       LessThanOrEqual(UnresolvedAttribute(ctx.timeFieldName), relativeTime(expr))
     case ast.Binary(ast.Field(ip), ast.Equals, ast.IPv4CIDR(cidr)) =>
-      CidrMatch(Literal.create(cidr), UnresolvedAttribute(ip))
+      //CidrMatch(Literal.create(cidr), UnresolvedAttribute(ip))
+      CidrMatch(Literal.create(cidr), AttributeReference(ip, StringType)())
     case ast.Binary(left, symbol, right) => symbol match {
       case straight: ast.Straight => straight match {
         case relational: ast.Relational => relational match {

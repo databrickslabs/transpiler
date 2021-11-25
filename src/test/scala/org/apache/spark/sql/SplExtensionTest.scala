@@ -53,7 +53,7 @@ class SplExtensionTest extends AnyFunSuite {
 
     import org.apache.spark.sql.{functions => F}
     val result = spark.range(5)
-      .withColumn("in_range", F.when(F.expr("cidr_match('10.0.0.0/24', '10.0.0.132')"),F.lit(1))
+      .withColumn("in_range", F.when(F.expr("cidr_match('10.0.0.0/24', id)"),F.lit(1))
       .otherwise(F.lit(0)))
     result.show()
   }
