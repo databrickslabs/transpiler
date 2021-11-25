@@ -100,7 +100,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("StatsCommand to Aggregate") {
         check(ast.StatsCommand(
-            Map(),
+            partitions = 1,
+            allNum = false,
+            delim = " ",
             Seq(ast.Call("count", Seq())),
             Seq(ast.Field("host"))),
             (_, tree) =>
@@ -118,7 +120,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("sum(connection_time)") {
         check(ast.StatsCommand(
-            Map(),
+            partitions = 1,
+            allNum = false,
+            delim = " ",
             Seq(ast.Call("sum", Seq(ast.Field("connection_time")))),
             Seq(ast.Field("host"))),
             (_, tree) =>
@@ -132,7 +136,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("StatsCommand to Deduplicate Aggregate") {
         check(ast.StatsCommand(
-            Map(),
+            partitions = 1,
+            allNum = false,
+            delim = " ",
             Seq(ast.Call("count", Seq())),
             Seq(ast.Field("host")),
             dedupSplitVals = true),
@@ -903,7 +909,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("eventstats max(colA) AS maxA by colC") {
         check(ast.EventStatsCommand(
-            Map(),
+            allNum = false,
             Seq(
                 ast.Alias(
                     ast.Call("max", Seq(ast.Field("colA"))),

@@ -173,10 +173,6 @@ object PythonGenerator {
     case b: BinaryOperator =>
       val symbol = jvmToPythonOverrides.getOrElse(b.symbol, b.symbol)
       s"(${expressionCode(b.left)} $symbol ${expressionCode(b.right)})"
-    case Size(left, _) =>
-      s"F.size(${expressionCode(left)})"
-    case Length(expr) =>
-      s"F.length(${expressionCode(expr)})"
     case Last(child, ignoreNulls) =>
       val pyBool = if (ignoreNulls.asInstanceOf[Boolean]) "True" else "False"
       s"F.last(${expressionCode(child)}, $pyBool)"
@@ -193,8 +189,6 @@ object PythonGenerator {
       s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})$otherwiseStmt"
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
-    case Alias(child, name) =>
-      s"${expressionCode(child)}.alias('$name')"
     case UnresolvedAlias(child, aliasFunc) =>
       expressionCode(child)
     case RLike(left, right) =>
@@ -220,7 +214,7 @@ object PythonGenerator {
       s"F.sum(${expressionCode(child)})"
     case Length(child) =>
       s"F.length(${expressionCode(child)})"
-    case Size(child, boolean) =>
+    case Size(child, _) =>
       s"F.size(${expressionCode(child)})"
     case Cast(colExpr, dataType, _) =>
       s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)})"
@@ -288,8 +282,6 @@ object PythonGenerator {
       s"${expressionCode(child)}.isNotNull()"
     case IsNull(child) =>
       s"${expressionCode(child)}.isNull()"
-    case UnresolvedNamedLambdaVariable(nameParts) =>
-      nameParts.mkString(", ")
     case CurrentTimestamp() =>
       s"F.current_timestamp()"
     case _ =>
