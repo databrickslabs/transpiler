@@ -7,17 +7,19 @@ import org.apache.spark.sql.types.{DoubleType, IntegerType, StringType}
   usage = "_FUNC_(cidr, ip) - Matches IP address string with the supplied CIDR string",
   since = "3.3.0")
 case class CidrMatch(cidr: Expression, ip: Expression) extends RuntimeReplaceable {
-
-  // TODO: add special handling for /8, /16, and /24 with StartsWith()
-  override def child: Expression = And(GreaterThanOrEqual(ipAddr, lowAddr), LessThanOrEqual(ipAddr, highAddr))
+  override def child: Expression = cidrMatch
   override def exprsReplaced: Seq[Expression] = Seq(cidr, ip)
   override def flatArguments: Iterator[Any] = Iterator(cidr, ip)
 
-  private def ipAddr: Add = aton(ip)
-  private def lowAddr: Add = aton(SubstringIndex(cidr, Literal.create("/"), Literal.create(1)))
-  private def highAddr: Add = Add(lowAddr, numAddr)
+  // TODO: add special handling for /8, /16, and /24 with StartsWith()
+  private def cidrMatch = And(
+    GreaterThanOrEqual(ipAddress, lowAddress),
+    LessThanOrEqual(ipAddress, highAddress))
+  private def ipAddress: Add = aton(ip)
+  private def lowAddress: Add = aton(SubstringIndex(cidr, Literal.create("/"), Literal.create(1)))
+  private def highAddress: Add = Add(lowAddress, numAddress)
 
-  private def numAddr = Subtract(
+  private def numAddress = Subtract(
     Cast(Pow(
       Literal.create(2.0),
       Subtract(

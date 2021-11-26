@@ -791,7 +791,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
-  test("cidrmatch") {
+  test("cidrmatch w/ fct call") {
     executes("index=fake | id < 5 | eval in_range = if(cidrmatch(\"109.177.0.0/16\", ipAddress),1,0) | " +
       "fields +id, ipAddress, in_range",
     """+---+---------------+--------+
@@ -802,6 +802,16 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       ||3  |165.53.105.69  |0       |
       ||4  |156.148.239.162|0       |
       |+---+---------------+--------+
+      |""".stripMargin)
+  }
+
+  test("cidrmatch w/o fct call") {
+    executes("index=fake | id < 5 | ipAddress=109.177.0.0/16 | fields +id, ipAddress",
+    """+---+--------------+
+      ||id |ipAddress     |
+      |+---+--------------+
+      ||1  |109.177.141.88|
+      |+---+--------------+
       |""".stripMargin)
   }
 

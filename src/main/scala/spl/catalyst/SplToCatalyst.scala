@@ -598,8 +598,7 @@ object SplToCatalyst extends Logging {
     case ast.Binary(ast.Field("_index_latest"), ast.Equals, expr) =>
       LessThanOrEqual(UnresolvedAttribute(ctx.timeFieldName), relativeTime(expr))
     case ast.Binary(ast.Field(ip), ast.Equals, ast.IPv4CIDR(cidr)) =>
-      //CidrMatch(Literal.create(cidr), UnresolvedAttribute(ip))
-      CidrMatch(Literal.create(cidr), AttributeReference(ip, StringType)())
+      callCidrMatch(ctx, Literal.create(cidr), UnresolvedAttribute(ip))
     case ast.Binary(left, symbol, right) => symbol match {
       case straight: ast.Straight => straight match {
         case relational: ast.Relational => relational match {

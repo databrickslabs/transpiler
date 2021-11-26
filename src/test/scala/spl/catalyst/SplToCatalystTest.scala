@@ -843,8 +843,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Filter(
                     CidrMatch(
                         Literal("10.0.0.0/24"),
-                        // ToDo: Need to fix this!
-                        AttributeReference("src_ip", StringType)(ExprId(174L))
+                        UnresolvedAttribute("src_ip")
                     ),
                     tree)
             }
