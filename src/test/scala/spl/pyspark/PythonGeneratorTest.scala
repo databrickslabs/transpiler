@@ -45,7 +45,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       Project(
         Seq(
           Alias(Literal.create(1), "a")(),
-          Alias(Literal.create(1), "b")(),
+          Alias(Literal.create(1), "b")()
         ),
         src
       ))
@@ -101,6 +101,7 @@ class PythonGeneratorTest extends AnyFunSuite {
       None, JoinHint.NONE))
   }
 
+  // scalastyle:off
   test(".withColumn('from', F.regexp_extract(F.col('event_type'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 1))") {
     g(
       Project(
@@ -125,10 +126,10 @@ class PythonGeneratorTest extends AnyFunSuite {
             UnresolvedAttribute("event_type"),
             Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
             Literal(2)), "to")()
-        ), src),
-
+        ), src)
     )
   }
+  // scalastyle:on
 
   test(".selectExpr('`^(?!event).*$`')") {
     g(
@@ -177,7 +178,8 @@ class PythonGeneratorTest extends AnyFunSuite {
 
   test(
     (".withColumn('minimum', F.max(F.col('colA')).over(" +
-      "Window.partitionBy(F.col('colB')).orderBy(F.col('_time').asc()).rowsBetween(Window.unboundedPreceding, Window.currentRow)))").stripMargin) {
+      "Window.partitionBy(F.col('colB')).orderBy(F.col('_time').asc())" +
+      ".rowsBetween(Window.unboundedPreceding, Window.currentRow)))").stripMargin) {
     g(
       Project(Seq(
         Alias(
@@ -203,10 +205,10 @@ class PythonGeneratorTest extends AnyFunSuite {
             ArrayJoin(
               AggregateExpression(
                 CollectList(
-                  FormatString((Literal("((a=%s) AND (b=%s))") +: Seq(
+                  FormatString(Literal("((a=%s) AND (b=%s))") +: Seq(
                     UnresolvedAttribute("a"),
                     UnresolvedAttribute("b")
-                  ): _*))
+                  ): _*)
                 ), Complete, isDistinct = false),
                 Literal("OR"),
                 None
@@ -217,7 +219,8 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".groupBy('ip', 'port')\n.agg(F.array_join(F.collect_list(F.col('host')), ',').alias('host'))") {
+  test(".groupBy('ip', 'port')\n.agg(" +
+    "F.array_join(F.collect_list(F.col('host')), ',').alias('host'))") {
     g(
       Aggregate(
         Seq(
@@ -236,8 +239,8 @@ class PythonGeneratorTest extends AnyFunSuite {
               ),
               Literal(","),
               None
-            ) , "host")()
-        ) , src)
+            ), "host")()
+        ), src)
     )
   }
 
@@ -263,7 +266,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     }
   }
 
-  val timeLimit: Span = 300000 millis
+  val timeLimit: Span = 300000.millis
 
   var currentTest: String = _
   override def withFixture(test: NoArgTest): Outcome = {
