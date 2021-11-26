@@ -14,24 +14,7 @@ import spl.ast._
  * @link https://docs.splunk.com/Documentation/Splunk/8.2.1/Search/Aboutsearchlanguagesyntax
  */
 object SplParser {
-  private implicit def debugLogger[R](r: R) = new {
-    def @@ (implicit ctx: P[_], name: sourcecode.Name): R = {
-      if (ctx.logDepth == -1) return r
-      val indent = "  " * ctx.logDepth
-      val rep = ctx.successValue.toString.replaceAll("ArrayBuffer", "Seq")
-      val debug = rep.substring(0, Math.min(rep.length, 128))
-      if ("()".equals(debug)) return r
-      print(s"$indent@${name.value}: ${debug}\n")
-      r
-    }
-
-    def tap(l: R => String): R = {
-      // scalastyle:off
-      println(l(r))
-      // scalastyle:on
-      r
-    }
-  }
+  private[parser] implicit def debugger[R](r: R): ParserDebug[R] = new ParserDebug[R](r)
 
   private def letter[_: P] = P( lowercase | uppercase )
   private def lowercase[_: P] = P( CharIn("a-z") )
@@ -83,18 +66,6 @@ object SplParser {
   def fieldAndConstant[_: P]: P[FC] = (token ~ "=" ~ constant) map { case (k, v) => FC(k, v) }
   def commandOptions[_: P]: P[CommandOptions] = fieldAndConstant.rep map CommandOptions
 
-  @deprecated("use commandOptions", "0.2")
-  def fieldAndValueList[_: P]: P[Map[String, String]] =
-    fieldAndValue.rep map(x => x.map(y => y.field -> y.value).toMap)
-
-  @deprecated("use commandOptions", "0.2")
-  def fieldAndBoolList[_: P]: P[Map[String, Boolean]] =
-    fieldAndBool.rep map(x => x.map(y => y.field -> y.value).toMap)
-
-  @deprecated("use commandOptions", "0.2")
-  def fieldAndBool[_: P]: P[FB] =
-    (token ~ "=" ~ bool).map { case (k, v) => FB(k, v.value)}
-
   def fieldList[_: P]: P[Seq[Field]] = field.rep(sep = ",")
   def filename[_: P]: P[String] = term
 
@@ -112,8 +83,8 @@ object SplParser {
       )
   }
 
-  def constant[_: P]: P[Constant] = (cidr | wildcard | strValue |
-      relativeTime | timeSpan | double | int | field | bool)
+  def constant[_: P]: P[Constant] = cidr | wildcard | strValue |
+      relativeTime | timeSpan | double | int | field | bool
 
   private def ALL[_: P]: P[OperatorSymbol] = (Or.P | And.P | LessThan.P | GreaterThan.P
     | GreaterEquals.P | LessEquals.P | Equals.P | NotEquals.P | InList.P | Add.P | Subtract.P
@@ -179,17 +150,17 @@ object SplParser {
       host = cmdOptions.getString("host", default = null),
       marker = cmdOptions.getString("marker", default = null),
       outputFormat = cmdOptions.getString("output_format", default = "raw"),
-      runInPreview = cmdOptions.getBoolean("run_in_preview", default = false),
+      runInPreview = cmdOptions.getBoolean("run_in_preview"),
       spool = cmdOptions.getBoolean("spool", default = true),
       source = cmdOptions.getString("source", default = null),
       sourceType = cmdOptions.getString("sourcetype", default = null),
-      testMode = cmdOptions.getBoolean("testmode", default = false)
+      testMode = cmdOptions.getBoolean("testmode")
     )
   }
 
   // lookup <lookup-dataset> (<lookup-field> [AS <event-field>] )...
   // [ (OUTPUT | OUTPUTNEW) ( <lookup-destfield> [AS <event-destfield>] )...]
-  def aliasedField[_: P]: P[Alias] = (field ~ W("AS") ~ (token|doubleQuoted) map Alias.tupled)
+  def aliasedField[_: P]: P[Alias] = field ~ W("AS") ~ (token|doubleQuoted) map Alias.tupled
   def fieldRep[_: P]: P[Seq[FieldLike]] = (aliasedField | field).filter {
     case Alias(Field(field), _) => field.toLowerCase() != "output"
     case Field(v) => v.toLowerCase != "output"
@@ -249,7 +220,7 @@ object SplParser {
       case (options, exprs, fields, dedup) =>
         StatsCommand(
           partitions = options.getInt("partitions", 1),
-          allNum = options.getBoolean("allnum", default = false),
+          allNum = options.getBoolean("allnum"),
           delim = options.getString("delim", default = " "),
           funcs = exprs,
           by = fields,
@@ -313,8 +284,8 @@ object SplParser {
       StreamStatsCommand(
         funcs,
         by,
-        options.getBoolean("current", true),
-        options.getInt("window", 0)
+        options.getBoolean("current", default = true),
+        options.getInt("window")
       )
   }
 
@@ -350,7 +321,7 @@ object SplParser {
         InputLookup(
           options.getBoolean("append"),
           options.getBoolean("strict"),
-          options.getInt("start", 0),
+          options.getInt("start"),
           options.getInt("max", 1000000000),
           tableName,
           whereOption)
@@ -404,7 +375,7 @@ object SplParser {
       )
   }
 
-  def addTotals[_: P]: P[AddTotals] = "addtotals" ~ commandOptions ~ field.rep(1).? map {
+  def cAddtotals[_: P]: P[AddTotals] = "addtotals" ~ commandOptions ~ field.rep(1).? map {
     case (options: CommandOptions, fields: Option[Seq[Field]]) =>
       AddTotals(
         fields.getOrElse(Seq.empty[Field]),
@@ -441,7 +412,7 @@ object SplParser {
     | mvexpand
     | bin
     | makeResults
-    | addTotals
+    | cAddtotals
     | impliedSearch)
 
   def subSearch[_: P]: P[Pipeline] = "[".? ~ (command rep(sep = "|")) ~ "]".? map Pipeline

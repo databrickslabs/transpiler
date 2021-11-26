@@ -34,16 +34,16 @@ This file is divided into 3 sections:
     <!--                               rules we enforce                                   -->
     <!-- ================================================================================ -->
 
-    <check level="error" class="org.scalastyle.file.FileTabChecker" enabled="true"></check>
+    <check level="error" class="org.scalastyle.file.FileTabChecker" enabled="true"/>
 
     <check level="error" class="org.scalastyle.scalariform.SpacesAfterPlusChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
     <check level="error" class="org.scalastyle.scalariform.SpacesBeforePlusChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
     <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
     <check level="error" class="org.scalastyle.file.FileLineLengthChecker" enabled="true">
         <parameters>
@@ -80,16 +80,16 @@ This file is divided into 3 sections:
     </check>
 
     <check level="error" class="org.scalastyle.scalariform.NoFinalizeChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
     <check level="error" class="org.scalastyle.scalariform.CovariantEqualsChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
     <check level="error" class="org.scalastyle.scalariform.StructuralTypeChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
     <check level="error" class="org.scalastyle.scalariform.UppercaseLChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
     <check level="error" class="org.scalastyle.scalariform.IfBraceChecker" enabled="true">
         <parameters>
@@ -99,15 +99,15 @@ This file is divided into 3 sections:
     </check>
 
     <check level="error" class="org.scalastyle.scalariform.PublicMethodsHaveTypeChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
-    <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"></check>
+    <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"/>
 
     <check customId="nonascii" level="error"
-           class="org.scalastyle.scalariform.NonASCIICharacterChecker" enabled="true"></check>
+           class="org.scalastyle.scalariform.NonASCIICharacterChecker" enabled="true"/>
 
     <check level="error" class="org.scalastyle.scalariform.SpaceAfterCommentStartChecker"
-           enabled="true"></check>
+           enabled="true"/>
 
     <check level="error" class="org.scalastyle.scalariform.EnsureSingleSpaceBeforeTokenChecker"
            enabled="true">
@@ -327,14 +327,6 @@ This file is divided into 3 sections:
         <customMessage><![CDATA[
       Single Space between ')' and `{`.
     ]]></customMessage>
-    </check>
-
-    <check customId="NoScalaDoc" level="error" class="org.scalastyle.file.RegexChecker"
-           enabled="true">
-        <parameters>
-            <parameter name="regex">(?m)^(\s*)/[*][*].*$(\r|)\n^\1 [*]</parameter>
-        </parameters>
-        <customMessage>Use Javadoc style indentation for multiline comments</customMessage>
     </check>
 
     <check customId="OmitBracesInCase" level="error" class="org.scalastyle.file.RegexChecker"

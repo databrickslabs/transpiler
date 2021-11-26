@@ -97,9 +97,9 @@ object SplToCatalyst extends Logging {
             val fieldsOpt = fields.getOrElse(Seq.empty[ast.Field]).map(_.value).toSet
             FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
 
-          case ast.EventStatsCommand(allNum, funcs, by) =>
+          case ast.EventStatsCommand(_, funcs, by) =>
             // TODO implement allnum option
-            applyEventStats(ctx, tree, allNum, funcs, by)
+            applyEventStats(ctx, tree, funcs, by)
 
           case ast.StreamStatsCommand(funcs, by, current, window) =>
             applyStreamStats(ctx, tree, funcs, by, current, window)
@@ -486,7 +486,7 @@ object SplToCatalyst extends Logging {
 
   private def applyRename(ctx: LogicalContext, tree: LogicalPlan,
                           aliases: Seq[ast.Alias]): LogicalPlan = {
-    val aliasMap = aliases.map(a => (attr(a.expr).name -> a)).toMap
+    val aliasMap = aliases.map(a => attr(a.expr).name -> a).toMap
     if (ctx.output.isEmpty) {
       ctx.output = aliases.map(alias => attr(alias.expr))
     }
@@ -721,11 +721,8 @@ object SplToCatalyst extends Logging {
     }, tree))
   }
 
-  private def applyEventStats(ctx: LogicalContext,
-                              tree: LogicalPlan,
-                              allNum: Boolean,
-                              funcs: Seq[ast.Expr],
-                              by: Seq[ast.Field] = Seq()): LogicalPlan = {
+  private def applyEventStats(ctx: LogicalContext, tree: LogicalPlan, funcs: Seq[ast.Expr],
+                              by: Seq[ast.Field]): LogicalPlan = {
     // TODO implement allnum option
     val partitionSpec = by.map(attr)
     val sortOrderSpec = sortOrder(by.map(field => (Some("+"), field)))
@@ -815,7 +812,7 @@ object SplToCatalyst extends Logging {
         ArrayJoin(
           AggregateExpression(
             CollectList(
-              FormatString((Literal(rowLevelPattern) +: ctx.output): _*)
+              FormatString(Literal(rowLevelPattern) +: ctx.output: _*)
             ), Complete, isDistinct = false
           ), Literal(s" ${fc.rowSep} "), None
         ), "search")()

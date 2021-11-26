@@ -10,12 +10,10 @@ import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{Assertions, Outcome}
 
-import scala.collection.mutable
-
 class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   import fastparse._
 
-  val timeLimit: Span = 300000 millis
+  val timeLimit: Span = 300000.millis
 
   var currentTest: String = _
   override def withFixture(test: NoArgTest): Outcome = {
@@ -77,6 +75,6 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   def fails[T](input: String, parser: P[_] => P[T], error: String): Unit =
     parse(input, parser) match {
       case Parsed.Success(value, _) => fail(s"Parser succeeded with $value")
-      case f: Parsed.Failure => f.msg mustEqual(error)
+      case f: Parsed.Failure => f.msg mustEqual error
     }
 }

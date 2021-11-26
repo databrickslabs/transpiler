@@ -29,7 +29,7 @@ object PythonGenerator {
           case _: UnresolvedAttribute =>
             val columnNames = exprs.map(_.name).map(q).mkString(", ")
             s"$childCode\n.select($columnNames)"
-          case Alias(UnresolvedAttribute(nameParts), name) if (nameParts.length == 1) =>
+          case Alias(UnresolvedAttribute(nameParts), name) if nameParts.length == 1 =>
             s"$childCode\n.withColumnRenamed(${q(nameParts.mkString("."))}, ${q(name)})"
           case Alias(child, name) =>
             child match {
@@ -150,15 +150,15 @@ object PythonGenerator {
   private def genWindowSpecCode(ws: WindowSpecDefinition) = {
     val partGenCode = ws.partitionSpec.map(expressionCode).mkString(", ")
     val orderByGenCode = ws.orderSpec.map(expressionCode).mkString(", ")
-    val windowGenCode = s"Window.partitionBy(${partGenCode}).orderBy(${orderByGenCode})"
+    val windowGenCode = s"Window.partitionBy($partGenCode).orderBy($orderByGenCode)"
     ws.frameSpecification match {
       case UnspecifiedFrame => windowGenCode
       case SpecifiedWindowFrame(frameType, lower, upper) =>
         frameType match {
           case RangeFrame =>
-            s"${windowGenCode}.rangeBetween(${expression(lower)}, ${expression(upper)})"
+            s"$windowGenCode.rangeBetween(${expression(lower)}, ${expression(upper)})"
           case RowFrame =>
-            s"${windowGenCode}.rowsBetween(${expression(lower)}, ${expression(upper)})"
+            s"$windowGenCode.rowsBetween(${expression(lower)}, ${expression(upper)})"
         }
     }
   }
@@ -193,16 +193,16 @@ object PythonGenerator {
       expressionCode(child)
     case RLike(left, right) =>
       s"${expressionCode(left)}.rlike(${expressionCode(right)})"
-    case Literal(value, t @ BooleanType) =>
+    case Literal(value, _ @ BooleanType) =>
       val pyBool = if (value.asInstanceOf[Boolean]) "True" else "False"
       s"F.lit($pyBool)"
-    case Literal(value, t @ IntegerType) =>
+    case Literal(value, _ @ IntegerType) =>
       s"F.lit($value)"
-    case Literal(value, t @ DoubleType) =>
+    case Literal(value, _ @ DoubleType) =>
       s"F.lit($value)"
-    case Literal(value, t @ StringType) =>
+    case Literal(value, _ @ StringType) =>
       s"F.lit(${q(value.toString)})"
-    case Literal(value, t @ NullType) =>
+    case Literal(_, _ @ NullType) =>
       s"F.lit(None)"
     case Alias(child, name) =>
       s"${expressionCode(child)}.alias(${q(name)})"

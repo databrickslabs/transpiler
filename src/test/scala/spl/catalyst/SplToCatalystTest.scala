@@ -44,7 +44,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     SortOrder(UnresolvedAttribute("A"), Ascending),
                     SortOrder(UnresolvedAttribute("B"), Descending),
                     SortOrder(Cast(UnresolvedAttribute("C"), DoubleType), Ascending)
-                ), global =  true, tree))
+                ), global = true, tree))
     }
 
     test("SortCommand command should generate another Sort") {
@@ -53,21 +53,17 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Sort(Seq(
                     SortOrder(UnresolvedAttribute("A"), Ascending)
-                ), global =  true, tree))
+                ), global = true, tree))
     }
 
     test("FieldsCommand should generate a Project") {
-        check(ast.FieldsCommand(
-            removeFields = false,
-            Seq(
-                ast.Field("colA"),
-                ast.Field("colB"))
-        ),
-            (_, tree) =>
-                Project(Seq(
-                    UnresolvedAttribute("colA"),
-                    UnresolvedAttribute("colB"),
-                ), tree))
+        check(ast.FieldsCommand(removeFields = false,
+            Seq(ast.Field("colA"), ast.Field("colB"))),
+        (_, tree) =>
+            Project(Seq(
+                UnresolvedAttribute("colA"),
+                UnresolvedAttribute("colB")
+            ), tree))
     }
 
     test("FieldsCommand should generate another Project 3 columns") {
@@ -81,7 +77,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Project(Seq(
                     UnresolvedAttribute("colA"),
                     UnresolvedAttribute("colB"),
-                    UnresolvedAttribute("colC"),
+                    UnresolvedAttribute("colC")
                 ), tree))
     }
 
@@ -94,7 +90,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Project(Seq(
                     UnresolvedAttribute("colA"),
-                    UnresolvedAttribute("colB"),
+                    UnresolvedAttribute("colB")
                 ), tree))
     }
 
@@ -173,17 +169,15 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 )
             )
         ),
-            (_, tree) =>
-                Project(
-                    Seq(Alias(
-                        CaseWhen(
-                            Seq((EqualTo(UnresolvedAttribute("a"), Literal("b")), Literal(1))),
-                            Literal(0)
-                        ),
-                        "a_eq_b"
-                    )()
-                    )
-                    , tree)
+        (_, tree) =>
+            Project(
+                Seq(Alias(
+                    CaseWhen(
+                        Seq((EqualTo(UnresolvedAttribute("a"), Literal("b")), Literal(1))),
+                        Literal(0)
+                    ),
+                    "a_eq_b"
+                )()), tree)
         )
     }
 
@@ -194,17 +188,14 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                   Seq(ast.Field("mvfield"))
               )
             )
-        )
-        ),
-            (_, tree) =>
-                Project(Seq(
-                    Alias(
-                        Size(UnresolvedAttribute("mvfield")),
-                        "count"
-                    )()
-                )
-                    , tree)
-        )
+        )),
+        (_, tree) =>
+            Project(Seq(
+                Alias(
+                    Size(UnresolvedAttribute("mvfield")),
+                    "count"
+                )()
+            ), tree))
     }
 
     test("EvalCommand to check mvindex function w/ stop index") {
@@ -216,15 +207,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             )
         )
         ),
-            (_, tree) =>
-                Project(Seq(
-                    Alias(
-                        Slice(UnresolvedAttribute("mvfield"), Literal(1), Literal(2)),
-                        "mvsubset"
-                    )()
-                )
-                    , tree)
-        )
+        (_, tree) =>
+            Project(Seq(
+                Alias(
+                    Slice(UnresolvedAttribute("mvfield"), Literal(1), Literal(2)),
+                    "mvsubset"
+                )()
+            ), tree))
     }
 
     test("EvalCommand to check mvindex function w/o stop index") {
@@ -234,17 +223,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                   Seq(ast.Field("mvfield"), ast.IntValue(0))
               )
             )
-        )
-        ),
-            (_, tree) =>
-                Project(Seq(
-                    Alias(
-                        Slice(UnresolvedAttribute("mvfield"), Literal(1), Literal(1)),
-                        "mvsubset"
-                    )()
-                )
-                    , tree)
-        )
+        )),
+        (_, tree) =>
+            Project(Seq(
+                Alias(
+                    Slice(UnresolvedAttribute("mvfield"), Literal(1), Literal(1)),
+                    "mvsubset")()
+            ), tree))
     }
 
     test("EvalCommand to check mvindex function w/ neg start and stop index") {
@@ -469,7 +454,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Project(
                     Seq(Alias(
                         CaseWhen(
-                            Seq((GreaterThan(UnresolvedAttribute("x"), Literal(0)), UnresolvedAttribute("x"))),
+                            Seq((GreaterThan(UnresolvedAttribute("x"), Literal(0)),
+                              UnresolvedAttribute("x"))),
                             Literal(null)
                         ),
                         "x_no_neg"
@@ -542,7 +528,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     Alias(RegExpExtract(
                         UnresolvedAttribute("colNameA"),
                         Literal("From: <(?<from>.*)> To: <(?<to>.*)>"),
-                        Literal(1)), "from")(),
+                        Literal(1)), "from")()
                 ), Project(
                     Seq(
                         UnresolvedAttribute("_raw")
@@ -559,11 +545,12 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             1,
             None,
             Some("sed"),
+            // scalastyle:off
             "s/(\\d{4}-){3}/XXXX-XXXX-XXXX-/g"),
-            (_, tree) =>
-                UnknownPlanShim(
-                    "Error in rex: scala.NotImplementedError: rex mode=sed currently not supported!",
-                    tree))
+            // scalastyle:on
+        (_, tree) => UnknownPlanShim(
+            "Error in rex: scala.NotImplementedError: rex mode=sed currently not supported!",
+            tree))
     }
 
     test("rename command should generate a Project") {
@@ -841,7 +828,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(ast.SearchCommand(
             ast.Call("round", Seq(
                 ast.Field("x"),
-                ast.IntValue(2),
+                ast.IntValue(2)
             ))),
             (_, tree) => {
                 Filter(
@@ -859,7 +846,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             ast.Call("round", Seq(
                 ast.Call("min", Seq(
                     ast.Field("x")
-                )),
+                ))
             ))),
             (_, tree) => {
                 Filter(
@@ -914,14 +901,15 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 ast.Alias(
                     ast.Call("max", Seq(ast.Field("colA"))),
                     "maxA"
-                ),
+                )
             ),
             Seq(ast.Field("colC"))
         ),
             (_, tree) => Project(Seq(
                 Alias(
                     WindowExpression(
-                        AggregateExpression(Max(UnresolvedAttribute("colA")), Complete, isDistinct = false),
+                        AggregateExpression(
+                            Max(UnresolvedAttribute("colA")), Complete, isDistinct = false),
                         WindowSpecDefinition(
                             Seq(UnresolvedAttribute("colC")),
                             Seq(SortOrder(UnresolvedAttribute("colC"), Ascending)),
@@ -937,14 +925,15 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 ast.Alias(
                     ast.Call("max", Seq(ast.Field("colA"))),
                     "maxA"
-                ),
+                )
             ),
             Seq(ast.Field("colC"))
         ),
             (_, tree) => Project(Seq(
                 Alias(
                     WindowExpression(
-                        AggregateExpression(Max(UnresolvedAttribute("colA")), Complete, isDistinct = false),
+                        AggregateExpression(Max(
+                            UnresolvedAttribute("colA")), Complete, isDistinct = false),
                         WindowSpecDefinition(
                             Seq(UnresolvedAttribute("colC")),
                             Seq(SortOrder(UnresolvedAttribute("_time"), Ascending)),
@@ -1011,7 +1000,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     Seq(
                         UnresolvedAttribute("host"),
                         UnresolvedAttribute("ip"),
-                        UnresolvedAttribute("port"),
+                        UnresolvedAttribute("port")
                     ),
                     Filter(
                         LessThanOrEqual(UnresolvedAttribute("_rn"), Literal(10)),
@@ -1076,7 +1065,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             mvSep = "||",
             maxResults = 12,
             rowPrefix = "(",
-            colPrefix =  "(",
+            colPrefix = "(",
             colSep = "AND",
             colEnd = ")",
             rowSep = "OR",
@@ -1090,10 +1079,10 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                             ArrayJoin(
                                 AggregateExpression(
                                     CollectList(
-                                        FormatString((Literal("((a=%s) AND (b=%s))") +: Seq(
+                                        FormatString(Literal("((a=%s) AND (b=%s))") +: Seq(
                                             UnresolvedAttribute("a"),
                                             UnresolvedAttribute("b")
-                                        ): _*))),
+                                        ): _*)),
                                     Complete,
                                     isDistinct = false
                                 ),
@@ -1161,7 +1150,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                                 ),
                                 Literal(","),
                                 None
-                            ) , "host")()
+                            ), "host")()
                     )
                     , tree)
             }, injectOutput = Seq(
@@ -1224,7 +1213,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         Alias(Literal(null), "source")(),
                         Alias(Literal(null), "sourcetype")(),
                         Alias(Literal("local"), "splunk_server")(),
-                        Alias(Literal("group0"), "splunk_server_group")(),
+                        Alias(Literal("group0"), "splunk_server_group")()
                     ), Project(Seq(
                         Alias(Literal(null), "_raw")(),
                         Alias(CurrentTimestamp(), "_time")(),
@@ -1249,9 +1238,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         Alias(Literal(null), "host")()
                     ), Project(Seq(
                         Alias(Literal(null), "_raw")(),
-                        Alias(CurrentTimestamp(), "_time")(),
+                        Alias(CurrentTimestamp(), "_time")()
                     ), Project(Seq(
-                        Alias(Literal(null), "_raw")(),
+                        Alias(Literal(null), "_raw")()
                     ), Range(0, 10, 1, None))))))))
                 )
         )
@@ -1271,9 +1260,13 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 UnresolvedAttribute("num_men"),
                 UnresolvedAttribute("num_women"),
                 Alias(Add(
-                    CaseWhen(Seq((IsNotNull(Cast(UnresolvedAttribute("num_women"), DoubleType)), UnresolvedAttribute("num_women"))), Literal(0.0)),
-                    CaseWhen(Seq((IsNotNull(Cast(UnresolvedAttribute("num_men"), DoubleType)), UnresolvedAttribute("num_men"))), Literal(0.0))
-                ),"num_total")()
+                    CaseWhen(Seq((
+                      IsNotNull(Cast(UnresolvedAttribute("num_women"), DoubleType)),
+                      UnresolvedAttribute("num_women"))), Literal(0.0)),
+                    CaseWhen(Seq((
+                      IsNotNull(Cast(UnresolvedAttribute("num_men"), DoubleType)),
+                      UnresolvedAttribute("num_men"))), Literal(0.0))
+                ), "num_total")()
             ), tree), injectOutput = Seq(
                 UnresolvedAttribute("num_men"),
                 UnresolvedAttribute("num_women"))
@@ -1284,7 +1277,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                       callback: (ast.Command, LogicalPlan) => LogicalPlan,
                       injectOutput: Seq[NamedExpression] = Seq()): Unit = this.synchronized {
         val pipeline = ast.Pipeline(Seq(command))
-        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(new LogicalContext(output = injectOutput), pipeline)
+        val actualPlan: LogicalPlan = SplToCatalyst.pipeline(
+            new LogicalContext(output = injectOutput), pipeline)
         val expectedPlan = pipeline.commands.foldLeft(
             UnresolvedRelation(Seq("main")).asInstanceOf[LogicalPlan]) {
             (tree, cmd) => callback(cmd, tree)

@@ -1,8 +1,19 @@
 package spl.parser
 
+
+
 class SplParserTest extends ParserSuite {
   import spl.parser.SplParser._
   import spl.ast._
+
+  test("debugging") {
+    import fastparse._
+    import fastparse.MultiLineWhitespace._
+    // this method tests debug logger, that is supposed
+    // to troubleshoot broken parsers
+    def te[_: P] = ("a" ~ token).log.@@
+    parses("a b", te(_), "b")
+  }
 
   test("false") {
     p(bool(_), Bool(false))
