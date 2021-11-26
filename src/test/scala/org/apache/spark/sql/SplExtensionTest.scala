@@ -20,22 +20,17 @@ case class FakeData(id: Int,
 case class FakeDataForJoin(id: Int, sport: String)
 
 
-class SplExtensionTest extends AnyFunSuite {
+class SplExtensionTest extends AnyFunSuite with ProcessProxy {
   val dummy = Seq(
-    Dummy("a", "b", "c", 1, valid = true),
-    Dummy("d", "e", "f", 2, valid = false),
-    Dummy("g", "h", "i", 3, valid = true),
-    Dummy("h", "g", "f", 4, valid = false),
-    Dummy("e", "d", "c", 5, valid = true)
+    Dummy("a", "b", "10.0.0.64", 1, valid = true),
+    Dummy("d", "e", "10.0.0.65", 2, valid = false),
+    Dummy("g", "h", "10.0.0.66", 3, valid = true),
+    Dummy("h", "g", "10.0.0.67", 4, valid = false),
+    Dummy("e", "d", "10.0.0.255", 5, valid = true)
   )
 
   test("it filters") {
-    val spark = SparkSession.builder()
-      .withExtensions(e => new SplExtension().apply(e))
-      .master("local[1]")
-      .getOrCreate()
     import spark.implicits._
-
     val result = spark.createDataset(dummy)
       .where("TERM('e') OR term('a')")
       .select("n")
@@ -46,15 +41,14 @@ class SplExtensionTest extends AnyFunSuite {
   }
 
   test("cidrmatch") {
-    val spark = SparkSession.builder()
-      .withExtensions(e => new SplExtension().apply(e))
-      .master("local[1]")
-      .getOrCreate()
-
+    import spark.implicits._
     import org.apache.spark.sql.{functions => F}
-    val result = spark.range(5)
-      .withColumn("in_range", F.when(F.expr("cidr_match('10.0.0.0/24', id)"),F.lit(1))
-      .otherwise(F.lit(0)))
+    val result = spark.createDataset(dummy)
+      .where(F.expr("cidr_match('10.0.0.128/4', c)"))
+      .select("n")
     result.show()
+
+    val rows = result.select("n").as[Int].collect()
+    rows mustEqual Seq(5)
   }
 }
