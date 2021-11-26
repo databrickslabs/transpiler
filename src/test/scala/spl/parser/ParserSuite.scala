@@ -10,12 +10,10 @@ import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{Assertions, Outcome}
 
-import scala.collection.mutable
-
 class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   import fastparse._
 
-  val timeLimit: Span = 300000 millis
+  val timeLimit: Span = 300000.millis
 
   var currentTest: String = _
   override def withFixture(test: NoArgTest): Outcome = {
@@ -35,11 +33,14 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   }
 
   case class Debugger() extends Instrument {
-    private val depthStack = mutable.Stack[(Int,Int)]()
 
     private var depth = 0
 
-    private def output(str: String) = println(str)
+    private def output(str: String): Unit = {
+      // scalastyle:off println
+      println(str)
+      // scalastyle:on println
+    }
 
     override def beforeParse(parser: String, index: Int): Unit = {
       val indent = "  " * depth
@@ -57,7 +58,7 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   private def pretty(x: Any): String = pprint.apply(x, width = 40).plainText
 
   def parses[T](input: String, parser: P[_] => P[T], result: T): Unit =
-    parse(input, parser/*, instrument=Debugger()*/) match {
+    parse(input, parser) match {
       case Parsed.Success(value, _) =>
         if (value != result) {
           Assertions.fail(s"""FAILURE: ASTs do not match
@@ -74,6 +75,6 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
   def fails[T](input: String, parser: P[_] => P[T], error: String): Unit =
     parse(input, parser) match {
       case Parsed.Success(value, _) => fail(s"Parser succeeded with $value")
-      case f: Parsed.Failure => f.msg mustEqual(error)
+      case f: Parsed.Failure => f.msg mustEqual error
     }
 }

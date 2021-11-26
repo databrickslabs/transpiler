@@ -166,24 +166,30 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("dedup 10 host") {
+    // scalastyle:off
     generates("dedup 10 host",
       """(spark.table('main')
         |# Error in dedup: spl.catalyst.EmptyContextOutput: Unable to tanslate spl.ast.DedupCommand due to empty context output)
         |""".stripMargin)
+    // scalastyle:on
   }
 
   test("format maxresults=10") {
+    // scalastyle:off
     generates("format maxresults=10",
       """(spark.table('main')
         |# Error in format: spl.catalyst.EmptyContextOutput: Unable to tanslate spl.ast.FormatCommand due to empty context output)
         |""".stripMargin)
+    // scalastyle:on
   }
 
   test("mvcombine host") {
+    // scalastyle:off
     generates("mvcombine host",
       """(spark.table('main')
         |# Error in mvcombine: spl.catalyst.EmptyContextOutput: Unable to tanslate spl.ast.MvCombineCommand due to empty context output)
         |""".stripMargin)
+    // scalastyle:on
   }
 
   test("makeresults count=10") {
@@ -201,10 +207,12 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("addtotals fieldname=num_total num_man num_woman") {
+    // scalastyle:off
     generates("addtotals fieldname=num_total num_man num_woman",
       """(spark.table('main')
         |.withColumn('num_total', (F.when(F.col('num_woman').cast('double').isNotNull(), F.col('num_woman')).otherwise(F.lit(0.0)) + F.when(F.col('num_man').cast('double').isNotNull(), F.col('num_man')).otherwise(F.lit(0.0)))))
         |""".stripMargin)
+    // scalastyle:on
   }
 
   test("custom configs") {
@@ -212,7 +220,8 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     spark.conf.set("spl.field._raw", "json")
     spark.conf.set("spl.index", "custom_table")
     spark.range(10).createTempView("custom_table")
-    val generatedCode = Transpiler.toPython(spark, "foo > 3 | join type=inner id [makeresults count=10 annotate=t]")
+    val generatedCode = Transpiler.toPython(spark,
+      "foo > 3 | join type=inner id [makeresults count=10 annotate=t]")
     readableAssert(
       """(spark.table('custom_table')
         |.where((F.col('foo') > F.lit(3)))
