@@ -187,6 +187,13 @@ object PythonGenerator {
         s".otherwise(${expressionCode(falseVal.get)})"
       } else ""
       s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})$otherwiseStmt"
+    case CaseWhen(branches: Seq[(Expression, Expression)], elseValue: Option[Expression]) =>
+      // ToDo add all branches to when statement + consolidate both CaseWhen cases
+      val otherwiseStmt = if (elseValue.isDefined) {
+        s".otherwise(${expressionCode(elseValue.get)})"
+      } else ""
+      s"F.when(${expressionCode(branches.head._1)}, ${expressionCode(branches.head._2)})" +
+      s"${otherwiseStmt}"
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
     case UnresolvedAlias(child, aliasFunc) =>

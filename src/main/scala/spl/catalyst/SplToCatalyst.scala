@@ -212,6 +212,9 @@ object SplToCatalyst extends Logging {
       Literal(null)
     case "isnotnull" =>
       IsNotNull(attrOrExpr(ctx, call.args.head))
+    case "memk" =>
+      val field = attrOrExpr(ctx, call.args.head)
+      callMemk(ctx, field)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new ConversionFailure(s"Unknown SPL function: $approx")
@@ -221,6 +224,18 @@ object SplToCatalyst extends Logging {
     if (ctx.output.isEmpty) {
       throw EmptyContextOutput(command)
     }
+  }
+
+  private def callMemk(ctx: LogicalContext, field: Expression): Expression = {
+    val regex = Literal.create("(?i)^(\\d*\\.?\\d+)([kmg])$")
+    val size = Cast(RegExpExtract(field, regex, Literal.create(1)), DoubleType)
+    val format = Upper(RegExpExtract(field, regex, Literal.create(2)))
+    val multiplier = CaseWhen(Seq(
+      (EqualTo(format, Literal.create("K")), Literal.create(1.0)),
+      (EqualTo(format, Literal.create("M")), Literal.create(1024.0)),
+      (EqualTo(format, Literal.create("G")), Literal.create(1024.0 * 1024.0))
+    ), Literal.create(1.0))
+    Multiply(size, multiplier)
   }
 
   private def callCidrMatch(ctx: LogicalContext, cidr: Expression, ip: Expression): Expression = {
