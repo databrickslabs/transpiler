@@ -9,6 +9,7 @@ class SplExtension extends (SparkSessionExtensions => Unit) {
     extensions.injectResolutionRule(spark => new TermExpansion(spark))
     extensions.injectResolutionRule(spark => new FillNullShimExpansion(spark))
     registerTerm(extensions)
+    registerCidrMatch(extensions)
   }
 
   private def registerTerm(extensions: SparkSessionExtensions): Unit = {
@@ -20,6 +21,19 @@ class SplExtension extends (SparkSessionExtensions => Unit) {
       df.since(), df.deprecated()), {
       case Seq(expr) => Term(expr)
       case _ => throw new AnalysisException("TERM() expects only single argument")
+    }))
+  }
+
+  private def registerCidrMatch(extensions: SparkSessionExtensions): Unit = {
+    val clazz = classOf[CidrMatch]
+    val df = clazz.getAnnotation(classOf[ExpressionDescription])
+
+    extensions.injectFunction((FunctionIdentifier("cidr_match"), new ExpressionInfo(
+      clazz.getCanonicalName, null, "cidr_match", df.usage(),
+      df.arguments(), df.examples(), df.note(), df.group(),
+      df.since(), df.deprecated()), {
+      case Seq(cidr, ip) => CidrMatch(cidr, ip)
+      case _ => throw new AnalysisException("CIDR_MATCH() expects two arguments")
     }))
   }
 }

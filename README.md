@@ -61,7 +61,7 @@ Secondary batch of commands:
 | Function | Catalyst |
 | ---: | :---: |
 | term() | extension ✅ |
-| [CIDR search](https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/ConditionalFunctions#cidrmatch.28.22X.22.2CY.29) |  |  |  |
+| [CIDR search](https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/ConditionalFunctions#cidrmatch.28.22X.22.2CY.29) | ✅ |
 | strftime() | ✅ |
 | values() | ✅ |
 | latest() | ✅ |

@@ -1,6 +1,6 @@
 package spl.pyspark
 
-import org.apache.spark.sql.FillNullShim
+import org.apache.spark.sql.{CidrMatch, FillNullShim}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRegex, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.expressions.{Alias, _}
@@ -66,6 +66,27 @@ class PythonGeneratorTest extends AnyFunSuite {
         EqualTo(UnresolvedAttribute("a"), Literal.create(1)),
         EqualTo(UnresolvedAttribute("b"), Literal.create(2))
       ), src))
+  }
+
+  test(".where(F.expr(\"cidr_match('10.0.0.0/24', src_ip)\"))") {
+    g(Filter(
+      CidrMatch(
+        Literal.create("10.0.0.0/24"),
+        UnresolvedAttribute("src_ip")
+      ), src))
+  }
+
+  test(".withColumn('in_range', " +
+    "F.when(F.expr(\"cidr_match('10.0.0.0/24', src_ip)\"), F.lit(1)).otherwise(F.lit(0)))") {
+    g(Project(Seq(
+      Alias(CaseWhen(Seq(
+        (CidrMatch(
+          Literal.create("10.0.0.0/24"),
+          UnresolvedAttribute("src_ip")),
+          Literal.create(1))),
+        Some(Literal.create(0))
+      ), "in_range")()
+    ), src))
   }
 
   test(".limit(10)") {
