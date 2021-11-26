@@ -1,8 +1,21 @@
 package spl.parser
 
+
+
 class SplParserTest extends ParserSuite {
+  // scalastyle:off
+  // turn it back on once figure out how to force IDE not to reformat
   import spl.parser.SplParser._
   import spl.ast._
+
+  test("debugging") {
+    import fastparse._
+    import fastparse.MultiLineWhitespace._
+    // this method tests debug logger, that is supposed
+    // to troubleshoot broken parsers
+    def te[_: P]: P[String] = ("a" ~ token).log.@@
+    parses("a b", te(_), "b")
+  }
 
   test("false") {
     p(bool(_), Bool(false))
@@ -37,10 +50,10 @@ class SplParserTest extends ParserSuite {
   }
 
   test("foo=bar bar=baz") {
-    p(fieldAndValueList(_), Map(
-      "foo" -> "bar",
-      "bar" -> "baz"
-    ))
+    p(commandOptions(_), CommandOptions(Seq(
+      FC("foo", Field("bar")),
+      FC("bar", Field("baz"))
+    )))
   }
 
   test("a ,   b,c, d") {
@@ -48,7 +61,7 @@ class SplParserTest extends ParserSuite {
       Field("a"),
       Field("b"),
       Field("c"),
-      Field("d"),
+      Field("d")
     ))
   }
 
@@ -226,7 +239,7 @@ class SplParserTest extends ParserSuite {
     p(impliedSearch(_), SearchCommand(
       FieldIn("var_5", Seq(
         Field("str_2"),
-        Field("str_3"),
+        Field("str_3")
       ))))
   }
 
@@ -359,7 +372,7 @@ class SplParserTest extends ParserSuite {
   test("TERM(XXXXX*\\\\XXXXX*)") {
     p(pipeline(_), Pipeline(Seq(
       SearchCommand(
-        Call("TERM",List(Field("XXXXX*\\\\XXXXX*")))
+        Call("TERM", List(Field("XXXXX*\\\\XXXXX*")))
       )
     )))
   }
@@ -387,7 +400,7 @@ class SplParserTest extends ParserSuite {
     p(sort(_),
       SortCommand(
         Seq(
-          (None, Field("A")),
+          (None, Field("A"))
         )
       )
     )
@@ -412,16 +425,26 @@ class SplParserTest extends ParserSuite {
     )))
   }
 
-  test("collect index=threathunting a=b x, y,  z") {
+  test("collect index=threathunting addtime=f x, y,  z") {
     p(pipeline(_), Pipeline(Seq(
-      CollectCommand(Map(
-        "index" -> "threathunting",
-        "a" -> "b"
-      ), Seq(
-        Field("x"),
-        Field("y"),
-        Field("z"),
-      ))
+      CollectCommand(
+        index = "threathunting",
+        fields = Seq(
+          Field("x"),
+          Field("y"),
+          Field("z")
+        ),
+        addTime = false,
+        file = null,
+        host = null,
+        marker = null,
+        outputFormat = "raw",
+        runInPreview = false,
+        spool = true,
+        source = null,
+        sourceType = null,
+        testMode = false
+      )
     )))
   }
 
@@ -445,9 +468,20 @@ class SplParserTest extends ParserSuite {
       EvalCommand(Seq(
         (Field("foo"),Field("bar"))
       )),
-      CollectCommand(Map(
-        "index" -> "newer"
-      ),Seq())
+      CollectCommand(
+        index = "newer",
+        fields = Seq(),
+        addTime = true,
+        file = null,
+        host = null,
+        marker = null,
+        outputFormat = "raw",
+        runInPreview = false,
+        spool = true,
+        source = null,
+        sourceType = null,
+        testMode = false
+      )
     )))
   }
 
@@ -488,62 +522,72 @@ class SplParserTest extends ParserSuite {
       TableCommand(Seq(
         Field("foo"),
         Field("bar"),
-        Field("baz*"),
+        Field("baz*")
       ))
     )))
   }
 
   test("stats first(startTime) AS startTime, last(histID) AS lastPassHistId BY testCaseId") {
     p(pipeline(_), Pipeline(Seq(
-      StatsCommand(Map(),Seq(
-        Alias(
-          Call("first",Seq(
-            Field("startTime")
-          )),
-          "startTime"),
-        Alias(
-          Call("last",Seq(
-            Field("histID")
-          )),
-          "lastPassHistId")
-      ),
-      Seq(
-        Field("testCaseId")
-      ))
+      StatsCommand(
+        partitions = 1,
+        allNum = false,
+        delim = " ",
+        funcs = Seq(
+          Alias(
+            Call("first", Seq(
+              Field("startTime")
+            )),
+            "startTime"),
+          Alias(
+            Call("last", Seq(
+              Field("histID")
+            )),
+            "lastPassHistId")
+        ),
+        by = Seq(
+          Field("testCaseId")
+        ))
     )))
   }
 
   test("stats count(eval(status=404))") {
     p(pipeline(_), Pipeline(Seq(
-      StatsCommand(Map(),Seq(
-        Call("count",Seq(
-          Call("eval",Seq(
-            Binary(
-              Field("status"),
-              Equals,
-              IntValue(404)
-            ))))))
+      StatsCommand(
+        partitions = 1,
+        allNum = false,
+        delim = " ",
+        funcs = Seq(
+          Call("count", Seq(
+            Call("eval", Seq(
+              Binary(
+                Field("status"),
+                Equals,
+                IntValue(404)
+              )
+            ))
+          ))
+        )
       ))
     ))
   }
 
   test("no-comma stats") {
     val query =
-      """stats allnum=f delim=":" partitions=10 count earliest(_time) as earliest latest(_time) as latest
+      """stats allnum=f delim=":" partitions=10 count
+        |earliest(_time) as earliest latest(_time) as latest
         |values(var_2) as var_2
         |by var_1
         |""".stripMargin
     parses(query, stats(_), StatsCommand(
-      Map(
-        "allnum" -> "f",
-        "delim" -> ":",
-        "partitions" -> "10"
-      ),
+      partitions = 10,
+      allNum = false,
+      delim = ":",
       Seq(
         Call("count"),
         Alias(Call("earliest", Seq(Field("_time"))), "earliest"),
         Alias(Call("latest", Seq(Field("_time"))), "latest"),
-        Alias(Call("values", Seq(Field("var_2"))), "var_2"),
+        Alias(Call("values", Seq(Field("var_2"))), "var_2")
       ),
       Seq(
         Field("var_1")
@@ -551,7 +595,8 @@ class SplParserTest extends ParserSuite {
     ))
   }
 
-  test("rex field=savedsearch_id max_match=10 \"(?<user>\\w+);(?<app>\\w+);(?<SavedSearchName>\\w+)\"") {
+  test("rex field=savedsearch_id max_match=10 " +
+    "\"(?<user>\\w+);(?<app>\\w+);(?<SavedSearchName>\\w+)\"") {
     p(pipeline(_), Pipeline(Seq(
       RexCommand(
         Some("savedsearch_id"),
@@ -639,7 +684,8 @@ class SplParserTest extends ParserSuite {
     )
   }
 
-  test("join type=left usetime=true earlier=false overwrite=false product_id, host, name [search vendors]") {
+  test("join type=left usetime=true earlier=false " +
+    "overwrite=false product_id, host, name [search vendors]") {
     p(join(_),
       JoinCommand(
         joinType = "left",
@@ -724,7 +770,7 @@ class SplParserTest extends ParserSuite {
       IntValue(10),
       Seq(
         Alias(Field("src"), "ip"),
-        Alias(Field("port"), "host"),
+        Alias(Field("port"), "host")
       )
     ))
   }
@@ -775,7 +821,7 @@ class SplParserTest extends ParserSuite {
       SortCommand(
         Seq(
           (Some("+"), Field("host")),
-          (Some("-"), Field("ip")),
+          (Some("-"), Field("ip"))
         )
       )
     ))
@@ -826,7 +872,7 @@ class SplParserTest extends ParserSuite {
       mvSep = "||",
       maxResults = 0,
       rowPrefix = "[",
-      colPrefix =  "[",
+      colPrefix = "[",
       colSep = "&&",
       colEnd = "]",
       rowSep = "||",
@@ -885,4 +931,5 @@ class SplParserTest extends ParserSuite {
       label = "Total"
     ))
   }
+  // scalastyle:on
 }
