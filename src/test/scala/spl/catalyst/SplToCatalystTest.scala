@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
-import org.apache.spark.sql.types.{DoubleType, StringType}
+import org.apache.spark.sql.types.DoubleType
 import org.scalatest.funsuite.AnyFunSuite
 import spl.ast
 
