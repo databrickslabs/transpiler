@@ -66,15 +66,15 @@ object SplToCatalyst extends Logging {
           case ast.LookupCommand(dataset, fields, output) =>
             leftJoinUsing(ctx, dataset, fields, output, tree)
 
-          case ast.CollectCommand(args, fields) =>
+          case cc: ast.CollectCommand =>
             // fields.map(fieldName => Column(fieldName.value))
             // TODO: add projection if fields is not empty
-            AppendData(UnresolvedRelation(Seq(args("index"))), tree, Map(), isByName = true)
+            AppendData(UnresolvedRelation(Seq(cc.index)), tree, Map(), isByName = true)
 
-          case ast.StatsCommand(params, funcs, by, dedupSplitVals) =>
-            val agg = aggregate(ctx, by, funcs, tree)
-            if (dedupSplitVals) {
-              Deduplicate(by.map(x => UnresolvedAttribute(x.value)), agg)
+          case st: ast.StatsCommand =>
+            val agg = aggregate(ctx, st.by, st.funcs, tree)
+            if (st.dedupSplitVals) {
+              Deduplicate(st.by.map(x => UnresolvedAttribute(x.value)), agg)
             } else agg
 
           case rc: ast.RexCommand =>
@@ -97,9 +97,9 @@ object SplToCatalyst extends Logging {
             val fieldsOpt = fields.getOrElse(Seq.empty[ast.Field]).map(_.value).toSet
             FillNullShim(value.getOrElse("0"), fieldsOpt, tree)
 
-          case ast.EventStatsCommand(params, funcs, by) =>
+          case ast.EventStatsCommand(allNum, funcs, by) =>
             // TODO implement allnum option
-            applyEventStats(ctx, tree, params, funcs, by)
+            applyEventStats(ctx, tree, allNum, funcs, by)
 
           case ast.StreamStatsCommand(funcs, by, current, window) =>
             applyStreamStats(ctx, tree, funcs, by, current, window)
@@ -723,7 +723,7 @@ object SplToCatalyst extends Logging {
 
   private def applyEventStats(ctx: LogicalContext,
                               tree: LogicalPlan,
-                              params: Map[String, String],
+                              allNum: Boolean,
                               funcs: Seq[ast.Expr],
                               by: Seq[ast.Field] = Seq()): LogicalPlan = {
     // TODO implement allnum option

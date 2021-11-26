@@ -37,10 +37,10 @@ class SplParserTest extends ParserSuite {
   }
 
   test("foo=bar bar=baz") {
-    p(fieldAndValueList(_), Map(
-      "foo" -> "bar",
-      "bar" -> "baz"
-    ))
+    p(commandOptions(_), CommandOptions(Seq(
+      FC("foo", Field("bar")),
+      FC("bar", Field("baz"))
+    )))
   }
 
   test("a ,   b,c, d") {
@@ -412,16 +412,26 @@ class SplParserTest extends ParserSuite {
     )))
   }
 
-  test("collect index=threathunting a=b x, y,  z") {
+  test("collect index=threathunting addtime=f x, y,  z") {
     p(pipeline(_), Pipeline(Seq(
-      CollectCommand(Map(
-        "index" -> "threathunting",
-        "a" -> "b"
-      ), Seq(
-        Field("x"),
-        Field("y"),
-        Field("z"),
-      ))
+      CollectCommand(
+        index = "threathunting",
+        fields = Seq(
+          Field("x"),
+          Field("y"),
+          Field("z")
+        ),
+        addTime = false,
+        file = null,
+        host = null,
+        marker = null,
+        outputFormat = "raw",
+        runInPreview = false,
+        spool = true,
+        source = null,
+        sourceType = null,
+        testMode = false
+      )
     )))
   }
 
@@ -445,9 +455,20 @@ class SplParserTest extends ParserSuite {
       EvalCommand(Seq(
         (Field("foo"),Field("bar"))
       )),
-      CollectCommand(Map(
-        "index" -> "newer"
-      ),Seq())
+      CollectCommand(
+        index = "newer",
+        fields = Seq(),
+        addTime = true,
+        file = null,
+        host = null,
+        marker = null,
+        outputFormat = "raw",
+        runInPreview = false,
+        spool = true,
+        source = null,
+        sourceType = null,
+        testMode = false
+      )
     )))
   }
 
@@ -495,34 +516,45 @@ class SplParserTest extends ParserSuite {
 
   test("stats first(startTime) AS startTime, last(histID) AS lastPassHistId BY testCaseId") {
     p(pipeline(_), Pipeline(Seq(
-      StatsCommand(Map(),Seq(
-        Alias(
-          Call("first",Seq(
-            Field("startTime")
-          )),
-          "startTime"),
-        Alias(
-          Call("last",Seq(
-            Field("histID")
-          )),
-          "lastPassHistId")
-      ),
-      Seq(
-        Field("testCaseId")
-      ))
+      StatsCommand(
+        partitions = 1,
+        allNum = false,
+        delim = " ",
+        funcs = Seq(
+          Alias(
+            Call("first",Seq(
+              Field("startTime")
+            )),
+            "startTime"),
+          Alias(
+            Call("last",Seq(
+              Field("histID")
+            )),
+            "lastPassHistId")
+        ),
+        by = Seq(
+          Field("testCaseId")
+        ))
     )))
   }
 
   test("stats count(eval(status=404))") {
     p(pipeline(_), Pipeline(Seq(
-      StatsCommand(Map(),Seq(
-        Call("count",Seq(
-          Call("eval",Seq(
-            Binary(
-              Field("status"),
-              Equals,
-              IntValue(404)
-            ))))))
+      StatsCommand(
+        partitions = 1,
+        allNum = false,
+        delim = " ",
+        funcs = Seq(
+          Call("count", Seq(
+            Call("eval", Seq(
+              Binary(
+                Field("status"),
+                Equals,
+                IntValue(404)
+              )
+            ))
+          ))
+        )
       ))
     ))
   }
@@ -534,11 +566,9 @@ class SplParserTest extends ParserSuite {
         |by var_1
         |""".stripMargin
     parses(query, stats(_), StatsCommand(
-      Map(
-        "allnum" -> "f",
-        "delim" -> ":",
-        "partitions" -> "10"
-      ),
+      partitions = 10,
+      allNum = false,
+      delim = ":",
       Seq(
         Call("count"),
         Alias(Call("earliest", Seq(Field("_time"))), "earliest"),

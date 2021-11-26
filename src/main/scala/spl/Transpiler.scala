@@ -3,13 +3,14 @@ package spl
 import fastparse.{Parsed, parse}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.{DataFrame, SparkSession, WrappedDataset}
-import spl.ast.Pipeline
 import spl.catalyst._
-import spl.parser.SplParser
 import spl.pyspark.{GeneratorContext, PythonGenerator}
 
 
 object Transpiler {
+  import spl.ast.Pipeline
+  import spl.parser.SplParser
+
   private def parsePipeline(search: String): Pipeline =
     parse(search, SplParser.pipeline(_)) match {
       case Parsed.Success(value, _) => value

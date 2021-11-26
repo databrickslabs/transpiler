@@ -35,6 +35,7 @@ case class CommandOptions(options: Seq[FC]) {
 
   private def throwIAE(msg: String) = throw new IllegalArgumentException(msg)
 
+  def toMap: Map[String, Constant] = inner
   def getIntOption(key: String): Option[Int] = inner.get(key) map {
     case IntValue(value) => value
     case other: Constant => throwIAE(s"not an int: $other")
@@ -99,7 +100,18 @@ case class LookupCommand(dataset: String, fields: Seq[FieldLike],
   def hasOutput: Boolean = output.isDefined
 }
 
-case class CollectCommand(args: Map[String, String], fields: Seq[Field]) extends Command
+case class CollectCommand(index: String,
+                          fields: Seq[Field],
+                          addTime: Boolean,
+                          file: String,
+                          host: String,
+                          marker: String,
+                          outputFormat: String,
+                          runInPreview: Boolean,
+                          spool: Boolean,
+                          source: String,
+                          sourceType: String,
+                          testMode: Boolean) extends Command
 
 case class WhereCommand(expr: Expr) extends Command
 
@@ -113,7 +125,9 @@ case class FieldsCommand(removeFields: Boolean, fields: Seq[Field]) extends Comm
 
 case class SortCommand(fieldsToSort: Seq[(Option[String], Expr)]) extends Command
 
-case class StatsCommand(params: Map[String, String],
+case class StatsCommand(partitions: Int,
+                        allNum: Boolean,
+                        delim: String,
                         funcs: Seq[Expr],
                         by: Seq[Field] = Seq(),
                         dedupSplitVals: Boolean = false) extends Command
@@ -141,7 +155,7 @@ case class ReturnCommand(count: IntValue, fields: Seq[FieldOrAlias]) extends Com
 // TODO: Option[Seq[Value]] -> Seq[Value] = Seq()
 case class FillNullCommand(value: Option[String], fields: Option[Seq[Field]]) extends Command
 
-case class EventStatsCommand(params: Map[String, String], funcs: Seq[Expr],
+case class EventStatsCommand(allNum: Boolean, funcs: Seq[Expr],
                              by: Seq[Field] = Seq()) extends Command
 
 case class StreamStatsCommand(funcs: Seq[Expr], by: Seq[Field] = Seq(), current: Boolean = true,
