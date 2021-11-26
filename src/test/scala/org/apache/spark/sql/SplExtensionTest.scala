@@ -45,5 +45,3 @@ class SplExtensionTest extends AnyFunSuite {
     rows mustEqual Seq(1, 2, 5)
   }
 }
-
-object x

@@ -3,6 +3,8 @@ package spl.parser
 
 
 class SplParserTest extends ParserSuite {
+  // scalastyle:off
+  // turn it back on once figure out how to force IDE not to reformat
   import spl.parser.SplParser._
   import spl.ast._
 
@@ -11,7 +13,7 @@ class SplParserTest extends ParserSuite {
     import fastparse.MultiLineWhitespace._
     // this method tests debug logger, that is supposed
     // to troubleshoot broken parsers
-    def te[_: P] = ("a" ~ token).log.@@
+    def te[_: P]: P[String] = ("a" ~ token).log.@@
     parses("a b", te(_), "b")
   }
 
@@ -237,7 +239,7 @@ class SplParserTest extends ParserSuite {
     p(impliedSearch(_), SearchCommand(
       FieldIn("var_5", Seq(
         Field("str_2"),
-        Field("str_3"),
+        Field("str_3")
       ))))
   }
 
@@ -370,7 +372,7 @@ class SplParserTest extends ParserSuite {
   test("TERM(XXXXX*\\\\XXXXX*)") {
     p(pipeline(_), Pipeline(Seq(
       SearchCommand(
-        Call("TERM",List(Field("XXXXX*\\\\XXXXX*")))
+        Call("TERM", List(Field("XXXXX*\\\\XXXXX*")))
       )
     )))
   }
@@ -398,7 +400,7 @@ class SplParserTest extends ParserSuite {
     p(sort(_),
       SortCommand(
         Seq(
-          (None, Field("A")),
+          (None, Field("A"))
         )
       )
     )
@@ -520,7 +522,7 @@ class SplParserTest extends ParserSuite {
       TableCommand(Seq(
         Field("foo"),
         Field("bar"),
-        Field("baz*"),
+        Field("baz*")
       ))
     )))
   }
@@ -533,12 +535,12 @@ class SplParserTest extends ParserSuite {
         delim = " ",
         funcs = Seq(
           Alias(
-            Call("first",Seq(
+            Call("first", Seq(
               Field("startTime")
             )),
             "startTime"),
           Alias(
-            Call("last",Seq(
+            Call("last", Seq(
               Field("histID")
             )),
             "lastPassHistId")
@@ -572,7 +574,8 @@ class SplParserTest extends ParserSuite {
 
   test("no-comma stats") {
     val query =
-      """stats allnum=f delim=":" partitions=10 count earliest(_time) as earliest latest(_time) as latest
+      """stats allnum=f delim=":" partitions=10 count
+        |earliest(_time) as earliest latest(_time) as latest
         |values(var_2) as var_2
         |by var_1
         |""".stripMargin
@@ -584,7 +587,7 @@ class SplParserTest extends ParserSuite {
         Call("count"),
         Alias(Call("earliest", Seq(Field("_time"))), "earliest"),
         Alias(Call("latest", Seq(Field("_time"))), "latest"),
-        Alias(Call("values", Seq(Field("var_2"))), "var_2"),
+        Alias(Call("values", Seq(Field("var_2"))), "var_2")
       ),
       Seq(
         Field("var_1")
@@ -592,7 +595,8 @@ class SplParserTest extends ParserSuite {
     ))
   }
 
-  test("rex field=savedsearch_id max_match=10 \"(?<user>\\w+);(?<app>\\w+);(?<SavedSearchName>\\w+)\"") {
+  test("rex field=savedsearch_id max_match=10 " +
+    "\"(?<user>\\w+);(?<app>\\w+);(?<SavedSearchName>\\w+)\"") {
     p(pipeline(_), Pipeline(Seq(
       RexCommand(
         Some("savedsearch_id"),
@@ -680,7 +684,8 @@ class SplParserTest extends ParserSuite {
     )
   }
 
-  test("join type=left usetime=true earlier=false overwrite=false product_id, host, name [search vendors]") {
+  test("join type=left usetime=true earlier=false " +
+    "overwrite=false product_id, host, name [search vendors]") {
     p(join(_),
       JoinCommand(
         joinType = "left",
@@ -765,7 +770,7 @@ class SplParserTest extends ParserSuite {
       IntValue(10),
       Seq(
         Alias(Field("src"), "ip"),
-        Alias(Field("port"), "host"),
+        Alias(Field("port"), "host")
       )
     ))
   }
@@ -816,7 +821,7 @@ class SplParserTest extends ParserSuite {
       SortCommand(
         Seq(
           (Some("+"), Field("host")),
-          (Some("-"), Field("ip")),
+          (Some("-"), Field("ip"))
         )
       )
     ))
@@ -867,7 +872,7 @@ class SplParserTest extends ParserSuite {
       mvSep = "||",
       maxResults = 0,
       rowPrefix = "[",
-      colPrefix =  "[",
+      colPrefix = "[",
       colSep = "&&",
       colEnd = "]",
       rowSep = "||",
@@ -926,4 +931,5 @@ class SplParserTest extends ParserSuite {
       label = "Total"
     ))
   }
+  // scalastyle:on
 }
