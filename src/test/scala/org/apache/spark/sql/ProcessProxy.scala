@@ -1,7 +1,6 @@
 package org.apache.spark.sql
 
 import java.io.{BufferedWriter, File, FileWriter}
-import java.util.ArrayList
 
 import org.apache.spark.api.python.{Py4JServer, PythonException}
 import org.apache.spark.internal.Logging
@@ -14,8 +13,8 @@ import scala.sys.process.{Process, ProcessLogger}
 
 
 class Capture extends ProcessLogger {
-  private val stdout = new ArrayList[String]()
-  private val stderr = new ArrayList[String]()
+  private val stdout = new java.util.ArrayList[String]()
+  private val stderr = new java.util.ArrayList[String]()
   override def out(s: => String): Unit = stdout.add(s)
   override def err(s: => String): Unit = stderr.add(s)
   override def buffer[T](f: => T): T = f
@@ -26,13 +25,13 @@ class Capture extends ProcessLogger {
 trait ProcessProxy extends Logging {
   private val folder = getClass.getResource("/").getFile
 
-  lazy val spark = SparkSession.builder()
+  protected lazy val spark: SparkSession = SparkSession.builder()
     .master("local[1]")
     .config("spark.sql.extensions", classOf[SplExtension].getName)
     .config("spark.sql.warehouse.dir", s"$folder/warehouse")
     .getOrCreate
 
-  private val pyException = raw"(?m).*Exception: (.*)".r;
+  private val pyException = raw"(?m).*Exception: (.*)".r
 
   def generates(search: String, expectedCode: String): Unit = {
     val generatedCode = Transpiler.toPython(search)
@@ -47,7 +46,7 @@ trait ProcessProxy extends Logging {
     readableAssert(results, jvmOutput, "Results do not match")
   }
 
-  private def launchPy(search: String, truncate: Int = 0): String = {
+  private def launchPy(search: String, truncate: Int): String = {
     val code = Transpiler.toPython(search)
     val file = wrapGeneratedCode(code, truncate)
     val gatewayServer = new Py4JServer(spark.sparkContext.conf)
@@ -77,7 +76,7 @@ trait ProcessProxy extends Logging {
     }
   }
 
-  private def wrapGeneratedCode(code: String, truncate: Int = 0): File = {
+  private def wrapGeneratedCode(code: String, truncate: Int): File = {
     val file = File.createTempFile("spl", ".py", new File(folder))
     file.setExecutable(true)
     val writer = new BufferedWriter(new FileWriter(file))

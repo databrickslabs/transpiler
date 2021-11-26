@@ -8,7 +8,7 @@ class SearchesFileTest extends AnyFunSuite with Logging {
   private def res = getClass.getResourceAsStream(_)
 
   test("att&ck") {
-    val sf = new SearchesFile(res("/savedsearches.conf"))
+    new SearchesFile(res("/savedsearches.conf"))
   }
 
   test("expansion") {
@@ -17,6 +17,6 @@ class SearchesFileTest extends AnyFunSuite with Logging {
       new MacrosFile(res("/macros.conf")))
 
     val plan = sc.generatePython("[T1101] Security Support Provider")
-    log.info(s"Generated code: \n${plan}")
+    log.info(s"Generated code: \n$plan")
   }
 }

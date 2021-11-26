@@ -9,7 +9,7 @@ private[spl] class LogicalContext(
      val indexName: String = "main",
      val timeFieldName: String = "_time",
      val rawFieldName: String = "_raw",
-     val splFieldToAttr: Field => NamedExpression = (field: Field) => UnresolvedAttribute(Seq(field.value)),
+     val splFieldToAttr: Field => NamedExpression = field => UnresolvedAttribute(Seq(field.value)),
      val analyzePlan: LogicalPlan => Seq[Attribute] = (_: LogicalPlan) => Seq[Attribute](),
      var output: Seq[NamedExpression] = Seq()) {
   def copy(indexName: String = this.indexName,
@@ -17,6 +17,6 @@ private[spl] class LogicalContext(
            rawFieldName: String = this.rawFieldName,
            splFieldToAttr: (Field) => NamedExpression = this.splFieldToAttr,
            analyzePlan: (LogicalPlan) => Seq[Attribute] = this.analyzePlan,
-           output: Seq[NamedExpression] = this.output) =
+           output: Seq[NamedExpression] = this.output): LogicalContext =
     new LogicalContext(indexName, timeFieldName, rawFieldName, splFieldToAttr, analyzePlan, output)
 }

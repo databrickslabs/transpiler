@@ -7,12 +7,9 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.functions.{coalesce, lit, nanvl}
 import org.apache.spark.sql.types.{DoubleType, FloatType}
 
-/**
- * This logical plan is only there to shim Splunk's fillnull command logic, when
- * SPL is executed on Spark. Generated Python code still refers to .na.fill()
- *
- * Given rule replicates the logic of .na.fill()
- */
+// This logical plan is only there to shim Splunk's fillnull command logic, when
+// SPL is executed on Spark. Generated Python code still refers to .na.fill()
+// Given rule replicates the logic of .na.fill()
 class FillNullShimExpansion(spark: SparkSession) extends Rule[LogicalPlan] {
   override def apply(plan: LogicalPlan): LogicalPlan = plan transform {
     case FillNullShim(value, columns, child) =>
