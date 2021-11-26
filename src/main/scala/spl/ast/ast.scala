@@ -1,7 +1,5 @@
 package spl.ast
 
-import org.apache.commons.net.util.SubnetUtils
-
 sealed trait Expr
 sealed trait LeafExpr extends Expr
 
@@ -20,11 +18,7 @@ case class SnapTime(span: Option[TimeSpan], snap: String,
                     snapOffset: Option[TimeSpan]) extends Constant
 case class Field(value: String) extends Constant with FieldLike with FieldOrAlias
 case class Wildcard(value: String) extends Constant with FieldLike
-case class IPv4CIDR(value: String) extends Constant {
-  private val subnet = new SubnetUtils(value)
-  def low: String = subnet.getInfo.getLowAddress
-  def high: String = subnet.getInfo.getHighAddress
-}
+case class IPv4CIDR(value: String) extends Constant
 
 case class FV(field: String, value: String) extends LeafExpr
 case class FB(field: String, value: Boolean) extends LeafExpr
@@ -70,8 +64,6 @@ case class CommandOptions(options: Seq[FC]) {
 
 case class AliasedField(field: Field, alias: String) extends Expr with FieldLike
 
-case class FvList(fvs: Seq[FV]) extends Expr
-
 case class Binary(left: Expr, symbol: OperatorSymbol, right: Expr) extends Expr
 
 case class Unary(symbol: OperatorSymbol, right: Expr) extends Expr
@@ -95,10 +87,7 @@ case class ConvertCommand(timeformat: Option[String], convs: Seq[FieldConversion
 case class LookupOutput(kv: String, fields: Seq[FieldLike])
 
 case class LookupCommand(dataset: String, fields: Seq[FieldLike],
-                         output: Option[LookupOutput]) extends Command {
-  /** Does this lookup command have any aliases from the right side of the join? */
-  def hasOutput: Boolean = output.isDefined
-}
+                         output: Option[LookupOutput]) extends Command
 
 case class CollectCommand(index: String,
                           fields: Seq[Field],

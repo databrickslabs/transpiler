@@ -1,6 +1,6 @@
 package spl.catalyst
 
-import org.apache.spark.sql.FillNullShim
+import org.apache.spark.sql.{CidrMatch, FillNullShim}
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
@@ -802,6 +802,48 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         UnresolvedAttribute("foobar"),
                         Literal(-3),
                         Literal(Integer.MAX_VALUE)
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("cidrmatch(\"10.0.0.0/24\",\"10.0.0.42\")") {
+        check(ast.SearchCommand(
+            ast.Call("if", Seq(
+                ast.Call("cidrmatch", Seq(
+                    ast.IPv4CIDR("10.0.0.0/24"),
+                    ast.StrValue("10.0.0.42")
+                )),
+                ast.StrValue("yes"),
+                ast.StrValue("no")
+            ))),
+            (_, tree) => {
+                Filter(
+                    CaseWhen(
+                        Seq((
+                          CidrMatch(Literal("10.0.0.0/24"), Literal("10.0.0.42")),
+                          Literal("yes")
+                        )),
+                        Some(Literal("no"))
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("src_ip = 10.0.0.0/24") {
+        check(ast.SearchCommand(
+            ast.Binary(
+                ast.Field("src_ip"),
+                ast.Equals,
+                ast.IPv4CIDR("10.0.0.0/24")
+            )),
+            (_, tree) => {
+                Filter(
+                    CidrMatch(
+                        Literal("10.0.0.0/24"),
+                        UnresolvedAttribute("src_ip")
                     ),
                     tree)
             }

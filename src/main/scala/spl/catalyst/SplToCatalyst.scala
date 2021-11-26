@@ -4,7 +4,7 @@ import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.util.control.NonFatal
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{FillNullShim, Term}
+import org.apache.spark.sql.{CidrMatch, FillNullShim, Term}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types.{DateType, DoubleType, StringType}
@@ -140,6 +140,10 @@ object SplToCatalyst extends Logging {
       val branches = Seq((attrOrExpr(ctx, call.args.head), attrOrExpr(ctx, call.args(1))))
       val elseValue = Some(attrOrExpr(ctx, call.args(2)))
       CaseWhen(branches, elseValue)
+    case "cidrmatch" =>
+      val cidr = attrOrExpr(ctx, call.args.head)
+      val ip = attrOrExpr(ctx, call.args(1))
+      callCidrMatch(ctx, cidr, ip)
     case "ctime" =>
       val field = attr(call.args.head)
       Alias(Cast(field, DateType), field.name)()
@@ -216,6 +220,16 @@ object SplToCatalyst extends Logging {
   private def assertCtxOutputNonEmpty(ctx: LogicalContext, command: ast.Command): Unit = {
     if (ctx.output.isEmpty) {
       throw EmptyContextOutput(command)
+    }
+  }
+
+  private def callCidrMatch(ctx: LogicalContext, cidr: Expression, ip: Expression): Expression = {
+    ip match {
+      case str: Literal => CidrMatch(cidr, str)
+      case attr: UnresolvedAttribute =>
+        val ipRef = ctx.output.filter(e => e.name.equals(attr.name)).headOption.getOrElse(attr)
+        CidrMatch(cidr, ipRef)
+      case _ => throw new ConversionFailure(s"ip must be String or Field: ${ip.toString()}")
     }
   }
 
@@ -582,6 +596,8 @@ object SplToCatalyst extends Logging {
       LessThanOrEqual(UnresolvedAttribute(ctx.timeFieldName), relativeTime(expr))
     case ast.Binary(ast.Field("_index_latest"), ast.Equals, expr) =>
       LessThanOrEqual(UnresolvedAttribute(ctx.timeFieldName), relativeTime(expr))
+    case ast.Binary(ast.Field(ip), ast.Equals, ast.IPv4CIDR(cidr)) =>
+      callCidrMatch(ctx, Literal.create(cidr), UnresolvedAttribute(ip))
     case ast.Binary(left, symbol, right) => symbol match {
       case straight: ast.Straight => straight match {
         case relational: ast.Relational => relational match {
@@ -626,6 +642,7 @@ object SplToCatalyst extends Logging {
     case ast.StrValue(value) => Literal.create(value)
     case ast.IntValue(value) => Literal.create(value)
     case ast.DoubleValue(value) => Literal.create(value)
+    case ast.IPv4CIDR(value) => Literal.create(value)
     case _ => throw new ConversionFailure(s"constant $constant")
   }
 

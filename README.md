@@ -61,7 +61,7 @@ Secondary batch of commands:
 | Function | Catalyst |
 | ---: | :---: |
 | term() | extension ✅ |
-| [CIDR search](https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/ConditionalFunctions#cidrmatch.28.22X.22.2CY.29) |  |  |  |
+| [CIDR search](https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/ConditionalFunctions#cidrmatch.28.22X.22.2CY.29) | ✅ |
 | strftime() | ✅ |
 | values() | ✅ |
 | latest() | ✅ |
@@ -87,7 +87,7 @@ Secondary batch of commands:
 Your Delta Lake may have other column names containing timestamps and raw records, so you can override those by 
 setting the following spark conf values from code or cluster config:
 
-```python
+```
 spark.conf.set("spl.field._time", "ts")
 spark.conf.set("spl.field._raw", "json")
 spark.conf.set("spl.index", "custom_table")
@@ -111,3 +111,7 @@ Scalastyle complaints:
 
 * run `mvn scalastyle:check`
 * `illegal start of simple expression` - open file with `vim` and `:goto <number>`
+
+Code coverage report:
+
+* `open target/site/jacoco/index.html`
