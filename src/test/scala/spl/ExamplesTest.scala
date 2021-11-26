@@ -248,17 +248,21 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("in_range=if(cidrmatch('10.0.0.0/24', src_ip), 1, 0)") {
+    // scalastyle:off
     generates("eval in_range=if(cidrmatch(\"10.0.0.0/24\", src_ip), 1, 0)",
       """(spark.table('main')
         |.withColumn('in_range', F.when(F.expr("cidr_match('10.0.0.0/24', src_ip)"), F.lit(1)).otherwise(F.lit(0))))
         |""".stripMargin)
+    // scalastyle:on
   }
 
   test("in_range=if(cidrmatch(10.0.0.0/24, src_ip), 1, 0)") {
+    // scalastyle:off
     generates("eval in_range=if(cidrmatch(10.0.0.0/24, src_ip), 1, 0)",
       """(spark.table('main')
         |.withColumn('in_range', F.when(F.expr("cidr_match('10.0.0.0/24', src_ip)"), F.lit(1)).otherwise(F.lit(0))))
         |""".stripMargin)
+    // scalastyle:on
   }
 
   test("src_ip = 10.0.0.0/16") {

@@ -226,11 +226,10 @@ object SplToCatalyst extends Logging {
   private def callCidrMatch(ctx: LogicalContext, cidr: Expression, ip: Expression): Expression = {
     ip match {
       case str: Literal => CidrMatch(cidr, str)
-      case attr: UnresolvedAttribute => {
+      case attr: UnresolvedAttribute =>
         val ipRef = ctx.output.filter(e => e.name.equals(attr.name)).headOption.getOrElse(attr)
         CidrMatch(cidr, ipRef)
-      }
-      case _ => throw new ConversionFailure(s"ip parameter must be String or Field: ${ip.toString()}")
+      case _ => throw new ConversionFailure(s"ip must be String or Field: ${ip.toString()}")
     }
   }
 

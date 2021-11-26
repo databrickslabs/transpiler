@@ -792,7 +792,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("cidrmatch w/ fct call") {
-    executes("index=fake | id < 5 | eval in_range = if(cidrmatch(\"109.177.0.0/16\", ipAddress),1,0) | " +
+    executes("index=fake | id < 5 | " +
+      "eval in_range = if(cidrmatch(\"109.177.0.0/16\", ipAddress),1,0) | " +
       "fields +id, ipAddress, in_range",
     """+---+---------------+--------+
       ||id |ipAddress      |in_range|

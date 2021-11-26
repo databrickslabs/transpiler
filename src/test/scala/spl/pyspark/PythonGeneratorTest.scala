@@ -80,7 +80,10 @@ class PythonGeneratorTest extends AnyFunSuite {
     "F.when(F.expr(\"cidr_match('10.0.0.0/24', src_ip)\"), F.lit(1)).otherwise(F.lit(0)))") {
     g(Project(Seq(
       Alias(CaseWhen(Seq(
-        (CidrMatch(Literal.create("10.0.0.0/24"), UnresolvedAttribute("src_ip")), Literal.create(1))),
+        (CidrMatch(
+          Literal.create("10.0.0.0/24"),
+          UnresolvedAttribute("src_ip")),
+          Literal.create(1))),
         Some(Literal.create(0))
       ), "in_range")()
     ), src))
