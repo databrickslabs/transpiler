@@ -17,9 +17,9 @@ case class CidrMatch(cidr: Expression, ip: Expression) extends RuntimeReplaceabl
     LessThanOrEqual(ipAddress, highAddress))
   private def ipAddress: Add = aton(ip)
   private def lowAddress: Add = aton(SubstringIndex(cidr, Literal.create("/"), Literal.create(1)))
-  private def highAddress: Add = Add(lowAddress, numAddress)
+  private def highAddress: Add = Add(lowAddress, numAddresses)
 
-  private def numAddress = Subtract(
+  private def numAddresses = Subtract(
     Cast(Pow(
       Literal.create(2.0),
       Subtract(
