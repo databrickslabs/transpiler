@@ -1,7 +1,6 @@
 package org.apache.spark.sql
 
 import java.io.{BufferedWriter, File, FileWriter}
-import java.util
 
 import org.apache.spark.api.python.{Py4JServer, PythonException}
 import org.apache.spark.internal.Logging
@@ -14,8 +13,8 @@ import scala.sys.process.{Process, ProcessLogger}
 
 
 class Capture extends ProcessLogger {
-  private val stdout = new util.ArrayList[String]()
-  private val stderr = new util.ArrayList[String]()
+  private val stdout = new java.util.ArrayList[String]()
+  private val stderr = new java.util.ArrayList[String]()
   override def out(s: => String): Unit = stdout.add(s)
   override def err(s: => String): Unit = stderr.add(s)
   override def buffer[T](f: => T): T = f
