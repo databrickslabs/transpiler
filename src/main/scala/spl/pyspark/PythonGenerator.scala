@@ -183,7 +183,6 @@ object PythonGenerator {
       s"F.filter(${expressionCode(left)}, " +
         s"lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
     case CaseWhen(branches: Seq[(Expression, Expression)], elseValue: Option[Expression]) =>
-      // TODO consolidate both CaseWhen cases
       caseWhenRep(branches, elseValue)
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
