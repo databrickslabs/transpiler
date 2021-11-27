@@ -81,6 +81,7 @@ Secondary batch of commands:
 | mvfilter() | ✅ |
 | len() | ✅ |
 | count() | ✅ |
+| kmem() | ✅ |
 
 ## Overriding `_time`, `_raw` and index names
 

@@ -816,6 +816,21 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       |""".stripMargin)
   }
 
+  // TODO Create a more meaningful test
+  test("kmem(fsize)") {
+    executes("index=fake | id < 5 | eval fsize=\"10.54M\" | " +
+      "eval fsize_quant=memk(fsize) | fields +id, fsize, fsize_quant",
+      """+---+------+-----------+
+        ||id |fsize |fsize_quant|
+        |+---+------+-----------+
+        ||1  |10.54M|10792.96   |
+        ||2  |10.54M|10792.96   |
+        ||3  |10.54M|10792.96   |
+        ||4  |10.54M|10792.96   |
+        |+---+------+-----------+
+        |""".stripMargin)
+  }
+
   test("addtotals") {
     executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum " +
       "| addtotals fieldname=my_total",
