@@ -312,8 +312,9 @@ object PythonGenerator {
     val otherwiseStmt = if (elseValue.isDefined) {
       s".otherwise(${expressionCode(elseValue.get)})"
     } else ""
+    val nl = if (branches.size > 1) "\n" else ""
     val whenStmts = "F" + branches
-      .map(t => s".when(${expressionCode(t._1)}, ${expressionCode(t._2)})")
+      .map(t => s".when(${expressionCode(t._1)}, ${expressionCode(t._2)})" + nl)
       .mkString("")
     whenStmts + otherwiseStmt
   }

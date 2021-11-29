@@ -852,7 +852,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("memk(x)") {
         val regex = Literal("(?i)^(\\d*\\.?\\d+)([kmg])$")
-        val format = Upper(RegExpExtract(UnresolvedAttribute("x"), regex, Literal.create(2)))
+        val unit = Upper(RegExpExtract(UnresolvedAttribute("x"), regex, Literal.create(2)))
         check(ast.SearchCommand(
             ast.Call("memk", Seq(
                 ast.Field("x")
@@ -866,9 +866,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                             Literal.create(1)),
                             DoubleType),
                         CaseWhen(Seq(
-                            (EqualTo(format, Literal("K")), Literal.create(1.0)),
-                            (EqualTo(format, Literal("M")), Literal.create(1024.0)),
-                            (EqualTo(format, Literal("G")), Literal.create(1024.0 * 1024.0))
+                            (EqualTo(unit, Literal("K")), Literal.create(1.0)),
+                            (EqualTo(unit, Literal("M")), Literal.create(1024.0)),
+                            (EqualTo(unit, Literal("G")), Literal.create(1024.0 * 1024.0))
                         ), Literal.create(1.0))
                     ),
                     tree)

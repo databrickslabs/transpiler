@@ -631,13 +631,13 @@ object SplToCatalyst extends Logging {
           case _ =>
             throw new ConversionFailure(s"unsupported relational: $relational")
         }
-        case ast.Or => Or(expression(ctx, left), expression(ctx, right))
-        case ast.And => And(expression(ctx, left), expression(ctx, right))
-        case ast.Add => Add(expression(ctx, left), expression(ctx, right))
-        case ast.Subtract => Subtract(expression(ctx, left), expression(ctx, right))
-        case ast.Multiply => Multiply(expression(ctx, left), expression(ctx, right))
-        case ast.Divide => Divide(expression(ctx, left), expression(ctx, right))
-        case ast.Concatenate => Concat(Seq(expression(ctx, left), expression(ctx, right)))
+        case ast.Or => Or(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.And => And(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Add => Add(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Subtract => Subtract(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Multiply => Multiply(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Divide => Divide(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Concatenate => Concat(Seq(attrOrExpr(ctx, left), attrOrExpr(ctx, right)))
         case _ => throw new ConversionFailure(s"unsupported binary: $symbol")
       }
       case _ => throw new ConversionFailure(s"unsupported symbol: $symbol")

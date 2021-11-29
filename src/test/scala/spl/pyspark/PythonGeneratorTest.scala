@@ -275,6 +275,35 @@ class PythonGeneratorTest extends AnyFunSuite {
       src))
   }
 
+  // scalastyle:off
+  test(".withColumn('fsize_quant', " +
+    "(F.regexp_extract(F.col('x'), '(?i)^(\\\\d*\\\\.?\\\\d+)([kmg])$', 1).cast('double') * " +
+    "F.when((F.upper(F.regexp_extract(F.col('x'), '(?i)^(\\\\d*\\\\.?\\\\d+)([kmg])$', 2)) == F.lit('K')), F.lit(1.0))\n" +
+    ".when((F.upper(F.regexp_extract(F.col('x'), '(?i)^(\\\\d*\\\\.?\\\\d+)([kmg])$', 2)) == F.lit('M')), F.lit(1024.0))\n" +
+    ".when((F.upper(F.regexp_extract(F.col('x'), '(?i)^(\\\\d*\\\\.?\\\\d+)([kmg])$', 2)) == F.lit('G')), F.lit(1048576.0))\n" +
+    ".otherwise(F.lit(1.0))))") {
+    val regex = Literal("(?i)^(\\d*\\.?\\d+)([kmg])$")
+    val unit = Upper(RegExpExtract(UnresolvedAttribute("x"), regex, Literal.create(2)))
+    g(Project(
+      Seq(
+        Alias(
+          Multiply(
+            Cast(RegExpExtract(
+              UnresolvedAttribute("x"),
+              regex,
+              Literal.create(1)),
+              DoubleType),
+            CaseWhen(Seq(
+              (EqualTo(unit, Literal("K")), Literal.create(1.0)),
+              (EqualTo(unit, Literal("M")), Literal.create(1024.0)),
+              (EqualTo(unit, Literal("G")), Literal.create(1024.0 * 1024.0))
+            ), Literal.create(1.0))),
+          "fsize_quant")()
+      ),
+      src))
+  }
+  // scalastyle:on
+
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
     val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable

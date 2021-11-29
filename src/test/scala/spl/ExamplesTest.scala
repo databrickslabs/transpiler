@@ -271,4 +271,16 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.where(F.expr("cidr_match('10.0.0.0/16', src_ip)")))
         |""".stripMargin)
   }
+
+  test("fsize_quant=memk(fsize)") {
+    // scalastyle:off
+    generates("eval fsize_quant=memk(fsize)",
+    """(spark.table('main')
+      |.withColumn('fsize_quant', (F.regexp_extract(F.col('fsize'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 1).cast('double') * F.when((F.upper(F.regexp_extract(F.col('fsize'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('K')), F.lit(1.0))
+      |.when((F.upper(F.regexp_extract(F.col('fsize'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('M')), F.lit(1024.0))
+      |.when((F.upper(F.regexp_extract(F.col('fsize'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('G')), F.lit(1048576.0))
+      |.otherwise(F.lit(1.0)))))
+      |""".stripMargin)
+    // scalastyle:on
+  }
 }
