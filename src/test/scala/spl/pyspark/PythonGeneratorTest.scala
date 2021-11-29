@@ -320,6 +320,21 @@ class PythonGeneratorTest extends AnyFunSuite {
       src))
   }
 
+  test(".withColumn('rmcomma', " +
+    "F.regexp_replace(F.col('x'), ',', '').cast('double'))") {
+    g(Project(
+      Seq(
+        Alias(
+          Cast(RegExpReplace(
+            UnresolvedAttribute("x"),
+            Literal.create(","),
+            Literal.create("")),
+            DoubleType),
+          "rmcomma")()
+      ),
+      src))
+  }
+
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
     val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable

@@ -251,6 +251,8 @@ object PythonGenerator {
       s"F.col(${q(s"`${ur.regexPattern}`")})"
     case RegExpExtract(subject, regexp, idx) =>
       s"F.regexp_extract(${expressionCode(subject)}, ${regexp.sql}, ${idx.sql})"
+    case RegExpReplace(subject, regexp, rep, _) =>
+      s"F.regexp_replace(${expressionCode(subject)}, ${regexp.sql}, ${rep.sql})"
     case WindowExpression(windowFunction, windowSpec) =>
       s"${expressionCode(windowFunction)}.over(${expressionCode(windowSpec)})"
     case ws: WindowSpecDefinition =>

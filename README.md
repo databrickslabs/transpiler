@@ -81,8 +81,9 @@ Secondary batch of commands:
 | mvfilter() | ✅ |
 | len() | ✅ |
 | count() | ✅ |
-| kmem() | ✅ |
+| memk() | ✅ |
 | rmunit() | ✅ |
+| rmcomma() | ✅ |
 
 ## Overriding `_time`, `_raw` and index names
 

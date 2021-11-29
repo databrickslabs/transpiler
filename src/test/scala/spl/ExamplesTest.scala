@@ -292,4 +292,11 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
     // scalastyle:on
   }
+
+  test("rmcomma=rmcomma(s)") {
+    generates("eval rmcomma=rmcomma(s)",
+      """(spark.table('main')
+        |.withColumn('rmcomma', F.regexp_replace(F.col('s'), ',', '').cast('double')))
+        |""".stripMargin)
+  }
 }

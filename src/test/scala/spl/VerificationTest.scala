@@ -844,6 +844,20 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("rmcomma fct") {
+    executes("index=fake | id < 5 | eval s=substr(ipAddress,1,3).\",\".substr(ipAddress, 5, 2)" +
+      "| eval n=rmcomma(s) | fields +id, s, n",
+      """+---+------+-------+
+        ||id |s     |n      |
+        |+---+------+-------+
+        ||1  |109,17|10917.0|
+        ||2  |null  |null   |
+        ||3  |165,53|16553.0|
+        ||4  |156,14|15614.0|
+        |+---+------+-------+
+        |""".stripMargin)
+  }
+
   test("addtotals") {
     executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum " +
       "| addtotals fieldname=my_total",

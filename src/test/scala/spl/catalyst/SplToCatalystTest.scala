@@ -894,6 +894,23 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("rmcomma(x)") {
+        check(ast.SearchCommand(
+            ast.Call("rmcomma", Seq(
+                ast.Field("x")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Cast(RegExpReplace(
+                        UnresolvedAttribute("x"),
+                        Literal.create(","),
+                        Literal.create("")),
+                        DoubleType),
+                    tree)
+            }
+        )
+    }
+
     test("round(x)") {
         check(ast.SearchCommand(
             ast.Call("round", Seq(

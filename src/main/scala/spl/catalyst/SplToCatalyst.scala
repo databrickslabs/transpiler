@@ -219,6 +219,9 @@ object SplToCatalyst extends Logging {
       val field = attrOrExpr(ctx, call.args.head)
       val regex = Literal.create("(?i)^(\\d*\\.?\\d+)(\\w*)$")
       Cast(RegExpExtract(field, regex, Literal.create(1)), DoubleType)
+    case "rmcomma" =>
+      val field = attrOrExpr(ctx, call.args.head)
+      Cast(RegExpReplace(field, Literal.create(","), Literal.create("")), DoubleType)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new ConversionFailure(s"Unknown SPL function: $approx")
