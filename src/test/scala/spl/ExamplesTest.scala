@@ -283,4 +283,11 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
       |""".stripMargin)
     // scalastyle:on
   }
+
+  test("rmunit=rmunit(fsize)") {
+    generates("eval rmunit=rmunit(fsize)",
+      """(spark.table('main')
+        |.withColumn('rmunit', F.regexp_extract(F.col('fsize'), '(?i)^(\\d*\\.?\\d+)(\\w*)$', 1).cast('double')))
+        |""".stripMargin)
+  }
 }

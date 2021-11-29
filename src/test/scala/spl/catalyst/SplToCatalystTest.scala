@@ -876,6 +876,24 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("rmunit(x)") {
+        val regex = Literal("(?i)^(\\d*\\.?\\d+)(\\w*)$")
+        check(ast.SearchCommand(
+            ast.Call("rmunit", Seq(
+                ast.Field("x")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Cast(RegExpExtract(
+                        UnresolvedAttribute("x"),
+                        regex,
+                        Literal.create(1)),
+                        DoubleType),
+                    tree)
+            }
+        )
+    }
+
     test("round(x)") {
         check(ast.SearchCommand(
             ast.Call("round", Seq(

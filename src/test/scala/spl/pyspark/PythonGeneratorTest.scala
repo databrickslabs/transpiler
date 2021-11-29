@@ -304,6 +304,22 @@ class PythonGeneratorTest extends AnyFunSuite {
   }
   // scalastyle:on
 
+  test(".withColumn('rmunit', " +
+    "F.regexp_extract(F.col('x'), '(?i)^(\\\\d*\\\\.?\\\\d+)(\\\\w*)$', 1).cast('double'))") {
+    val regex = Literal("(?i)^(\\d*\\.?\\d+)(\\w*)$")
+    g(Project(
+      Seq(
+        Alias(
+          Cast(RegExpExtract(
+            UnresolvedAttribute("x"),
+            regex,
+            Literal.create(1)),
+            DoubleType),
+          "rmunit")()
+      ),
+      src))
+  }
+
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
     val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable

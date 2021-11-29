@@ -82,6 +82,7 @@ Secondary batch of commands:
 | len() | ✅ |
 | count() | ✅ |
 | kmem() | ✅ |
+| rmunit() | ✅ |
 
 ## Overriding `_time`, `_raw` and index names
 

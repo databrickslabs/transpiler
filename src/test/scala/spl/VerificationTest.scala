@@ -830,6 +830,20 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("rmunit fct") {
+    executes("index=fake | id < 5 | eval unit=if(id < 3, \"Megabyte\", \"GB\") " +
+      "| eval size=id.unit, rmunit=rmunit(size) | fields +id, size, rmunit",
+      """+---+---------+------+
+        ||id |size     |rmunit|
+        |+---+---------+------+
+        ||1  |1Megabyte|1.0   |
+        ||2  |2Megabyte|2.0   |
+        ||3  |3GB      |3.0   |
+        ||4  |4GB      |4.0   |
+        |+---+---------+------+
+        |""".stripMargin)
+  }
+
   test("addtotals") {
     executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum " +
       "| addtotals fieldname=my_total",

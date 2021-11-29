@@ -215,6 +215,10 @@ object SplToCatalyst extends Logging {
     case "memk" =>
       val field = attrOrExpr(ctx, call.args.head)
       callMemk(ctx, field)
+    case "rmunit" =>
+      val field = attrOrExpr(ctx, call.args.head)
+      val regex = Literal.create("(?i)^(\\d*\\.?\\d+)(\\w*)$")
+      Cast(RegExpExtract(field, regex, Literal.create(1)), DoubleType)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new ConversionFailure(s"Unknown SPL function: $approx")
