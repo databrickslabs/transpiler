@@ -299,4 +299,11 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.withColumn('rmcomma', F.regexp_replace(F.col('s'), ',', '').cast('double')))
         |""".stripMargin)
   }
+
+  test("convert timeformat=\"%Y\" ctime(_time) AS year") {
+    generates("convert timeformat=\"%Y\" ctime(_time) AS year",
+        """(spark.table('main')
+        |.withColumn('year', F.date_format(F.col('_time'), 'yyyy')))
+        |""".stripMargin)
+  }
 }

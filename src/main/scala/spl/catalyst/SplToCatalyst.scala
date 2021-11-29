@@ -7,7 +7,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{CidrMatch, FillNullShim, Term}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types.{DateType, DoubleType, StringType}
+import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
@@ -48,7 +48,8 @@ object SplToCatalyst extends Logging {
           case ast.ConvertCommand(timeformat, convs) =>
             convs.foldLeft(tree) { (plan, fc) =>
               val name = fc.alias.getOrElse(fc.field).value
-              withColumn(ctx, plan, name, ast.Call(fc.func, Seq(fc.field)))
+              val callArgs = Seq(fc.field, ast.StrValue(timeformat))
+              withColumn(ctx, plan, name, ast.Call(fc.func, callArgs))
             }
 
           case ast.HeadCommand(expr, keepLast, nullOption) =>
@@ -145,8 +146,7 @@ object SplToCatalyst extends Logging {
       val ip = attrOrExpr(ctx, call.args(1))
       callCidrMatch(ctx, cidr, ip)
     case "ctime" =>
-      val field = attr(call.args.head)
-      Alias(Cast(field, DateType), field.name)()
+      determineTimeConversion(ctx, call)
     case "count" =>
       AggregateExpression(
         Count(call.args match {
@@ -185,7 +185,7 @@ object SplToCatalyst extends Logging {
     case "latest" =>
       Last(attrOrExpr(ctx, call.args.head), ignoreNulls = true)
     case "strftime" =>
-      determineStrftime(ctx, call)
+      determineTimeConversion(ctx, call)
     case "mvcount" =>
       Size(attrOrExpr(ctx, call.args.head))
     case "mvindex" =>
@@ -277,7 +277,7 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  private def determineStrftime(ctx: LogicalContext, call: ast.Call): Expression = {
+  private def determineTimeConversion(ctx: LogicalContext, call: ast.Call): Expression = {
     DateFormatClass(attrOrExpr(ctx, call.args.head), Literal.create(call.args.lift(1) match {
       case Some(ast.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
         case (a, (b, c)) => a.replaceAll(b, c)

@@ -911,6 +911,22 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("ctime(x)") {
+        check(ast.SearchCommand(
+            ast.Call("ctime", Seq(
+                ast.Field("x"),
+                ast.StrValue("%m/%d/%Y %H:%M:%S")
+            ))),
+            (_, tree) => {
+                Filter(
+                    DateFormatClass(
+                        UnresolvedAttribute("x"),
+                        Literal.create("MM/dd/yyyy HH:mm:ss")),
+                    tree)
+            }
+        )
+    }
+
     test("round(x)") {
         check(ast.SearchCommand(
             ast.Call("round", Seq(

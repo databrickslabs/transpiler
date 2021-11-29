@@ -420,7 +420,7 @@ class SplParserTest extends ParserSuite {
   }
 
   test("convert ctime(indextime)") {
-    p(convert(_), ConvertCommand(None, Seq(
+    p(convert(_), ConvertCommand(convs = Seq(
       FieldConversion("ctime", Field("indextime"), None)
     )))
   }

@@ -858,6 +858,30 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("convert w/ timeformat ctime(timestamp)") {
+    executes("index=fake | id < 3 | convert timeformat=\"%H\" ctime(timestamp) AS hour " +
+      "| fields +id, timestamp, hour",
+      """+---+-------------------+----+
+        ||id |timestamp          |hour|
+        |+---+-------------------+----+
+        ||1  |2021-11-05 21:20:32|21  |
+        ||2  |2021-11-05 21:21:32|21  |
+        |+---+-------------------+----+
+        |""".stripMargin)
+  }
+
+  test("convert w/o timeformat ctime(timestamp)") {
+    executes("index=fake | id < 3 | convert ctime(timestamp) AS ctime " +
+      "| fields +id, timestamp, ctime",
+      """+---+-------------------+-------------------+
+        ||id |timestamp          |ctime              |
+        |+---+-------------------+-------------------+
+        ||1  |2021-11-05 21:20:32|11/05/2021 21:20:32|
+        ||2  |2021-11-05 21:21:32|11/05/2021 21:21:32|
+        |+---+-------------------+-------------------+
+        |""".stripMargin)
+  }
+
   test("addtotals") {
     executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum " +
       "| addtotals fieldname=my_total",
