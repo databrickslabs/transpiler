@@ -85,6 +85,7 @@ Secondary batch of commands:
 | rmunit() | ✅ |
 | rmcomma() | ✅ |
 | ctime() | ✅ |
+| num() | ✅ |
 
 ## Overriding `_time`, `_raw` and index names
 

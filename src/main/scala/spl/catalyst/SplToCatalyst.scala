@@ -46,6 +46,7 @@ object SplToCatalyst extends Logging {
             selectExpr(fields, tree)
 
           case ast.ConvertCommand(timeformat, convs) =>
+            // TODO add support for wildcard fields
             convs.foldLeft(tree) { (plan, fc) =>
               val name = fc.alias.getOrElse(fc.field).value
               val callArgs = Seq(fc.field, ast.StrValue(timeformat))
@@ -217,11 +218,12 @@ object SplToCatalyst extends Logging {
       callMemk(ctx, field)
     case "rmunit" =>
       val field = attrOrExpr(ctx, call.args.head)
-      val regex = Literal.create("(?i)^(\\d*\\.?\\d+)(\\w*)$")
-      Cast(RegExpExtract(field, regex, Literal.create(1)), DoubleType)
+      callRmUnit(ctx, field)
     case "rmcomma" =>
       val field = attrOrExpr(ctx, call.args.head)
-      Cast(RegExpReplace(field, Literal.create(","), Literal.create("")), DoubleType)
+      callRmComma(ctx, field)
+    case "num" =>
+      callNum(ctx, call)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new ConversionFailure(s"Unknown SPL function: $approx")
@@ -231,6 +233,26 @@ object SplToCatalyst extends Logging {
     if (ctx.output.isEmpty) {
       throw EmptyContextOutput(command)
     }
+  }
+
+  private def callNum(ctx: LogicalContext, call: ast.Call): Expression = {
+    val field = attrOrExpr(ctx, call.args.head)
+    CaseWhen(Seq(
+      (IsNotNull(determineTimeConversion(ctx, call)), determineTimeConversion(ctx, call)),
+      (IsNotNull(Cast(field, DoubleType)), Cast(field, DoubleType)),
+      (IsNotNull(callMemk(ctx, field)), callMemk(ctx, field)),
+      (IsNotNull(callRmUnit(ctx, field)), callRmUnit(ctx, field)),
+      (IsNotNull(callRmComma(ctx, field)), callRmComma(ctx, field)),
+    ), None)
+  }
+
+  private def callRmComma(ctx: LogicalContext, field: Expression): Expression = {
+    Cast(RegExpReplace(field, Literal.create(","), Literal.create("")), DoubleType)
+  }
+
+  private def callRmUnit(ctx: LogicalContext, field: Expression): Expression = {
+    val regex = Literal.create("(?i)^(\\d*\\.?\\d+)(\\w*)$")
+    Cast(RegExpExtract(field, regex, Literal.create(1)), DoubleType)
   }
 
   private def callMemk(ctx: LogicalContext, field: Expression): Expression = {

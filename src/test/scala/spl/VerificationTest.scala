@@ -858,6 +858,22 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+
+  test("num fct") {
+    // TODO Fix convert command s.t. several function calls can be provided (comma separated)
+    executes("index=fake | id < 5 " +
+      "| eval quant=round((id/3),2), unit=if(id < 3, \"M\", \"G\"), fsize=quant.unit " +
+      "| eval long_unit=if(id < 3, \"Megabyte\", \"GB\"), id_unit=id.long_unit " +
+      "| eval comma_sep=substr(ipAddress,1,3).\",\".substr(ipAddress, 5, 2) " +
+      "| convert timeformat =\"%H\" num(timeStamp) AS hour " +
+      "| convert num(fsize) AS fsize_num " +
+      "| convert num(id_unit) AS id_unit_num " +
+      "| convert num(comma_sep) AS comma_sep_num " +
+      "| fields +id, hour, id_unit, id_unit_num, fsize, fsize_num, comma_sep, comma_sep_num",
+      """
+        |""".stripMargin)
+  }
+
   test("convert w/ timeformat ctime(timestamp)") {
     executes("index=fake | id < 3 | convert timeformat=\"%H\" ctime(timestamp) AS hour " +
       "| fields +id, timestamp, hour",

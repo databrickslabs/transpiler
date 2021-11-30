@@ -927,6 +927,44 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("num(x)") {
+        val attr = UnresolvedAttribute("x")
+        val trailingTextRegex = Literal("(?i)^(\\d*\\.?\\d+)(\\w*)$")
+        val fsizeRegex = Literal("(?i)^(\\d*\\.?\\d+)([kmg])$")
+        val fsizeUnit = Upper(RegExpExtract(attr, fsizeRegex, Literal.create(2)))
+        val ctimeExpr = DateFormatClass(attr, Literal.create("MM/dd/yyyy HH:mm:ss"))
+        val doubleExpr = Cast(UnresolvedAttribute("x"), DoubleType)
+        val rmCommaExpr = Cast(
+            RegExpReplace(attr, Literal.create(","), Literal.create("")),
+            DoubleType)
+        val unitExpr = Cast(RegExpExtract(attr, trailingTextRegex, Literal.create(1)), DoubleType)
+        val memkExpr = Multiply(
+            Cast(RegExpExtract(attr, fsizeRegex, Literal.create(1)), DoubleType),
+            CaseWhen(Seq(
+                (EqualTo(fsizeUnit, Literal("K")), Literal.create(1.0)),
+                (EqualTo(fsizeUnit, Literal("M")), Literal.create(1024.0)),
+                (EqualTo(fsizeUnit, Literal("G")), Literal.create(1024.0 * 1024.0))
+            ), Literal.create(1.0)))
+
+        check(ast.SearchCommand(
+            ast.Call("num", Seq(
+                ast.Field("x"),
+                ast.StrValue("%m/%d/%Y %H:%M:%S")
+            ))),
+            (_, tree) => {
+                Filter(
+                    CaseWhen(Seq(
+                        (IsNotNull(ctimeExpr), ctimeExpr),
+                        (IsNotNull(doubleExpr), doubleExpr),
+                        (IsNotNull(memkExpr), memkExpr),
+                        (IsNotNull(unitExpr), unitExpr),
+                        (IsNotNull(rmCommaExpr), rmCommaExpr)
+                    ), None),
+                    tree)
+            }
+        )
+    }
+
     test("round(x)") {
         check(ast.SearchCommand(
             ast.Call("round", Seq(

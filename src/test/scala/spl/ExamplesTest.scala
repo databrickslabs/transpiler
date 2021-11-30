@@ -306,4 +306,24 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.withColumn('year', F.date_format(F.col('_time'), 'yyyy')))
         |""".stripMargin)
   }
+
+  test("convert timeformat=\"%Y\" num(_time) AS year") {
+    // scalastyle:off
+    generates("convert timeformat=\"%Y\" num(_time) AS year",
+      """(spark.table('main')
+        |.withColumn('year', F.when(F.date_format(F.col('_time'), 'yyyy').isNotNull(), F.date_format(F.col('_time'), 'yyyy'))
+        |.when(F.col('_time').cast('double').isNotNull(), F.col('_time').cast('double'))
+        |.when((F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 1).cast('double') * F.when((F.upper(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('K')), F.lit(1.0))
+        |.when((F.upper(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('M')), F.lit(1024.0))
+        |.when((F.upper(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('G')), F.lit(1048576.0))
+        |.otherwise(F.lit(1.0))).isNotNull(), (F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 1).cast('double') * F.when((F.upper(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('K')), F.lit(1.0))
+        |.when((F.upper(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('M')), F.lit(1024.0))
+        |.when((F.upper(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('G')), F.lit(1048576.0))
+        |.otherwise(F.lit(1.0))))
+        |.when(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)(\\w*)$', 1).cast('double').isNotNull(), F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)(\\w*)$', 1).cast('double'))
+        |.when(F.regexp_replace(F.col('_time'), ',', '').cast('double').isNotNull(), F.regexp_replace(F.col('_time'), ',', '').cast('double'))
+        |))
+        |""".stripMargin)
+    // scalastyle:on
+  }
 }
