@@ -997,6 +997,7 @@ object SplToCatalyst extends Logging {
     val noneFc = convs.filter(_.func.equals("none")).map(_.field.value)
     val unfoldedConvs = regFields ++ wcFields.flatMap(matchWcField(_, ctx.output))
     val filteredConvs = unfoldedConvs.filter(fc => !noneFc.contains(fc.field.value))
+    // TODO Add exception handling if wc fields cannot be processed due to empty ctx.output
     filteredConvs.foldLeft(tree) { (plan, fc) =>
       val name = fc.alias.getOrElse(fc.field).value
       val callArgs = Seq(fc.field, ast.StrValue(timeformat))

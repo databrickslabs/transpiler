@@ -26,7 +26,7 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | rename | ✅ | ✅ | ✅ |
 | join | ✅ | ✅ | ✅ |
 | fields | ✅ | ✅ | ✅ |
-| convert | ✅ |  |  |
+| convert | ✅ | ✅ | ✅ |
 | collect | ✅ | ✅ | ✅ |
 | stats | ✅ | ✅ | ✅ |
 | sort | ✅ | ✅ | ✅ |
