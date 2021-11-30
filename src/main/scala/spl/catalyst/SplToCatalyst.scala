@@ -46,12 +46,7 @@ object SplToCatalyst extends Logging {
             selectExpr(fields, tree)
 
           case ast.ConvertCommand(timeformat, convs) =>
-            // TODO add support for wildcard fields
-            convs.foldLeft(tree) { (plan, fc) =>
-              val name = fc.alias.getOrElse(fc.field).value
-              val callArgs = Seq(fc.field, ast.StrValue(timeformat))
-              withColumn(ctx, plan, name, ast.Call(fc.func, callArgs))
-            }
+            applyConvertCommand(ctx, tree, timeformat, convs)
 
           case ast.HeadCommand(expr, keepLast, nullOption) =>
             // TODO Implement keeplast and null options behaviour
@@ -991,6 +986,29 @@ object SplToCatalyst extends Logging {
         (toReturnExpr, expr) => Add(expr, toReturnExpr)
       })
     } else tree
+  }
+
+  private def applyConvertCommand(ctx: LogicalContext,
+                                  tree: LogicalPlan,
+                                  timeformat: String,
+                                  convs: Seq[ast.FieldConversion]): LogicalPlan = {
+    val (wcFields, regFields) = convs.partition(_.field.value.contains("*"))
+    // TODO Allow for wildcards in the 'none' function call
+    val noneFc = convs.filter(_.func.equals("none")).map(_.field.value)
+    val unfoldedConvs = regFields ++ wcFields.flatMap(matchWcField(_, ctx.output))
+    val filteredConvs = unfoldedConvs.filter(fc => !noneFc.contains(fc.field.value))
+    filteredConvs.foldLeft(tree) { (plan, fc) =>
+      val name = fc.alias.getOrElse(fc.field).value
+      val callArgs = Seq(fc.field, ast.StrValue(timeformat))
+      withColumn(ctx, plan, name, ast.Call(fc.func, callArgs))
+    }
+  }
+
+  private def matchWcField(wcField: ast.FieldConversion,
+                           fields: Seq[NamedExpression]): Seq[ast.FieldConversion] = {
+    val regex = wcField.field.value.replace("*", "\\w*")
+    fields.filter(_.name matches regex)
+      .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
   }
 }
 

@@ -860,15 +860,12 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
 
 
   test("num fct") {
-    // TODO Fix convert command s.t. several function calls can be provided (comma separated)
     executes("index=fake | id < 5 " +
       "| eval quant=round((id/3),2), unit=if(id < 3, \"M\", \"G\"), fsize=quant.unit " +
       "| eval long_unit=if(id < 3, \"Megabyte\", \"GB\"), id_unit=id.long_unit " +
       "| eval comma_sep=substr(ipAddress,1,3).\",\".substr(ipAddress, 5, 2) " +
-      "| convert num(id)" +
-      "| convert timeformat =\"%H\" num(timeStamp) AS hour " +
-      "| convert num(fsize) AS fsize_num " +
-      "| convert num(id_unit) AS id_unit_num " +
+      "| convert timeformat =\"%H\" num(id) AS id num(timeStamp) AS hour" +
+      "| convert num(fsize) AS fsize_num num(id_unit) AS id_unit_num " +
       "| convert num(comma_sep) AS comma_sep_num " +
       "| fields +id, hour, id_unit, id_unit_num, fsize, fsize_num, comma_sep, comma_sep_num",
       """+---+----+---------+-----------+-----+----------+---------+-------------+
@@ -903,6 +900,18 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||1  |2021-11-05 21:20:32|11/05/2021 21:20:32|
         ||2  |2021-11-05 21:21:32|11/05/2021 21:21:32|
         |+---+-------------------+-------------------+
+        |""".stripMargin)
+  }
+
+  test("convert w/ wildcard") {
+    executes("index=fake | id < 3 | fields +id, cardType, cardNumber" +
+      "| convert num(card*) none(cardType)",
+      """+---+--------+--------------------+
+        ||id |cardType|cardNumber          |
+        |+---+--------+--------------------+
+        ||1  |maestro |6.304276470412087E15|
+        ||2  |jcb     |3.538391327116529E15|
+        |+---+--------+--------------------+
         |""".stripMargin)
   }
 
