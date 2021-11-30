@@ -870,7 +870,14 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       "| convert num(id_unit) AS id_unit_num " +
       "| convert num(comma_sep) AS comma_sep_num " +
       "| fields +id, hour, id_unit, id_unit_num, fsize, fsize_num, comma_sep, comma_sep_num",
-      """
+      """+---+----+---------+-----------+-----+----------+---------+-------------+
+        ||id |hour|id_unit  |id_unit_num|fsize|fsize_num |comma_sep|comma_sep_num|
+        |+---+----+---------+-----------+-----+----------+---------+-------------+
+        ||1  |21  |1Megabyte|1.0        |0.33M|337.92    |109,17   |10917.0      |
+        ||2  |21  |2Megabyte|2.0        |0.67M|686.08    |null     |null         |
+        ||3  |21  |3GB      |3.0        |1.0G |1048576.0 |165,53   |16553.0      |
+        ||4  |21  |4GB      |4.0        |1.33G|1394606.08|156,14   |15614.0      |
+        |+---+----+---------+-----------+-----+----------+---------+-------------+
         |""".stripMargin)
   }
 

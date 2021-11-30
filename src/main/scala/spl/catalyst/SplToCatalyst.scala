@@ -242,7 +242,7 @@ object SplToCatalyst extends Logging {
       (IsNotNull(Cast(field, DoubleType)), Cast(field, DoubleType)),
       (IsNotNull(callMemk(ctx, field)), callMemk(ctx, field)),
       (IsNotNull(callRmUnit(ctx, field)), callRmUnit(ctx, field)),
-      (IsNotNull(callRmComma(ctx, field)), callRmComma(ctx, field)),
+      (IsNotNull(callRmComma(ctx, field)), callRmComma(ctx, field))
     ), None)
   }
 
