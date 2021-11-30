@@ -147,7 +147,9 @@ object SplToCatalyst extends Logging {
       val ip = attrOrExpr(ctx, call.args(1))
       callCidrMatch(ctx, cidr, ip)
     case "ctime" =>
-      determineTimeConversion(ctx, call)
+      val field = attrOrExpr(ctx, call.args.head)
+      val format = call.args.lift(1)
+      determineTimeConversion(ctx, field, format)
     case "count" =>
       AggregateExpression(
         Count(call.args match {
@@ -186,7 +188,9 @@ object SplToCatalyst extends Logging {
     case "latest" =>
       Last(attrOrExpr(ctx, call.args.head), ignoreNulls = true)
     case "strftime" =>
-      determineTimeConversion(ctx, call)
+      val field = attrOrExpr(ctx, call.args.head)
+      val format = call.args.lift(1)
+      determineTimeConversion(ctx, field, format)
     case "mvcount" =>
       Size(attrOrExpr(ctx, call.args.head))
     case "mvindex" =>
@@ -237,8 +241,11 @@ object SplToCatalyst extends Logging {
 
   private def callNum(ctx: LogicalContext, call: ast.Call): Expression = {
     val field = attrOrExpr(ctx, call.args.head)
+    val fieldStr = Cast(field, StringType)
+    val format = call.args.lift(1)
     CaseWhen(Seq(
-      (IsNotNull(determineTimeConversion(ctx, call)), determineTimeConversion(ctx, call)),
+      (IsNotNull(determineTimeConversion(ctx, fieldStr, format)),
+        determineTimeConversion(ctx, fieldStr, format)),
       (IsNotNull(Cast(field, DoubleType)), Cast(field, DoubleType)),
       (IsNotNull(callMemk(ctx, field)), callMemk(ctx, field)),
       (IsNotNull(callRmUnit(ctx, field)), callRmUnit(ctx, field)),
@@ -299,8 +306,10 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  private def determineTimeConversion(ctx: LogicalContext, call: ast.Call): Expression = {
-    DateFormatClass(attrOrExpr(ctx, call.args.head), Literal.create(call.args.lift(1) match {
+  private def determineTimeConversion(ctx: LogicalContext,
+                                      field: Expression,
+                                      format: Option[ast.Expr]): Expression = {
+    DateFormatClass(field, Literal.create(format match {
       case Some(ast.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
         case (a, (b, c)) => a.replaceAll(b, c)
       }

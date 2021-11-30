@@ -865,6 +865,7 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       "| eval quant=round((id/3),2), unit=if(id < 3, \"M\", \"G\"), fsize=quant.unit " +
       "| eval long_unit=if(id < 3, \"Megabyte\", \"GB\"), id_unit=id.long_unit " +
       "| eval comma_sep=substr(ipAddress,1,3).\",\".substr(ipAddress, 5, 2) " +
+      "| convert num(id)" +
       "| convert timeformat =\"%H\" num(timeStamp) AS hour " +
       "| convert num(fsize) AS fsize_num " +
       "| convert num(id_unit) AS id_unit_num " +
@@ -873,15 +874,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       """+---+----+---------+-----------+-----+----------+---------+-------------+
         ||id |hour|id_unit  |id_unit_num|fsize|fsize_num |comma_sep|comma_sep_num|
         |+---+----+---------+-----------+-----+----------+---------+-------------+
-        ||1  |21  |1Megabyte|1.0        |0.33M|337.92    |109,17   |10917.0      |
-        ||2  |21  |2Megabyte|2.0        |0.67M|686.08    |null     |null         |
-        ||3  |21  |3GB      |3.0        |1.0G |1048576.0 |165,53   |16553.0      |
-        ||4  |21  |4GB      |4.0        |1.33G|1394606.08|156,14   |15614.0      |
+        ||1.0|21  |1Megabyte|1.0        |0.33M|337.92    |109,17   |10917.0      |
+        ||2.0|21  |2Megabyte|2.0        |0.67M|686.08    |null     |null         |
+        ||3.0|21  |3GB      |3.0        |1.0G |1048576.0 |165,53   |16553.0      |
+        ||4.0|21  |4GB      |4.0        |1.33G|1394606.08|156,14   |15614.0      |
         |+---+----+---------+-----------+-----+----------+---------+-------------+
         |""".stripMargin)
   }
 
-  test("convert w/ timeformat ctime(timestamp)") {
+  test("convert w/ timeformat=\"%H\" ctime(timestamp)") {
     executes("index=fake | id < 3 | convert timeformat=\"%H\" ctime(timestamp) AS hour " +
       "| fields +id, timestamp, hour",
       """+---+-------------------+----+
@@ -902,6 +903,18 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||1  |2021-11-05 21:20:32|11/05/2021 21:20:32|
         ||2  |2021-11-05 21:21:32|11/05/2021 21:21:32|
         |+---+-------------------+-------------------+
+        |""".stripMargin)
+  }
+
+  test("eval date=strftime(timeStamp)") {
+    executes("index=fake | id < 3 | eval date = strftime(timeStamp, \"%m/%d/%Y %H:%M:%S\")" +
+      "| eval hour=strftime(\"2021-11-05 21:20:32\", \"%H\") | fields +id, date, hour",
+      """+---+-------------------+----+
+        ||id |date               |hour|
+        |+---+-------------------+----+
+        ||1  |11/05/2021 21:20:32|21  |
+        ||2  |11/05/2021 21:21:32|21  |
+        |+---+-------------------+----+
         |""".stripMargin)
   }
 

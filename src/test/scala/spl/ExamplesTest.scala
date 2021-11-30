@@ -311,7 +311,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     // scalastyle:off
     generates("convert timeformat=\"%Y\" num(_time) AS year",
       """(spark.table('main')
-        |.withColumn('year', F.when(F.date_format(F.col('_time'), 'yyyy').isNotNull(), F.date_format(F.col('_time'), 'yyyy'))
+        |.withColumn('year', F.when(F.date_format(F.col('_time').cast('string'), 'yyyy').isNotNull(), F.date_format(F.col('_time').cast('string'), 'yyyy'))
         |.when(F.col('_time').cast('double').isNotNull(), F.col('_time').cast('double'))
         |.when((F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 1).cast('double') * F.when((F.upper(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('K')), F.lit(1.0))
         |.when((F.upper(F.regexp_extract(F.col('_time'), '(?i)^(\\d*\\.?\\d+)([kmg])$', 2)) == F.lit('M')), F.lit(1024.0))

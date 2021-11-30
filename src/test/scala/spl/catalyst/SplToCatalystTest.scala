@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
-import org.apache.spark.sql.types.DoubleType
+import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.scalatest.funsuite.AnyFunSuite
 import spl.ast
 
@@ -932,7 +932,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         val trailingTextRegex = Literal("(?i)^(\\d*\\.?\\d+)(\\w*)$")
         val fsizeRegex = Literal("(?i)^(\\d*\\.?\\d+)([kmg])$")
         val fsizeUnit = Upper(RegExpExtract(attr, fsizeRegex, Literal.create(2)))
-        val ctimeExpr = DateFormatClass(attr, Literal.create("MM/dd/yyyy HH:mm:ss"))
+        val ctimeExpr = DateFormatClass(Cast(attr, StringType), Literal.create("HH:mm:ss"))
         val doubleExpr = Cast(UnresolvedAttribute("x"), DoubleType)
         val rmCommaExpr = Cast(
             RegExpReplace(attr, Literal.create(","), Literal.create("")),
@@ -949,7 +949,7 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(ast.SearchCommand(
             ast.Call("num", Seq(
                 ast.Field("x"),
-                ast.StrValue("%m/%d/%Y %H:%M:%S")
+                ast.StrValue("%H:%M:%S")
             ))),
             (_, tree) => {
                 Filter(
