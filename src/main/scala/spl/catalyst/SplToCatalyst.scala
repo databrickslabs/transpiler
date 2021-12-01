@@ -81,7 +81,8 @@ object SplToCatalyst extends Logging {
             applyRex(ctx, tree, rc)
 
           case ast.TStatsCommand(append, fillNullValue, prestats, funcs, from, where, by, span) =>
-            applyTStatsCommand(ctx, tree, append, fillNullValue, prestats, funcs, from, where, by, span)
+            applyTStatsCommand(ctx,
+              tree, append, fillNullValue, prestats, funcs, from, where, by, span)
 
           case ast.RenameCommand(aliases) =>
             applyRename(ctx, tree, aliases)
@@ -912,16 +913,17 @@ object SplToCatalyst extends Logging {
     val groupBy = by.map(attr)
     val agg = aggregates(ctx, funcs)
     newAggregateIgnoringABI(windowExprSeq ++ groupBy, windowExprSeq ++ groupBy ++ agg, tree)
-    //ToDo: Remove 'index' statement from where and filter subsequently by where expr
+    // TODO: Remove 'index' statement from where and filter subsequently by where expr
   }
 
-  private def getWindowExprSeq(ctx: LogicalContext, span: Option[ast.TimeSpan]): Seq[NamedExpression] = {
+  private def getWindowExprSeq(ctx: LogicalContext,
+                               span: Option[ast.TimeSpan]): Seq[NamedExpression] = {
     val windowExpr = span match {
-      case Some(ts) => {
+      case Some(ts) =>
         val windowDuration = s"${ts.value} ${ts.scale}"
         val timeColumn = UnresolvedAttribute(ctx.timeFieldName)
         Seq(Alias(new TimeWindow(timeColumn, Literal(windowDuration)), "window")())
-      }
+
       case _ => Seq()
     }
     windowExpr

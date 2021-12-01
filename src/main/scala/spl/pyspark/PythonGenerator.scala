@@ -137,9 +137,6 @@ object PythonGenerator {
   private def exprCodeList(ctx: GeneratorContext, exprs: Seq[Expression]) =
     smartDelimiters(ctx, exprs.map(expressionCode))
 
-  private def exprList(ctx: GeneratorContext, exprs: Seq[Expression]) =
-    smartDelimiters(ctx, exprs.map(expression).map(q))
-
   private def toPythonList(ctx: GeneratorContext, elements: Seq[String]): String =
     s"[${smartDelimiters(ctx, elements.map(q))}]"
 
