@@ -425,6 +425,20 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("multisearch") {
+    executes("multisearch [index=fake | id < 2 | eval a=5]" +
+      " [index=fake | id < 2 | eval a=42]" +
+      " [index=fake | id < 2 | eval a=74] | fields +id, a",
+      """+---+---+
+        ||id |a  |
+        |+---+---+
+        ||1  |5  |
+        ||1  |42 |
+        ||1  |74 |
+        |+---+---+
+        |""".stripMargin)
+  }
+
   test("b_not_null") {
     executes("index=fake | fields +email | eval b_not_null=if(isnotnull(email), 1, 0)",
       """+--------------------------+----------+

@@ -11,6 +11,7 @@ import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.optimizer.CombineUnions
 import org.apache.spark.sql.catalyst.util.IntervalUtils
 import org.apache.spark.unsafe.types.UTF8String
 import spl.ast
@@ -125,6 +126,9 @@ object SplToCatalyst extends Logging {
 
           case at: ast.AddTotals =>
             applyAddTotals(ctx, tree, at)
+
+          case ms: ast.MultiSearch =>
+            applyMultiSearch(ctx, tree, ms)
         }
       }
     }
@@ -1019,6 +1023,11 @@ object SplToCatalyst extends Logging {
       ctx.output.filter(_.name matches regex)
         .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
     })
+  }
+
+  private def applyMultiSearch(ctx: LogicalContext, tree: LogicalPlan, ms: ast.MultiSearch) = {
+    val plans = ms.pipelines.map(pipeline(ctx.copy(output = Seq()), _))
+    CombineUnions(plans.reduce((l, r) => Union(Seq(l, r), byName = true, allowMissingCol = true)))
   }
 }
 

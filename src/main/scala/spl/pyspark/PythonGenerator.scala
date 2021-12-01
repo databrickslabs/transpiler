@@ -94,6 +94,9 @@ object PythonGenerator {
     case r: Range =>
       s"spark.range(${r.start}, ${r.end}, ${r.step})"
 
+    case Union(children, _, _) =>
+      children.map(fromPlan(ctx, _)).reduce((l, r) => s"${l}.union(${r})")
+
     case FillNullShim(value, columns, child) =>
       val childCode = fromPlan(ctx, child)
       if (columns.isEmpty) {
