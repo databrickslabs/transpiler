@@ -221,8 +221,10 @@ object SplToCatalyst extends Logging {
     case "rmcomma" =>
       val field = attrOrExpr(ctx, call.args.head)
       callRmComma(ctx, field)
+    case "auto" =>
+      callAuto(ctx, call)
     case "num" =>
-      callNum(ctx, call)
+      callAuto(ctx, call, true)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new ConversionFailure(s"Unknown SPL function: $approx")
@@ -234,7 +236,9 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  private def callNum(ctx: LogicalContext, call: ast.Call): Expression = {
+  private def callAuto(ctx: LogicalContext,
+                      call: ast.Call,
+                      rmNonConv: Boolean = false): Expression = {
     val field = attrOrExpr(ctx, call.args.head)
     val fieldStr = Cast(field, StringType)
     val format = call.args.lift(1)
@@ -245,7 +249,7 @@ object SplToCatalyst extends Logging {
       (IsNotNull(callMemk(ctx, field)), callMemk(ctx, field)),
       (IsNotNull(callRmUnit(ctx, field)), callRmUnit(ctx, field)),
       (IsNotNull(callRmComma(ctx, field)), callRmComma(ctx, field))
-    ), None)
+    ), if (rmNonConv) None else Some(field))
   }
 
   private def callRmComma(ctx: LogicalContext, field: Expression): Expression = {
@@ -992,11 +996,10 @@ object SplToCatalyst extends Logging {
                                   tree: LogicalPlan,
                                   timeformat: String,
                                   convs: Seq[ast.FieldConversion]): LogicalPlan = {
-    val (wcFields, regFields) = convs.partition(_.field.value.contains("*"))
-    // TODO Allow for wildcards in the 'none' function call
-    val noneFc = convs.filter(_.func.equals("none")).map(_.field.value)
-    val unfoldedConvs = regFields ++ wcFields.flatMap(matchWcField(_, ctx.output))
-    val filteredConvs = unfoldedConvs.filter(fc => !noneFc.contains(fc.field.value))
+    val noneFcs = convs.filter(_.func.equals("none"))
+    val unfoldedNones = unfoldWildcards(ctx, noneFcs).map(_.field.value)
+    val unfoldedConvs = unfoldWildcards(ctx, convs)
+    val filteredConvs = unfoldedConvs.filter(fc => !unfoldedNones.contains(fc.field.value))
     // TODO Add exception handling if wc fields cannot be processed due to empty ctx.output
     filteredConvs.foldLeft(tree) { (plan, fc) =>
       val name = fc.alias.getOrElse(fc.field).value
@@ -1005,11 +1008,17 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  private def matchWcField(wcField: ast.FieldConversion,
-                           fields: Seq[NamedExpression]): Seq[ast.FieldConversion] = {
-    val regex = wcField.field.value.replace("*", "\\w*")
-    fields.filter(_.name matches regex)
-      .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
+  private def unfoldWildcards(ctx: LogicalContext,
+                              convs: Seq[ast.FieldConversion]): Seq[ast.FieldConversion] = {
+    val (wcFields, regFields) = convs.partition(_.field.value.contains("*"))
+    if (!wcFields.isEmpty && ctx.output.isEmpty) {
+      throw EmptyContextOutput(ast.ConvertCommand(convs = Seq()))
+    }
+    regFields ++ wcFields.flatMap(wcField => {
+      val regex = wcField.field.value.replace("*", "\\w*")
+      ctx.output.filter(_.name matches regex)
+        .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
+    })
   }
 }
 

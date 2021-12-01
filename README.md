@@ -85,6 +85,7 @@ Secondary batch of commands:
 | rmunit() | ✅ |
 | rmcomma() | ✅ |
 | ctime() | ✅ |
+| auto() | ✅ |
 | num() | ✅ |
 | none() | ✅ |
 

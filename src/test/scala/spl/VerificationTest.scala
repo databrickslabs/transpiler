@@ -866,16 +866,16 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       "| eval comma_sep=substr(ipAddress,1,3).\",\".substr(ipAddress, 5, 2) " +
       "| convert timeformat =\"%H\" num(id) AS id num(timeStamp) AS hour" +
       "| convert num(fsize) AS fsize_num num(id_unit) AS id_unit_num " +
-      "| convert num(comma_sep) AS comma_sep_num " +
-      "| fields +id, hour, id_unit, id_unit_num, fsize, fsize_num, comma_sep, comma_sep_num",
-      """+---+----+---------+-----------+-----+----------+---------+-------------+
-        ||id |hour|id_unit  |id_unit_num|fsize|fsize_num |comma_sep|comma_sep_num|
-        |+---+----+---------+-----------+-----+----------+---------+-------------+
-        ||1.0|21  |1Megabyte|1.0        |0.33M|337.92    |109,17   |10917.0      |
-        ||2.0|21  |2Megabyte|2.0        |0.67M|686.08    |null     |null         |
-        ||3.0|21  |3GB      |3.0        |1.0G |1048576.0 |165,53   |16553.0      |
-        ||4.0|21  |4GB      |4.0        |1.33G|1394606.08|156,14   |15614.0      |
-        |+---+----+---------+-----------+-----+----------+---------+-------------+
+      "| convert num(comma_sep) AS comma_sep_num num(gender) AS g" +
+      "| fields +id, g, hour, id_unit, id_unit_num, fsize, fsize_num, comma_sep, comma_sep_num",
+      """+---+----+----+---------+-----------+-----+----------+---------+-------------+
+        ||id |g   |hour|id_unit  |id_unit_num|fsize|fsize_num |comma_sep|comma_sep_num|
+        |+---+----+----+---------+-----------+-----+----------+---------+-------------+
+        ||1.0|null|21  |1Megabyte|1.0        |0.33M|337.92    |109,17   |10917.0      |
+        ||2.0|null|21  |2Megabyte|2.0        |0.67M|686.08    |null     |null         |
+        ||3.0|null|21  |3GB      |3.0        |1.0G |1048576.0 |165,53   |16553.0      |
+        ||4.0|null|21  |4GB      |4.0        |1.33G|1394606.08|156,14   |15614.0      |
+        |+---+----+----+---------+-----------+-----+----------+---------+-------------+
         |""".stripMargin)
   }
 
@@ -912,6 +912,18 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||1  |maestro |6.304276470412087E15|
         ||2  |jcb     |3.538391327116529E15|
         |+---+--------+--------------------+
+        |""".stripMargin)
+  }
+
+  test("convert w/ wildcard auto(*) none(id*)") {
+    executes("index=fake | id < 3 | fields +id, ipAddress, cardType, cardNumber" +
+      "| convert auto(*) none(i*)",
+      """+---+--------------+--------+--------------------+
+        ||id |ipAddress     |cardType|cardNumber          |
+        |+---+--------------+--------+--------------------+
+        ||1  |109.177.141.88|maestro |6.304276470412087E15|
+        ||2  |null          |jcb     |3.538391327116529E15|
+        |+---+--------------+--------+--------------------+
         |""".stripMargin)
   }
 
