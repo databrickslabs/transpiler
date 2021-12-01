@@ -267,7 +267,9 @@ class PythonGeneratorTest extends AnyFunSuite {
 
   test(".groupBy(F.window(F.col('_time'), '5 hours').alias('window'), F.col('host'))\n" +
     ".agg(F.count(F.col('host')).alias('cnt'))") {
-    val windowExpr = Alias(new TimeWindow(UnresolvedAttribute("_time"),Literal("5 hour")),"window")()
+    val windowExpr = Alias(
+      new TimeWindow(UnresolvedAttribute("_time"),
+      Literal("5 hour")), "window")()
     g(
       Aggregate(
         Seq(
@@ -282,7 +284,7 @@ class PythonGeneratorTest extends AnyFunSuite {
               Count(Seq(UnresolvedAttribute("host"))),
               Complete, isDistinct = false
             ), "cnt")()
-        ) , src)
+        ), src)
     )
   }
 

@@ -146,9 +146,9 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
 
     test("TStatsCommand to Aggregate") {
         check(ast.TStatsCommand(
-            false,
+            append = false,
             None,
-            false,
+            prestats = false,
             Seq(ast.Call("count", Seq())),
             None,
             Some(ast.Binary(
