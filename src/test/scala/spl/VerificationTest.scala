@@ -816,6 +816,129 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       |""".stripMargin)
   }
 
+  test("memk fct") {
+    executes("index=fake | id < 5 | eval quant=round((id/3),2), unit=if(id < 3, \"M\", \"G\") " +
+      "| eval size=quant.unit, memk=memk(size) | fields +id, size, memk",
+    """+---+-----+----------+
+      ||id |size |memk      |
+      |+---+-----+----------+
+      ||1  |0.33M|337.92    |
+      ||2  |0.67M|686.08    |
+      ||3  |1.0G |1048576.0 |
+      ||4  |1.33G|1394606.08|
+      |+---+-----+----------+
+        |""".stripMargin)
+  }
+
+  test("rmunit fct") {
+    executes("index=fake | id < 5 | eval unit=if(id < 3, \"Megabyte\", \"GB\") " +
+      "| eval size=id.unit, rmunit=rmunit(size) | fields +id, size, rmunit",
+      """+---+---------+------+
+        ||id |size     |rmunit|
+        |+---+---------+------+
+        ||1  |1Megabyte|1.0   |
+        ||2  |2Megabyte|2.0   |
+        ||3  |3GB      |3.0   |
+        ||4  |4GB      |4.0   |
+        |+---+---------+------+
+        |""".stripMargin)
+  }
+
+  test("rmcomma fct") {
+    executes("index=fake | id < 5 | eval s=substr(ipAddress,1,3).\",\".substr(ipAddress, 5, 2)" +
+      "| eval n=rmcomma(s) | fields +id, s, n",
+      """+---+------+-------+
+        ||id |s     |n      |
+        |+---+------+-------+
+        ||1  |109,17|10917.0|
+        ||2  |null  |null   |
+        ||3  |165,53|16553.0|
+        ||4  |156,14|15614.0|
+        |+---+------+-------+
+        |""".stripMargin)
+  }
+
+
+  test("num fct") {
+    executes("index=fake | id < 5 " +
+      "| eval quant=round((id/3),2), unit=if(id < 3, \"M\", \"G\"), fsize=quant.unit " +
+      "| eval long_unit=if(id < 3, \"Megabyte\", \"GB\"), id_unit=id.long_unit " +
+      "| eval comma_sep=substr(ipAddress,1,3).\",\".substr(ipAddress, 5, 2) " +
+      "| convert timeformat =\"%H\" num(id) AS id num(timeStamp) AS hour" +
+      "| convert num(fsize) AS fsize_num num(id_unit) AS id_unit_num " +
+      "| convert num(comma_sep) AS comma_sep_num num(gender) AS g" +
+      "| fields +id, g, hour, id_unit, id_unit_num, fsize, fsize_num, comma_sep, comma_sep_num",
+      """+---+----+----+---------+-----------+-----+----------+---------+-------------+
+        ||id |g   |hour|id_unit  |id_unit_num|fsize|fsize_num |comma_sep|comma_sep_num|
+        |+---+----+----+---------+-----------+-----+----------+---------+-------------+
+        ||1.0|null|21  |1Megabyte|1.0        |0.33M|337.92    |109,17   |10917.0      |
+        ||2.0|null|21  |2Megabyte|2.0        |0.67M|686.08    |null     |null         |
+        ||3.0|null|21  |3GB      |3.0        |1.0G |1048576.0 |165,53   |16553.0      |
+        ||4.0|null|21  |4GB      |4.0        |1.33G|1394606.08|156,14   |15614.0      |
+        |+---+----+----+---------+-----------+-----+----------+---------+-------------+
+        |""".stripMargin)
+  }
+
+  test("convert w/ timeformat=\"%H\" ctime(timestamp)") {
+    executes("index=fake | id < 3 | convert timeformat=\"%H\" ctime(timestamp) AS hour " +
+      "| fields +id, timestamp, hour",
+      """+---+-------------------+----+
+        ||id |timestamp          |hour|
+        |+---+-------------------+----+
+        ||1  |2021-11-05 21:20:32|21  |
+        ||2  |2021-11-05 21:21:32|21  |
+        |+---+-------------------+----+
+        |""".stripMargin)
+  }
+
+  test("convert w/o timeformat ctime(timestamp)") {
+    executes("index=fake | id < 3 | convert ctime(timestamp) AS ctime " +
+      "| fields +id, timestamp, ctime",
+      """+---+-------------------+-------------------+
+        ||id |timestamp          |ctime              |
+        |+---+-------------------+-------------------+
+        ||1  |2021-11-05 21:20:32|11/05/2021 21:20:32|
+        ||2  |2021-11-05 21:21:32|11/05/2021 21:21:32|
+        |+---+-------------------+-------------------+
+        |""".stripMargin)
+  }
+
+  test("convert w/ wildcard") {
+    executes("index=fake | id < 3 | fields +id, cardType, cardNumber" +
+      "| convert num(card*) none(cardType)",
+      """+---+--------+--------------------+
+        ||id |cardType|cardNumber          |
+        |+---+--------+--------------------+
+        ||1  |maestro |6.304276470412087E15|
+        ||2  |jcb     |3.538391327116529E15|
+        |+---+--------+--------------------+
+        |""".stripMargin)
+  }
+
+  test("convert w/ wildcard auto(*) none(id*)") {
+    executes("index=fake | id < 3 | fields +id, ipAddress, cardType, cardNumber" +
+      "| convert auto(*) none(i*)",
+      """+---+--------------+--------+--------------------+
+        ||id |ipAddress     |cardType|cardNumber          |
+        |+---+--------------+--------+--------------------+
+        ||1  |109.177.141.88|maestro |6.304276470412087E15|
+        ||2  |null          |jcb     |3.538391327116529E15|
+        |+---+--------------+--------+--------------------+
+        |""".stripMargin)
+  }
+
+  test("eval date=strftime(timeStamp)") {
+    executes("index=fake | id < 3 | eval date = strftime(timeStamp, \"%m/%d/%Y %H:%M:%S\")" +
+      "| eval hour=strftime(\"2021-11-05 21:20:32\", \"%H\") | fields +id, date, hour",
+      """+---+-------------------+----+
+        ||id |date               |hour|
+        |+---+-------------------+----+
+        ||1  |11/05/2021 21:20:32|21  |
+        ||2  |11/05/2021 21:21:32|21  |
+        |+---+-------------------+----+
+        |""".stripMargin)
+  }
+
   test("addtotals") {
     executes("index=fake | eval anotherNum=10 | fields +id, gender, anotherNum " +
       "| addtotals fieldname=my_total",
