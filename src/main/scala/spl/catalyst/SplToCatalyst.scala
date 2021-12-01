@@ -7,7 +7,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{CidrMatch, FillNullShim, Term}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types.{DateType, DoubleType, StringType}
+import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
@@ -46,10 +46,7 @@ object SplToCatalyst extends Logging {
             selectExpr(fields, tree)
 
           case ast.ConvertCommand(timeformat, convs) =>
-            convs.foldLeft(tree) { (plan, fc) =>
-              val name = fc.alias.getOrElse(fc.field).value
-              withColumn(ctx, plan, name, ast.Call(fc.func, Seq(fc.field)))
-            }
+            applyConvertCommand(ctx, tree, timeformat, convs)
 
           case ast.HeadCommand(expr, keepLast, nullOption) =>
             // TODO Implement keeplast and null options behaviour
@@ -145,8 +142,9 @@ object SplToCatalyst extends Logging {
       val ip = attrOrExpr(ctx, call.args(1))
       callCidrMatch(ctx, cidr, ip)
     case "ctime" =>
-      val field = attr(call.args.head)
-      Alias(Cast(field, DateType), field.name)()
+      val field = attrOrExpr(ctx, call.args.head)
+      val format = call.args.lift(1)
+      determineTimeConversion(ctx, field, format)
     case "count" =>
       AggregateExpression(
         Count(call.args match {
@@ -185,7 +183,9 @@ object SplToCatalyst extends Logging {
     case "latest" =>
       Last(attrOrExpr(ctx, call.args.head), ignoreNulls = true)
     case "strftime" =>
-      determineStrftime(ctx, call)
+      val field = attrOrExpr(ctx, call.args.head)
+      val format = call.args.lift(1)
+      determineTimeConversion(ctx, field, format)
     case "mvcount" =>
       Size(attrOrExpr(ctx, call.args.head))
     case "mvindex" =>
@@ -212,6 +212,19 @@ object SplToCatalyst extends Logging {
       Literal(null)
     case "isnotnull" =>
       IsNotNull(attrOrExpr(ctx, call.args.head))
+    case "memk" =>
+      val field = attrOrExpr(ctx, call.args.head)
+      callMemk(ctx, field)
+    case "rmunit" =>
+      val field = attrOrExpr(ctx, call.args.head)
+      callRmUnit(ctx, field)
+    case "rmcomma" =>
+      val field = attrOrExpr(ctx, call.args.head)
+      callRmComma(ctx, field)
+    case "auto" =>
+      callAuto(ctx, call)
+    case "num" =>
+      callAuto(ctx, call, true)
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new ConversionFailure(s"Unknown SPL function: $approx")
@@ -221,6 +234,43 @@ object SplToCatalyst extends Logging {
     if (ctx.output.isEmpty) {
       throw EmptyContextOutput(command)
     }
+  }
+
+  private def callAuto(ctx: LogicalContext,
+                      call: ast.Call,
+                      rmNonConv: Boolean = false): Expression = {
+    val field = attrOrExpr(ctx, call.args.head)
+    val fieldStr = Cast(field, StringType)
+    val format = call.args.lift(1)
+    CaseWhen(Seq(
+      (IsNotNull(determineTimeConversion(ctx, fieldStr, format)),
+        determineTimeConversion(ctx, fieldStr, format)),
+      (IsNotNull(Cast(field, DoubleType)), Cast(field, DoubleType)),
+      (IsNotNull(callMemk(ctx, field)), callMemk(ctx, field)),
+      (IsNotNull(callRmUnit(ctx, field)), callRmUnit(ctx, field)),
+      (IsNotNull(callRmComma(ctx, field)), callRmComma(ctx, field))
+    ), if (rmNonConv) None else Some(field))
+  }
+
+  private def callRmComma(ctx: LogicalContext, field: Expression): Expression = {
+    Cast(RegExpReplace(field, Literal.create(","), Literal.create("")), DoubleType)
+  }
+
+  private def callRmUnit(ctx: LogicalContext, field: Expression): Expression = {
+    val regex = Literal.create("(?i)^(\\d*\\.?\\d+)(\\w*)$")
+    Cast(RegExpExtract(field, regex, Literal.create(1)), DoubleType)
+  }
+
+  private def callMemk(ctx: LogicalContext, field: Expression): Expression = {
+    val regex = Literal.create("(?i)^(\\d*\\.?\\d+)([kmg])$")
+    val size = Cast(RegExpExtract(field, regex, Literal.create(1)), DoubleType)
+    val format = Upper(RegExpExtract(field, regex, Literal.create(2)))
+    val multiplier = CaseWhen(Seq(
+      (EqualTo(format, Literal.create("K")), Literal.create(1.0)),
+      (EqualTo(format, Literal.create("M")), Literal.create(1024.0)),
+      (EqualTo(format, Literal.create("G")), Literal.create(1024.0 * 1024.0))
+    ), Literal.create(1.0))
+    Multiply(size, multiplier)
   }
 
   private def callCidrMatch(ctx: LogicalContext, cidr: Expression, ip: Expression): Expression = {
@@ -255,8 +305,10 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  private def determineStrftime(ctx: LogicalContext, call: ast.Call): Expression = {
-    DateFormatClass(attrOrExpr(ctx, call.args.head), Literal.create(call.args.lift(1) match {
+  private def determineTimeConversion(ctx: LogicalContext,
+                                      field: Expression,
+                                      format: Option[ast.Expr]): Expression = {
+    DateFormatClass(field, Literal.create(format match {
       case Some(ast.Field(fmt)) => stftimeToDateFormat.foldLeft(fmt) {
         case (a, (b, c)) => a.replaceAll(b, c)
       }
@@ -616,13 +668,13 @@ object SplToCatalyst extends Logging {
           case _ =>
             throw new ConversionFailure(s"unsupported relational: $relational")
         }
-        case ast.Or => Or(expression(ctx, left), expression(ctx, right))
-        case ast.And => And(expression(ctx, left), expression(ctx, right))
-        case ast.Add => Add(expression(ctx, left), expression(ctx, right))
-        case ast.Subtract => Subtract(expression(ctx, left), expression(ctx, right))
-        case ast.Multiply => Multiply(expression(ctx, left), expression(ctx, right))
-        case ast.Divide => Divide(expression(ctx, left), expression(ctx, right))
-        case ast.Concatenate => Concat(Seq(expression(ctx, left), expression(ctx, right)))
+        case ast.Or => Or(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.And => And(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Add => Add(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Subtract => Subtract(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Multiply => Multiply(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Divide => Divide(attrOrExpr(ctx, left), attrOrExpr(ctx, right))
+        case ast.Concatenate => Concat(Seq(attrOrExpr(ctx, left), attrOrExpr(ctx, right)))
         case _ => throw new ConversionFailure(s"unsupported binary: $symbol")
       }
       case _ => throw new ConversionFailure(s"unsupported symbol: $symbol")
@@ -938,6 +990,35 @@ object SplToCatalyst extends Logging {
         (toReturnExpr, expr) => Add(expr, toReturnExpr)
       })
     } else tree
+  }
+
+  private def applyConvertCommand(ctx: LogicalContext,
+                                  tree: LogicalPlan,
+                                  timeformat: String,
+                                  convs: Seq[ast.FieldConversion]): LogicalPlan = {
+    val noneFcs = convs.filter(_.func.equals("none"))
+    val unfoldedNones = unfoldWildcards(ctx, noneFcs).map(_.field.value)
+    val unfoldedConvs = unfoldWildcards(ctx, convs)
+    val filteredConvs = unfoldedConvs.filter(fc => !unfoldedNones.contains(fc.field.value))
+    // TODO Add exception handling if wc fields cannot be processed due to empty ctx.output
+    filteredConvs.foldLeft(tree) { (plan, fc) =>
+      val name = fc.alias.getOrElse(fc.field).value
+      val callArgs = Seq(fc.field, ast.StrValue(timeformat))
+      withColumn(ctx, plan, name, ast.Call(fc.func, callArgs))
+    }
+  }
+
+  private def unfoldWildcards(ctx: LogicalContext,
+                              convs: Seq[ast.FieldConversion]): Seq[ast.FieldConversion] = {
+    val (wcFields, regFields) = convs.partition(_.field.value.contains("*"))
+    if (!wcFields.isEmpty && ctx.output.isEmpty) {
+      throw EmptyContextOutput(ast.ConvertCommand(convs = Seq()))
+    }
+    regFields ++ wcFields.flatMap(wcField => {
+      val regex = wcField.field.value.replace("*", "\\w*")
+      ctx.output.filter(_.name matches regex)
+        .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
+    })
   }
 }
 

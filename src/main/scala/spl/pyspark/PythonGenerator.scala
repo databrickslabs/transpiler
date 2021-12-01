@@ -182,11 +182,8 @@ object PythonGenerator {
     case ArrayFilter(left, LambdaFunction(fn, args, _)) =>
       s"F.filter(${expressionCode(left)}, " +
         s"lambda ${args.map(expression).mkString(",")}: ${expressionCode(fn)})"
-    case CaseWhen(Seq((pred, trueVal)), falseVal) =>
-      val otherwiseStmt = if (falseVal.isDefined) {
-        s".otherwise(${expressionCode(falseVal.get)})"
-      } else ""
-      s"F.when(${expressionCode(pred)}, ${expressionCode(trueVal)})$otherwiseStmt"
+    case CaseWhen(branches: Seq[(Expression, Expression)], elseValue: Option[Expression]) =>
+      caseWhenRep(branches, elseValue)
     case In(attr, items) =>
       s"${expressionCode(attr)}.isin(${items.map(expressionCode).mkString(", ")})"
     case UnresolvedAlias(child, aliasFunc) =>
@@ -217,7 +214,7 @@ object PythonGenerator {
     case Size(child, _) =>
       s"F.size(${expressionCode(child)})"
     case Cast(colExpr, dataType, _) =>
-      s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)})"
+      s"${expressionCode(colExpr)}.cast(${q(dataType.simpleString)})"
     case Min(expr) =>
       s"F.min(${expressionCode(expr)})"
     case Max(expr) =>
@@ -254,6 +251,8 @@ object PythonGenerator {
       s"F.col(${q(s"`${ur.regexPattern}`")})"
     case RegExpExtract(subject, regexp, idx) =>
       s"F.regexp_extract(${expressionCode(subject)}, ${regexp.sql}, ${idx.sql})"
+    case RegExpReplace(subject, regexp, rep, _) =>
+      s"F.regexp_replace(${expressionCode(subject)}, ${regexp.sql}, ${rep.sql})"
     case WindowExpression(windowFunction, windowSpec) =>
       s"${expressionCode(windowFunction)}.over(${expressionCode(windowSpec)})"
     case ws: WindowSpecDefinition =>
@@ -286,6 +285,8 @@ object PythonGenerator {
       s"F.current_timestamp()"
     case CidrMatch(cidr, ip) =>
       "F.expr(" + "\"" + s"cidr_match(${expression(cidr)}, ${expression(ip)})" + "\")"
+    case Upper(child) =>
+      s"F.upper(${expressionCode(child)})"
     case _ =>
       s"F.expr(${q(expr.sql)})"
   }
@@ -306,6 +307,18 @@ object PythonGenerator {
     case attr: AttributeReference => attr.name
     case a: UnresolvedAttribute => a.name
     case _: Any => expr.sql
+  }
+
+  private def caseWhenRep(branches: Seq[(Expression, Expression)],
+                          elseValue: Option[Expression]): String = {
+    val otherwiseStmt = if (elseValue.isDefined) {
+      s".otherwise(${expressionCode(elseValue.get)})"
+    } else ""
+    val nl = if (branches.size > 1) "\n" else ""
+    val whenStmts = "F" + branches
+      .map(t => s".when(${expressionCode(t._1)}, ${expressionCode(t._2)})" + nl)
+      .mkString("")
+    whenStmts + otherwiseStmt
   }
 
   /** Sugar for quoting strings */

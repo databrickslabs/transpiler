@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
-import org.apache.spark.sql.types.DoubleType
+import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.scalatest.funsuite.AnyFunSuite
 import spl.ast
 
@@ -845,6 +845,121 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         Literal("10.0.0.0/24"),
                         UnresolvedAttribute("src_ip")
                     ),
+                    tree)
+            }
+        )
+    }
+
+    test("memk(x)") {
+        val regex = Literal("(?i)^(\\d*\\.?\\d+)([kmg])$")
+        val unit = Upper(RegExpExtract(UnresolvedAttribute("x"), regex, Literal.create(2)))
+        check(ast.SearchCommand(
+            ast.Call("memk", Seq(
+                ast.Field("x")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Multiply(
+                        Cast(RegExpExtract(
+                            UnresolvedAttribute("x"),
+                            regex,
+                            Literal.create(1)),
+                            DoubleType),
+                        CaseWhen(Seq(
+                            (EqualTo(unit, Literal("K")), Literal.create(1.0)),
+                            (EqualTo(unit, Literal("M")), Literal.create(1024.0)),
+                            (EqualTo(unit, Literal("G")), Literal.create(1024.0 * 1024.0))
+                        ), Literal.create(1.0))
+                    ),
+                    tree)
+            }
+        )
+    }
+
+    test("rmunit(x)") {
+        val regex = Literal("(?i)^(\\d*\\.?\\d+)(\\w*)$")
+        check(ast.SearchCommand(
+            ast.Call("rmunit", Seq(
+                ast.Field("x")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Cast(RegExpExtract(
+                        UnresolvedAttribute("x"),
+                        regex,
+                        Literal.create(1)),
+                        DoubleType),
+                    tree)
+            }
+        )
+    }
+
+    test("rmcomma(x)") {
+        check(ast.SearchCommand(
+            ast.Call("rmcomma", Seq(
+                ast.Field("x")
+            ))),
+            (_, tree) => {
+                Filter(
+                    Cast(RegExpReplace(
+                        UnresolvedAttribute("x"),
+                        Literal.create(","),
+                        Literal.create("")),
+                        DoubleType),
+                    tree)
+            }
+        )
+    }
+
+    test("ctime(x)") {
+        check(ast.SearchCommand(
+            ast.Call("ctime", Seq(
+                ast.Field("x"),
+                ast.StrValue("%m/%d/%Y %H:%M:%S")
+            ))),
+            (_, tree) => {
+                Filter(
+                    DateFormatClass(
+                        UnresolvedAttribute("x"),
+                        Literal.create("MM/dd/yyyy HH:mm:ss")),
+                    tree)
+            }
+        )
+    }
+
+    test("num(x)") {
+        val attr = UnresolvedAttribute("x")
+        val trailingTextRegex = Literal("(?i)^(\\d*\\.?\\d+)(\\w*)$")
+        val fsizeRegex = Literal("(?i)^(\\d*\\.?\\d+)([kmg])$")
+        val fsizeUnit = Upper(RegExpExtract(attr, fsizeRegex, Literal.create(2)))
+        val ctimeExpr = DateFormatClass(Cast(attr, StringType), Literal.create("HH:mm:ss"))
+        val doubleExpr = Cast(UnresolvedAttribute("x"), DoubleType)
+        val rmCommaExpr = Cast(
+            RegExpReplace(attr, Literal.create(","), Literal.create("")),
+            DoubleType)
+        val unitExpr = Cast(RegExpExtract(attr, trailingTextRegex, Literal.create(1)), DoubleType)
+        val memkExpr = Multiply(
+            Cast(RegExpExtract(attr, fsizeRegex, Literal.create(1)), DoubleType),
+            CaseWhen(Seq(
+                (EqualTo(fsizeUnit, Literal("K")), Literal.create(1.0)),
+                (EqualTo(fsizeUnit, Literal("M")), Literal.create(1024.0)),
+                (EqualTo(fsizeUnit, Literal("G")), Literal.create(1024.0 * 1024.0))
+            ), Literal.create(1.0)))
+
+        check(ast.SearchCommand(
+            ast.Call("num", Seq(
+                ast.Field("x"),
+                ast.StrValue("%H:%M:%S")
+            ))),
+            (_, tree) => {
+                Filter(
+                    CaseWhen(Seq(
+                        (IsNotNull(ctimeExpr), ctimeExpr),
+                        (IsNotNull(doubleExpr), doubleExpr),
+                        (IsNotNull(memkExpr), memkExpr),
+                        (IsNotNull(unitExpr), unitExpr),
+                        (IsNotNull(rmCommaExpr), rmCommaExpr)
+                    ), None),
                     tree)
             }
         )

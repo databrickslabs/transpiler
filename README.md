@@ -26,7 +26,7 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | rename | ✅ | ✅ | ✅ |
 | join | ✅ | ✅ | ✅ |
 | fields | ✅ | ✅ | ✅ |
-| convert | ✅ |  |  |
+| convert | ✅ | ✅ | ✅ |
 | collect | ✅ | ✅ | ✅ |
 | stats | ✅ | ✅ | ✅ |
 | sort | ✅ | ✅ | ✅ |
@@ -81,6 +81,13 @@ Secondary batch of commands:
 | mvfilter() | ✅ |
 | len() | ✅ |
 | count() | ✅ |
+| memk() | ✅ |
+| rmunit() | ✅ |
+| rmcomma() | ✅ |
+| ctime() | ✅ |
+| auto() | ✅ |
+| num() | ✅ |
+| none() | ✅ |
 
 ## Overriding `_time`, `_raw` and index names
 

@@ -134,9 +134,14 @@ object SplParser {
   // convert (timeformat=<string>)? ( (auto|dur2sec|mstime|memk|none|
   // num|rmunit|rmcomma|ctime|mktime) "(" <field>? ")" (as <field>)?)+
   def convert[_: P]: P[ConvertCommand] = ("convert" ~
-    ("timeformat=" ~ token).? ~
-    (token ~~ "(" ~ field ~ ")" ~
-    ("as" ~ field).?).map(FieldConversion.tupled).rep) map ConvertCommand.tupled
+    commandOptions ~ (token ~~ "(" ~ field ~ ")" ~
+    (W("AS") ~ field).?).map(FieldConversion.tupled).rep) map {
+      case (options, fcs) =>
+        ConvertCommand(
+          options.getString("timeformat", "%m/%d/%Y %H:%M:%S"),
+          fcs
+        )
+    }
 
   def collect[_: P]: P[CollectCommand] = "collect" ~ commandOptions ~ fieldList map {
     case (cmdOptions, fields) => CollectCommand(
