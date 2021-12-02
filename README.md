@@ -43,6 +43,7 @@ cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.
 | mvexpand | ✅ | ✅ | ✅ |
 | streamstats | ✅ | ✅ | ✅ |
 | addtotals | ✅ | ✅ | ✅ |
+| multisearch | ✅ | ✅ | ✅ |
 
 Secondary batch of commands:
 
