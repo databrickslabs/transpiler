@@ -335,8 +335,9 @@ class PythonGeneratorTest extends AnyFunSuite {
       src))
   }
 
-  test("spark.table('src').union(spark.table('x')" +
-    ".union(spark.table('y')\n.where((F.col('id') < F.lit(3)))))") {
+  test("spark.table('src').unionByName(spark.table('x')" +
+    ".unionByName(spark.table('y')\n.where((F.col('id') < F.lit(3)))," +
+    " allowMissingColumns=True), allowMissingColumns=True)") {
     g(Union(
       Seq(
         src,
