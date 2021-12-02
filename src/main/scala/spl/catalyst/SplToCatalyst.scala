@@ -20,6 +20,7 @@ object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: ast.Pipeline): LogicalPlan = {
     val (table, pipe) = p.commands.head match {
       case _: ast.MakeResults => (null, p)
+      case _: ast.MultiSearch => (null, p)
       case _ => determineTable(ctx, p)
     }
     pipe.commands.foldLeft(table) {
@@ -127,8 +128,10 @@ object SplToCatalyst extends Logging {
           case at: ast.AddTotals =>
             applyAddTotals(ctx, tree, at)
 
-          case ms: ast.MultiSearch =>
-            applyMultiSearch(ctx, tree, ms)
+          case ast.MultiSearch(pipelines) =>
+            val plans = pipelines.map(pipeline(ctx.copy(output = Seq()), _))
+            CombineUnions(plans.reduce((l, r) =>
+              Union(Seq(l, r), byName = true, allowMissingCol = true)))
         }
       }
     }
@@ -1023,11 +1026,6 @@ object SplToCatalyst extends Logging {
       ctx.output.filter(_.name matches regex)
         .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
     })
-  }
-
-  private def applyMultiSearch(ctx: LogicalContext, tree: LogicalPlan, ms: ast.MultiSearch) = {
-    val plans = ms.pipelines.map(pipeline(ctx.copy(output = Seq()), _))
-    CombineUnions(plans.reduce((l, r) => Union(Seq(l, r), byName = true, allowMissingCol = true)))
   }
 }
 

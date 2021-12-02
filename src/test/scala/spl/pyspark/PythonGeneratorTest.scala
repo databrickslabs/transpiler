@@ -335,6 +335,18 @@ class PythonGeneratorTest extends AnyFunSuite {
       src))
   }
 
+  test("spark.table('src').union(spark.table('x')" +
+    ".union(spark.table('y')\n.where((F.col('id') < F.lit(3)))))") {
+    g(Union(
+      Seq(
+        src,
+        Union(Seq(
+          UnresolvedRelation(Seq("x")),
+          Filter(LessThan(UnresolvedAttribute("id"), Literal(3)),
+            UnresolvedRelation(Seq("y")))), true, true)),
+      true, true))
+  }
+
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
     val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable

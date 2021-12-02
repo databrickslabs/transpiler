@@ -426,9 +426,9 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("multisearch") {
-    executes("multisearch [index=fake | id < 2 | eval a=5]" +
-      " [index=fake | id < 2 | eval a=42]" +
-      " [index=fake | id < 2 | eval a=74] | fields +id, a",
+    executes("multisearch [index=fake | id < 2 | eval a=5 | fields +id, a]" +
+      " [index=fake_for_join | id < 2 | eval a=42 | fields +id, a]" +
+      " [index=fake | id < 2 | eval a=74 | fields +id, a]",
       """+---+---+
         ||id |a  |
         |+---+---+
