@@ -1359,8 +1359,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 Union(Seq(Union(
                     Seq(
                         Filter(Literal("name"), tree),
-                        Filter(Literal("host"), tree)), true, true),
-                    Filter(Literal("ip"), tree)), true, true))
+                        Filter(Literal("host"), tree)), byName = true, allowMissingCol = true),
+                    Filter(Literal("ip"), tree)), byName = true, allowMissingCol = true))
             )
     }
 

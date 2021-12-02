@@ -343,8 +343,8 @@ class PythonGeneratorTest extends AnyFunSuite {
         Union(Seq(
           UnresolvedRelation(Seq("x")),
           Filter(LessThan(UnresolvedAttribute("id"), Literal(3)),
-            UnresolvedRelation(Seq("y")))), true, true)),
-      true, true))
+            UnresolvedRelation(Seq("y")))), byName = true, allowMissingCol = true)),
+      byName = true, allowMissingCol = true))
   }
 
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
