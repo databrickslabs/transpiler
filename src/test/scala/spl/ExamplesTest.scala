@@ -326,4 +326,14 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
     // scalastyle:on
   }
+
+  test("multisearch in two indices") {
+    // scalastyle:off
+    generates("multisearch [index=regionA | fields +country, orders] [index=regionB | fields +country, orders]",
+      """(spark.table('regionA')
+        |.select(F.col('country'), F.col('orders')).unionByName(spark.table('regionB')
+        |.select(F.col('country'), F.col('orders')), allowMissingColumns=True))
+        |""".stripMargin)
+    // scalastyle:on
+  }
 }

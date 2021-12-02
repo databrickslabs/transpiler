@@ -4,6 +4,7 @@ import org.apache.spark.sql.{CidrMatch, FillNullShim}
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.catalyst.optimizer.CombineUnions
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
 import org.apache.spark.sql.types.{DoubleType, StringType}
@@ -1346,6 +1347,21 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     3600000000L,
                     0), "time_bin")()
             ), tree)))
+    }
+
+    test("multisearch") {
+        check(ast.MultiSearch(Seq(
+            ast.Pipeline(Seq(ast.SearchCommand(ast.Field("name")))),
+            ast.Pipeline(Seq(ast.SearchCommand(ast.Field("host")))),
+            ast.Pipeline(Seq(ast.SearchCommand(ast.Field("ip")))))
+        ),
+            (_, tree) => CombineUnions(
+                Union(Seq(Union(
+                    Seq(
+                        Filter(Literal("name"), tree),
+                        Filter(Literal("host"), tree)), byName = true, allowMissingCol = true),
+                    Filter(Literal("ip"), tree)), byName = true, allowMissingCol = true))
+            )
     }
 
     test("makeresults count=10 annotate=t splunk_server_group=group0") {

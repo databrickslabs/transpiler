@@ -335,6 +335,19 @@ class PythonGeneratorTest extends AnyFunSuite {
       src))
   }
 
+  test("spark.table('src').unionByName(spark.table('x')" +
+    ".unionByName(spark.table('y')\n.where((F.col('id') < F.lit(3)))," +
+    " allowMissingColumns=True), allowMissingColumns=True)") {
+    g(Union(
+      Seq(
+        src,
+        Union(Seq(
+          UnresolvedRelation(Seq("x")),
+          Filter(LessThan(UnresolvedAttribute("id"), Literal(3)),
+            UnresolvedRelation(Seq("y")))), byName = true, allowMissingCol = true)),
+      byName = true, allowMissingCol = true))
+  }
+
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
     val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable

@@ -184,4 +184,6 @@ case class BinCommand(field: FieldOrAlias, span: Option[SplSpan] = None,
                       start: Option[Int] = None, end: Option[Int] = None,
                       alignTime: Option[String] = None) extends Command
 
+case class MultiSearch(pipelines: Seq[Pipeline]) extends Command
+
 case class Pipeline(commands: Seq[Command])
