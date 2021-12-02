@@ -418,8 +418,10 @@ object SplParser {
     | bin
     | makeResults
     | cAddtotals
+    | multiSearch
     | impliedSearch)
 
-  def subSearch[_: P]: P[Pipeline] = "[".? ~ (command rep(sep = "|")) ~ "]".? map Pipeline
+  def subSearch[_: P]: P[Pipeline] = "[" ~ (command rep(sep = "|")) ~ "]" map Pipeline
+  def multiSearch[_: P]: P[MultiSearch] = "multisearch" ~ subSearch.rep(2) map MultiSearch
   def pipeline[_: P]: P[Pipeline] = (command rep(sep = "|")) ~ End map Pipeline
 }
