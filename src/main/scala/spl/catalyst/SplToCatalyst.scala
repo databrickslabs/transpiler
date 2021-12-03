@@ -9,7 +9,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
-import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, UsingJoin}
+import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, LeftSemi, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
 import org.apache.spark.sql.catalyst.optimizer.CombineUnions
 import org.apache.spark.sql.catalyst.util.IntervalUtils
@@ -27,8 +27,13 @@ object SplToCatalyst extends Logging {
       wrapCommand(ctx) {
         (tree, command) => command match {
           case ast.SearchCommand(expr) =>
-            // probably search is different from where...
-            Filter(expression(ctx, expr), tree)
+            ctx.searchVariables = findVariables(expr)
+            val adjustedExpr = removeVariables(expr)
+            if (adjustedExpr == null) {
+              tree
+            } else {
+              Filter(expression(ctx, adjustedExpr), tree)
+            }
 
           case inputLookup: ast.InputLookup =>
             // TODO implement `append`, `strict` and `start` options,
@@ -132,6 +137,9 @@ object SplToCatalyst extends Logging {
             val plans = pipelines.map(pipeline(ctx.copy(output = Seq()), _))
             CombineUnions(plans.reduce((l, r) =>
               Union(Seq(l, r), byName = true, allowMissingCol = true)))
+
+          case mp: ast.MapCommand =>
+            applyMap(ctx, tree, mp)
         }
       }
     }
@@ -1027,6 +1035,82 @@ object SplToCatalyst extends Logging {
         .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
     })
   }
+
+  private def createJoinCondition(tuples: Seq[(String, String)],
+                                  leftPrefix: Option[String],
+                                  rightPrefix: Option[String]): Expression = {
+    val equals = tuples.map(tuple => EqualTo(
+      UnresolvedAttribute(leftPrefix match {
+        case Some(name) => s"${name}.${tuple._1}"
+        case None => tuple._1
+      }),
+      UnresolvedAttribute(rightPrefix match {
+        case Some(name) => s"${name}.${tuple._2}"
+        case None => tuple._2
+      })).asInstanceOf[Expression]
+    )
+    equals.reduceLeft {
+      (left, right) => And(left, right).asInstanceOf[Expression]
+    }
+  }
+
+  def findVariables(search: ast.Expr): Seq[(String, String)] = search match {
+    case b @ ast.Binary(ast.Field(name), _, ast.Variable(value)) => Seq((name, value))
+    case ast.Binary(left, _, right) => findVariables(left) ++ findVariables(right)
+    case _ => Seq()
+  }
+
+  def cleanTree(search: ast.Expr): ast.Expr = {
+    search match {
+      case p @ ast.Binary(null, _, right) => right
+      case p @ ast.Binary(left, _, null) => left
+      case _ => search
+    }
+  }
+
+  def removeVariables(search: ast.Expr): ast.Expr = {
+    search match {
+      case p @ ast.Binary(ast.Field(_), _, ast.Variable(_)) => null
+      case p @ ast.Binary(left, op, right) =>
+        (left, op, right) match {
+          case (l @ ast.Binary(ast.Field(_), _, ast.Variable(_)),
+          o @ operation,
+          r @ ast.Binary(ast.Field(_), _, ast.Variable(_))) => null
+
+          case (l @ ast.Binary(_, _, _),
+          o @ operation,
+          r @ ast.Binary(ast.Field(_), _, ast.Variable(_))) => removeVariables(l)
+
+          case (l @ ast.Binary(ast.Field(_), _, ast.Variable(_)),
+          o @ operation,
+          r @ ast.Binary(_, _, _)) => removeVariables(r)
+
+          case (l @ _, op @ _, r @ _) => cleanTree(
+            ast.Binary(removeVariables(l), op, removeVariables(r))
+          )
+        }
+      case _ => search
+    }
+  }
+
+  private def applyMap(ctx: LogicalContext, tree: LogicalPlan, mp: ast.MapCommand): LogicalPlan = {
+    val nContext = new LogicalContext(searchVariables = ctx.searchVariables)
+    val searchCommand = mp.search.commands.head
+    val remainingCommands = mp.search.commands.tail
+
+    if (remainingCommands.nonEmpty) {
+      throw new Exception("Error in map command, pipe in search option " +
+          "is currently not supported !")
+    }
+
+    val searchPlan = pipeline(nContext, ast.Pipeline(Seq(searchCommand)))
+    val joinCondition = createJoinCondition(nContext.searchVariables, Some("l"), Some("r"))
+
+    Join(
+      SubqueryAlias("l", Limit(Literal(mp.maxSearches), searchPlan)),
+        SubqueryAlias("r", tree),
+        LeftSemi,
+        Some(joinCondition),
+        JoinHint.NONE)
+  }
 }
-
-

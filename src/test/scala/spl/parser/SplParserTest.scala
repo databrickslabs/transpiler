@@ -931,5 +931,68 @@ class SplParserTest extends ParserSuite {
       label = "Total"
     ))
   }
+
+  test("map search=\"search index=dummy host=$host_var$\" maxsearches=20") {
+    p(command(_), MapCommand(
+      Pipeline(
+        Seq(
+          SearchCommand(
+            Binary(
+              Binary(
+                Field("index"),
+                Equals,
+                Field("dummy")
+              ),
+              And,
+              Binary(
+                Field("host"),
+                Equals,
+                Variable("host_var")
+              )
+            )
+          )
+        )
+      ),
+      maxSearches = 20))
+  }
+
+  test(
+    """map search="search index=dummy host=$host_var$ | eval this=\"that\" |
+      |dedup 10 keepevents=true keepempty=false consecutive=true host ip port"""".stripMargin) {
+    p(_map(_), MapCommand(
+      Pipeline(
+        Seq(
+          SearchCommand(
+            Binary(
+              Binary(
+                Field("index"),
+                Equals,
+                Field("dummy")
+              ),
+              And,
+              Binary(
+                Field("host"),
+                Equals,
+                Variable("host_var")
+              )
+            )
+          ),
+          EvalCommand(Seq(
+            (Field("this"), StrValue("that"))
+          )),
+          DedupCommand(10,
+            Seq(Field("host"), Field("ip"), Field("port")),
+            keepEvents = true,
+            keepEmpty = false,
+            consecutive = true,
+            SortCommand(Seq(
+              (Some("+"), Field("_no"))
+            ))
+          )
+        )
+      ),
+      maxSearches = 10))
+  }
+
   // scalastyle:on
 }
