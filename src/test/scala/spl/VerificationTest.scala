@@ -66,6 +66,41 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("stats w/o wildcards w/o alias") {
+    executes("index=fake | stats count(id) by gender",
+    """+------+-----+
+      ||gender|count|
+      |+------+-----+
+      ||F     |9    |
+      ||M     |11   |
+      |+------+-----+
+      |""".stripMargin)
+  }
+
+  test("stats w/ wildcards w/o alias") {
+    executes("index=fake | eval len_ip=len(ipAddress), len_mail=len(email)" +
+    " | fields +gender, len_ip, len_mail | stats count(len_*) by gender | sort gender",
+    """+------+-----+-----+
+      ||gender|count|count|
+      |+------+-----+-----+
+      ||F     |9    |9    |
+      ||M     |11   |11   |
+      |+------+-----+-----+
+      |""".stripMargin)
+  }
+
+  test("stats w/ wildcards w/ alias") {
+    executes("index=fake | eval len_ip=len(ipAddress), len_mail=len(email)" +
+      " | fields +gender, len_ip, len_mail | stats count(len_*) as le* by gender | sort gender",
+      """+------+------+--------+
+        ||gender|len_ip|len_mail|
+        |+------+------+--------+
+        ||F     |9     |9       |
+        ||M     |11    |11      |
+        |+------+------+--------+
+        |""".stripMargin)
+  }
+
   test("thing2") {
     executes("index=fake | id > 17 | fields + id, gender, email, ipAddress",
       """+---+------+-------------------------+--------------+

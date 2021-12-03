@@ -74,7 +74,9 @@ object SplToCatalyst extends Logging {
             AppendData(UnresolvedRelation(Seq(cc.index)), tree, Map(), isByName = true)
 
           case st: ast.StatsCommand =>
-            val agg = aggregate(ctx, st.by, st.funcs, tree)
+            val (wcFuncs, regFuncs) = st.funcs.partition(e => ctx.containsWildcard(e))
+            val expandedFuncs = wcFuncs.flatMap(ctx.expandWildcards(_))
+            val agg = aggregate(ctx, st.by, regFuncs ++ expandedFuncs, tree)
             if (st.dedupSplitVals) {
               Deduplicate(st.by.map(x => UnresolvedAttribute(x.value)), agg)
             } else agg
@@ -1013,7 +1015,6 @@ object SplToCatalyst extends Logging {
     val unfoldedNones = unfoldWildcards(ctx, noneFcs).map(_.field.value)
     val unfoldedConvs = unfoldWildcards(ctx, convs)
     val filteredConvs = unfoldedConvs.filter(fc => !unfoldedNones.contains(fc.field.value))
-    // TODO Add exception handling if wc fields cannot be processed due to empty ctx.output
     filteredConvs.foldLeft(tree) { (plan, fc) =>
       val name = fc.alias.getOrElse(fc.field).value
       val callArgs = Seq(fc.field, ast.StrValue(timeformat))
@@ -1023,15 +1024,13 @@ object SplToCatalyst extends Logging {
 
   private def unfoldWildcards(ctx: LogicalContext,
                               convs: Seq[ast.FieldConversion]): Seq[ast.FieldConversion] = {
-    val (wcFields, regFields) = convs.partition(_.field.value.contains("*"))
-    if (wcFields.nonEmpty && ctx.output.isEmpty) {
+    val (wcFields, regFields) = convs.partition(ctx.containsWildcard(_))
+    if (!wcFields.isEmpty && ctx.output.isEmpty) {
       throw EmptyContextOutput(ast.ConvertCommand(convs = Seq()))
     }
-    regFields ++ wcFields.flatMap(wcField => {
-      val regex = wcField.field.value.replace("*", "\\w*")
-      ctx.output.filter(_.name matches regex)
-        .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
-    })
+    val expWcFields = wcFields.flatMap(ctx.expandWildcards(_))
+      .asInstanceOf[Seq[ast.FieldConversion]]
+    regFields ++ expWcFields
   }
 
   private def findVariables(search: ast.Expr): Seq[VariableAlias] = search match {
