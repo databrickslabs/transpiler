@@ -167,7 +167,7 @@ object SplToCatalyst extends Logging {
           case args => args.map(expression(ctx, _))
         }), Complete, isDistinct = false)
     case "sum" =>
-      Sum(attr(call.args.head))
+      AggregateExpression(Sum(attr(call.args.head)), Complete, isDistinct = false)
     case "tonumber" =>
       Cast(attr(call.args.head), DoubleType)
     case "min" =>

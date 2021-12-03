@@ -79,24 +79,24 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
 
   test("stats w/ wildcards w/o alias") {
     executes("index=fake | eval len_ip=len(ipAddress), len_mail=len(email)" +
-    " | fields +gender, len_ip, len_mail | stats count(len_*) by gender | sort gender",
-    """+------+-----+-----+
-      ||gender|count|count|
-      |+------+-----+-----+
-      ||F     |9    |9    |
-      ||M     |11   |11   |
-      |+------+-----+-----+
+    " | fields +gender, len_ip, len_mail | stats sum(len_*) by gender | sort gender",
+    """+------+---+---+
+      ||gender|sum|sum|
+      |+------+---+---+
+      ||F     |84 |154|
+      ||M     |118|185|
+      |+------+---+---+
       |""".stripMargin)
   }
 
   test("stats w/ wildcards w/ alias") {
     executes("index=fake | eval len_ip=len(ipAddress), len_mail=len(email)" +
-      " | fields +gender, len_ip, len_mail | stats count(len_*) as le* by gender | sort gender",
+      " | stats min(len_*) AS le* by gender | sort gender",
       """+------+------+--------+
         ||gender|len_ip|len_mail|
         |+------+------+--------+
-        ||F     |9     |9       |
-        ||M     |11    |11      |
+        ||F     |11    |16      |
+        ||M     |12    |18      |
         |+------+------+--------+
         |""".stripMargin)
   }

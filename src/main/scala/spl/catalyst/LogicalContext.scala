@@ -46,6 +46,7 @@ private[spl] class LogicalContext(
       case _ => Seq(expr)
     }
     case Alias(call: Call, wcName) =>
+      // TODO re-work the expansion of the alias names and use them
       val expandedNames = expandWildcards(Wildcard(wcName))
       val expandedCalls = expandWildcards(call).asInstanceOf[Seq[Call]]
       if (expandedNames.size != expandedCalls.size) {

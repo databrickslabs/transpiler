@@ -127,7 +127,11 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     Seq(UnresolvedAttribute("host")),
                     Seq(
                         UnresolvedAttribute("host"),
-                        Alias(Sum(UnresolvedAttribute("connection_time")), "sum")()),
+                        Alias(
+                            AggregateExpression(
+                                Sum(UnresolvedAttribute("connection_time")),
+                                Complete, isDistinct = false
+                            ), "sum")()),
                     tree))
     }
 
