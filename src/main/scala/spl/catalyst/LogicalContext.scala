@@ -58,4 +58,3 @@ private[spl] class LogicalContext(
     case _ => Seq(expr)
   }
 }
-

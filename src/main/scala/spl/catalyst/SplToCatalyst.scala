@@ -74,7 +74,7 @@ object SplToCatalyst extends Logging {
             AppendData(UnresolvedRelation(Seq(cc.index)), tree, Map(), isByName = true)
 
           case st: ast.StatsCommand =>
-            val (wcFuncs, regFuncs) = st.funcs.partition(e => ctx.containsWildcard(e))
+            val (wcFuncs, regFuncs) = st.funcs.partition(ctx.containsWildcard(_))
             val expandedFuncs = wcFuncs.flatMap(ctx.expandWildcards(_))
             val agg = aggregate(ctx, st.by, regFuncs ++ expandedFuncs, tree)
             if (st.dedupSplitVals) {
