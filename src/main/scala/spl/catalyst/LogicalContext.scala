@@ -22,9 +22,9 @@ private[spl] class LogicalContext(
            output: Seq[NamedExpression] = this.output): LogicalContext =
     new LogicalContext(indexName,
                        timeFieldName,
-                        rawFieldName,
-                        searchVariables,
-                        splFieldToAttr,
-                        analyzePlan,
-                        output)
+                       rawFieldName,
+                       searchVariables,
+                       splFieldToAttr,
+                       analyzePlan,
+                       output)
 }
