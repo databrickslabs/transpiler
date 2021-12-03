@@ -1464,20 +1464,22 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         )
                     )
                 )
-            )), maxSearches = 10),
+            )),
+            maxSearches = 10
+        ),
         (_, tree) => Join(
             SubqueryAlias("l", Limit(
                 Literal(10),
-                UnresolvedRelation(Seq("fake_for_join")))),
+                UnresolvedRelation(Seq("fake_for_join")))
+            ),
             SubqueryAlias("r", tree),
             LeftSemi,
             Some(EqualTo(
                 UnresolvedAttribute("l.id"),
-                UnresolvedAttribute("r.id"),
+                UnresolvedAttribute("r.id")
             )),
             JoinHint.NONE
-            )
-        )
+        ))
     }
 
     private def check(command: ast.Command,
