@@ -23,8 +23,8 @@ private[spl] class LogicalContext(
            rawFieldName: String = this.rawFieldName,
            searchVariables: Seq[VariableAlias] = this.searchVariables,
            wcStrToRex: String => Regex = this.wcStrToRex,
-           splFieldToAttr: (Field) => NamedExpression = this.splFieldToAttr,
-           analyzePlan: (LogicalPlan) => Seq[Attribute] = this.analyzePlan,
+           splFieldToAttr: Field => NamedExpression = this.splFieldToAttr,
+           analyzePlan: LogicalPlan => Seq[Attribute] = this.analyzePlan,
            output: Seq[NamedExpression] = this.output): LogicalContext =
 
     new LogicalContext(indexName, timeFieldName, rawFieldName, searchVariables,
@@ -33,7 +33,7 @@ private[spl] class LogicalContext(
   def containsWildcard(expr: Expr): Boolean = expr match {
     case Wildcard(_) => true
     case Field(name) => name.contains("*")
-    case FieldConversion(_, field, _) => field.value.contains("*")
+    case FieldConversion(_, Field(name), _) => name.contains("*")
     case Call(_, args) => args.map(containsWildcard).contains(true)
     case Alias(expr, name) => containsWildcard(expr) || name.contains("*")
     case _ => false
@@ -41,7 +41,7 @@ private[spl] class LogicalContext(
 
   def expandWildcards[E <: Expr](expr: E): Seq[Expr] = expr match {
     case Wildcard(value) =>
-      val regex = wcStrToRex(value).toString()
+      val regex = this.wcStrToRex(value).toString()
       this.output.filter(_.name matches regex).map(f => Field(f.name))
     case Field(value) => expandWildcards(Wildcard(value))
     case Call(name, _ @ Seq(wc: Wildcard)) => expandWildcards(wc).map(f => Call(name, Seq(f)))
@@ -55,12 +55,11 @@ private[spl] class LogicalContext(
   }
 
   private def expandAliasWc(aliasName: String, fctWc: String, fctExp: String): String = {
-    val regex: Regex = this.wcStrToRex(fctWc)
     if (fctWc.count(_ == '*') != aliasName.count(_ == '*')) {
       throw new ConversionFailure("Resolved wildcards between field specifier" +
         " and rename specifier do not match")
     }
-    val groups = regex.findAllMatchIn(fctExp)
+    val groups = this.wcStrToRex(fctWc).findAllMatchIn(fctExp)
     aliasName flatMap {case '*' => s"${groups.next().group(1)}" case c => s"$c"}
   }
 }
