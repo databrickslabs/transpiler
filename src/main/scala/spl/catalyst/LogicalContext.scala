@@ -44,16 +44,11 @@ private[spl] class LogicalContext(
       val regex = wcStrToRex(value).toString()
       this.output.filter(_.name matches regex).map(f => Field(f.name))
     case Field(value) => expandWildcards(Wildcard(value))
-    case Call(name, args) => args.head match {
-      case wc: Wildcard => expandWildcards(wc).map(f => Call(name, Seq(f)))
-      case field: Field => expandWildcards(field).map(f => Call(name, Seq(f)))
-      case _ => Seq(expr)
-    }
-    case Alias(call: Call, wcName) =>
-      val fctWcName = call.args.head.asInstanceOf[Wildcard].value
+    case Call(name, _ @ Seq(wc: Wildcard)) => expandWildcards(wc).map(f => Call(name, Seq(f)))
+    case Alias(call @ Call(_, _ @ Seq(wc: Wildcard)), wcName) =>
       val expandedCalls = expandWildcards(call).asInstanceOf[Seq[Call]]
       expandedCalls.map(f => Alias(f,
-        expandAliasWc(wcName, fctWcName, f.args.head.asInstanceOf[Field].value)))
+        expandAliasWc(wcName, wc.value, f.args.head.asInstanceOf[Field].value)))
     case FieldConversion(func, field, alias) =>
       expandWildcards(field).map(f => FieldConversion(func, f.asInstanceOf[Field], alias))
     case _ => Seq(expr)
