@@ -56,7 +56,7 @@ private[spl] class LogicalContext(
 
   private def expandAliasWc(aliasName: String, fctWc: String, fctExp: String): String = {
     val regex: Regex = this.wcStrToRex(fctWc)
-    if (regex.findAllMatchIn(fctExp).size != aliasName.count(_ == '*')) {
+    if (fctWc.count(_ == '*') != aliasName.count(_ == '*')) {
       throw new ConversionFailure("Resolved wildcards between field specifier" +
         " and rename specifier do not match")
     }

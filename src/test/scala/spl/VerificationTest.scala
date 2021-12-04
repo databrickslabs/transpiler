@@ -101,6 +101,18 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("stats on all fields") {
+    executes("index=fake | eval len_mail=len(email)" +
+      "| fields +id, gender, cardNumber, len_mail | stats max(*) AS max_* by gender | sort gender",
+      """+------+------+----------+-------------------+------------+
+        ||gender|max_id|max_gender|max_cardNumber     |max_len_mail|
+        |+------+------+----------+-------------------+------------+
+        ||F     |19    |F         |676148588124846639 |26          |
+        ||M     |20    |M         |6759229762621737928|25          |
+        |+------+------+----------+-------------------+------------+
+        |""".stripMargin)
+  }
+
   test("thing2") {
     executes("index=fake | id > 17 | fields + id, gender, email, ipAddress",
       """+---+------+-------------------------+--------------+

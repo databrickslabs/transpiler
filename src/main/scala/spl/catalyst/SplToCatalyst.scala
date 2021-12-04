@@ -171,10 +171,8 @@ object SplToCatalyst extends Logging {
     case "tonumber" =>
       Cast(attr(call.args.head), DoubleType)
     case "min" =>
-      // TODO: would currently fail on wildcard attributes
       determineMin(ctx, call)
     case "max" =>
-      // TODO: would currently fail on wildcard attributes
       determineMax(ctx, call)
     case "len" =>
       Length(attrOrExpr(ctx, call.args.head))
