@@ -75,6 +75,7 @@ object SplToCatalyst extends Logging {
 
           case st: ast.StatsCommand =>
             val (wcFuncs, regFuncs) = st.funcs.partition(ctx.containsWildcard(_))
+            if (!wcFuncs.isEmpty && ctx.output.isEmpty) throw EmptyContextOutput(st)
             val expandedFuncs = wcFuncs.flatMap(ctx.expandWildcards(_))
             val agg = aggregate(ctx, st.by, regFuncs ++ expandedFuncs, tree)
             if (st.dedupSplitVals) {
