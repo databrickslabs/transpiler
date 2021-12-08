@@ -7,7 +7,7 @@
     <name>spark-spl</name>
     <groupId>com.databricks.labs</groupId>
     <artifactId>spark-spl</artifactId>
-    <version>0.3</version>
+    <version>0.4</version>
 
     <developers>
         <developer>

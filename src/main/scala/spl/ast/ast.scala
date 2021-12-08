@@ -18,6 +18,7 @@ case class SnapTime(span: Option[TimeSpan], snap: String,
                     snapOffset: Option[TimeSpan]) extends Constant
 case class Field(value: String) extends Constant with FieldLike with FieldOrAlias
 case class Wildcard(value: String) extends Constant with FieldLike
+case class Variable(value: String) extends Constant
 case class IPv4CIDR(value: String) extends Constant
 
 case class FV(field: String, value: String) extends LeafExpr
@@ -185,5 +186,7 @@ case class BinCommand(field: FieldOrAlias, span: Option[SplSpan] = None,
                       alignTime: Option[String] = None) extends Command
 
 case class MultiSearch(pipelines: Seq[Pipeline]) extends Command
+
+case class MapCommand(search: Pipeline, maxSearches: Int) extends Command
 
 case class Pipeline(commands: Seq[Command])

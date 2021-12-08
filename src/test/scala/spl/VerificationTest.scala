@@ -982,4 +982,23 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |+---+------+----------+--------+
         |""".stripMargin)
   }
+
+  test("map command") {
+    executes("index=fake | map search=\"search index=fake_for_join id=$id$\"",
+      """+---+---------+
+        ||id |sport    |
+        |+---+---------+
+        ||1  |Ping Pong|
+        ||2  |Rugby    |
+        ||3  |Football |
+        ||4  |Tennis   |
+        ||5  |Rugby    |
+        ||6  |Ping Pong|
+        ||7  |Rugby    |
+        ||8  |Football |
+        ||9  |Rugby    |
+        ||10 |Football |
+        |+---+---------+
+        |""".stripMargin)
+  }
 }

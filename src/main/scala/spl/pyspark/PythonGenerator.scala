@@ -22,6 +22,9 @@ object PythonGenerator {
     case AppendData(table, query, writeOptions, isByName) =>
       s"${fromPlan(ctx, query)}\n.write.saveAsTable(${q(table.name)}, mode='append')"
 
+    case SubqueryAlias(identifier, child) =>
+      s"${fromPlan(ctx, child)}.alias(${q(identifier.name)})"
+
     case p @ Project(exprs, child) =>
       val childCode = fromPlan(ctx, child)
       if (p.expressions.length - child.expressions.length == 1 || exprs.length == 1) {
@@ -43,6 +46,16 @@ object PythonGenerator {
             }
           case ur: UnresolvedRegex =>
             s"$childCode\n.selectExpr(${q(expression(ur))})"
+          case us: UnresolvedStar =>
+            us.target match {
+              case Some(values) =>
+                val starList = values.map(id => {
+                  val starExpr = s"${id}.*"
+                  s"F.col(${q(starExpr)})"
+                }).mkString(", ")
+                s"$childCode\n.select(${starList})"
+              case None => ""
+            }
           case _ =>
             throw new UnsupportedOperationException(s"cannot generate column: ${exprs.last}")
         }
@@ -82,14 +95,22 @@ object PythonGenerator {
       val groupBy = exprList(ctx, a.groupingExpressions)
       s"${fromPlan(ctx, a.child)}\n.groupBy($groupBy)\n.agg($aggs)"
 
-    case Join(left, right, joinType, _, _) =>
+    case Join(left, right, joinType, condition, _) =>
       // TODO: condition and hints are not yet supported
       val (tp, on) = joinType match {
         case UsingJoin(tp, usingColumns) => (tp, usingColumns)
         case tp => (tp, Seq())
       }
       val how = q(tp.sql.replace(" ", "_").toLowerCase)
-      s"${fromPlan(ctx, left)}\n.join(${fromPlan(ctx, right)},\n${toPythonList(ctx, on)}, $how)"
+      condition match {
+        case Some(exp) =>
+          s"""${fromPlan(ctx, left)}
+             |.join(${fromPlan(ctx, right)},
+             |${unfoldJoinCondition(exp)},
+             |$how)""".stripMargin
+        case None =>
+          s"${fromPlan(ctx, left)}\n.join(${fromPlan(ctx, right)},\n${toPythonList(ctx, on)}, $how)"
+      }
 
     case r: Range =>
       s"spark.range(${r.start}, ${r.end}, ${r.step})"
@@ -125,6 +146,11 @@ object PythonGenerator {
   private def smartDelimiters(ctx: GeneratorContext, seq: Seq[String]) = {
     val default = seq.mkString(", ")
     if (default.length < ctx.maxLineWidth) default else seq.mkString(",\n  ")
+  }
+
+  private def unfoldJoinCondition(expr: Expression): String = expr match {
+    case And(left, right) => s"${unfoldJoinCondition(left)} && ${unfoldJoinCondition(right)}"
+    case _ => s"${expressionCode(expr)}"
   }
 
   private def unfoldWheres(expr: Expression): String = expr match {
