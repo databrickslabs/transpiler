@@ -1038,9 +1038,9 @@ object SplToCatalyst extends Logging {
     case b @ ast.Binary(ast.Field(name), _, ast.Variable(value)) => Seq(VariableAlias(name, value))
     case b @ ast.Binary(ast.Variable(value), _, ast.Field(name)) => Seq(VariableAlias(name, value))
     case b @ ast.Binary(_, _, ast.Variable(value)) =>
-      throw new Exception(s"Invalid use of variable ${value}")
+      throw new IllegalArgumentException(s"Invalid use of variable ${value}")
     case b @ ast.Binary(ast.Variable(value), _, _) =>
-      throw new Exception(s"Invalid use of variable ${value}")
+      throw new IllegalArgumentException(s"Invalid use of variable ${value}")
     case ast.Binary(left, _, right) => findVariables(left) ++ findVariables(right)
     case _ => Seq()
   }
@@ -1051,7 +1051,7 @@ object SplToCatalyst extends Logging {
     case _ => false
   }
 
-  def removeVariables(search: ast.Expr): Option[ast.Expr] = {
+  private def removeVariables(search: ast.Expr): Option[ast.Expr] = {
     val NullExpr = Option.empty[ast.Expr]
     search match {
       case b: ast.Binary if isFieldVariableBinary(b) =>
@@ -1063,17 +1063,13 @@ object SplToCatalyst extends Logging {
         removeVariables(left)
       case ast.Binary(left, _, right) if isFieldVariableBinary(left) =>
         removeVariables(right)
-      case ast.Binary(NullExpr, _, right) =>
-        removeVariables(right)
-      case ast.Binary(left, _, NullExpr) =>
-        removeVariables(left)
       case ast.Binary(left, op, right) =>
-        Some(
-          ast.Binary(
-            removeVariables(left).get,
-            op,
-            removeVariables(right).get)
-        )
+        (removeVariables(left), removeVariables(right)) match {
+          case (Some(l), Some(r)) => Some(ast.Binary(l, op, r))
+          case (Some(l), None) => Some(l)
+          case (None, Some(r)) => Some(r)
+          case (None, None) => NullExpr
+        }
       case _ => Some(search)
     }
   }
@@ -1101,7 +1097,7 @@ object SplToCatalyst extends Logging {
 
   private def createJoinCondition(varz: Seq[VariableAlias],
                                   leftPrefix: Option[String],
-                                  rightPrefix: Option[String]): Expression = {
+                                  rightPrefix: Option[String]): Expression =
     varz map {
       case VariableAlias(name, alias) =>
         EqualTo(
@@ -1114,5 +1110,4 @@ object SplToCatalyst extends Logging {
             case None => alias
           })).asInstanceOf[Expression]
     } reduceLeft(And)
-  }
 }
