@@ -6,7 +6,7 @@ import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.optimizer.CombineUnions
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, PlanTestBase, UsingJoin}
+import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, LeftSemi, PlanTestBase, UsingJoin}
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import org.scalatest.funsuite.AnyFunSuite
 import spl.ast
@@ -1444,6 +1444,42 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                 UnresolvedAttribute("num_men"),
                 UnresolvedAttribute("num_women"))
         )
+    }
+
+    test("map search=\"search index=fake_for_join id=$id$\"") {
+        check(ast.MapCommand(
+            ast.Pipeline(Seq(
+                ast.SearchCommand(
+                    ast.Binary(
+                        ast.Binary(
+                            ast.Field("index"),
+                            ast.Equals,
+                            ast.Field("fake_for_join")
+                        ),
+                        ast.And,
+                        ast.Binary(
+                            ast.Field("id"),
+                            ast.Equals,
+                            ast.Variable("id")
+                        )
+                    )
+                )
+            )),
+            maxSearches = 10
+        ),
+        (_, tree) => Join(
+            SubqueryAlias("l", Limit(
+                Literal(10),
+                UnresolvedRelation(Seq("fake_for_join")))
+            ),
+            SubqueryAlias("r", tree),
+            LeftSemi,
+            Some(EqualTo(
+                UnresolvedAttribute("l.id"),
+                UnresolvedAttribute("r.id")
+            )),
+            JoinHint.NONE
+        ))
     }
 
     private def check(command: ast.Command,
