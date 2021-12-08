@@ -115,6 +115,35 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     tree))
     }
 
+    test("StatsCommand w/ wildcard") {
+        check(ast.StatsCommand(
+            partitions = 1,
+            allNum = false,
+            delim = " ",
+            Seq(ast.Call("sum", Seq(ast.Wildcard("len*")))),
+            Seq(ast.Field("host"))),
+            (_, tree) =>
+                Aggregate(
+                    Seq(UnresolvedAttribute("host")),
+                    Seq(
+                        UnresolvedAttribute("host"),
+                        Alias(
+                            AggregateExpression(
+                                Sum(UnresolvedAttribute("lenA")),
+                                Complete, isDistinct = false
+                            ), "sum")(),
+                        Alias(
+                            AggregateExpression(
+                                Sum(UnresolvedAttribute("lenB")),
+                                Complete, isDistinct = false
+                            ), "sum")()),
+                    tree),
+            injectOutput = Seq(
+                UnresolvedAttribute("lenA"),
+                UnresolvedAttribute("lenB")
+            ))
+    }
+
     test("sum(connection_time)") {
         check(ast.StatsCommand(
             partitions = 1,
