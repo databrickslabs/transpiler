@@ -19,10 +19,9 @@ private[spl] class LogicalContext(
            timeFieldName: String = this.timeFieldName,
            rawFieldName: String = this.rawFieldName,
            searchVariables: Seq[VariableAlias] = this.searchVariables,
-           splFieldToAttr: Field => NamedExpression = this.splFieldToAttr,
-           analyzePlan: LogicalPlan => Seq[Attribute] = this.analyzePlan,
+           splFieldToAttr: (Field) => NamedExpression = this.splFieldToAttr,
+           analyzePlan: (LogicalPlan) => Seq[Attribute] = this.analyzePlan,
            output: Seq[NamedExpression] = this.output): LogicalContext =
-
     new LogicalContext(indexName, timeFieldName, rawFieldName, searchVariables,
       splFieldToAttr, analyzePlan, output)
 }
