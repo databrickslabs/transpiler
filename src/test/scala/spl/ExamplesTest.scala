@@ -336,4 +336,14 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
     // scalastyle:on
   }
+
+  test("map search=\"search index=fake_for_join id=$id$\"") {
+    generates("map search=\"search index=fake_for_join id=$id$\"",
+      """(spark.table('fake_for_join')
+        |.limit(10).alias('l')
+        |.join(spark.table('main').alias('r'),
+        |(F.col('l.id') == F.col('r.id')),
+        |'left_semi'))
+        |""".stripMargin)
+  }
 }
