@@ -28,11 +28,9 @@ object SplToCatalyst extends Logging {
         (tree, command) => command match {
           case ast.SearchCommand(expr) =>
             ctx.searchVariables = findVariables(expr)
-            val adjustedExpr = removeVariables(expr)
-            if (adjustedExpr == null) {
-              tree
-            } else {
-              Filter(expression(ctx, adjustedExpr), tree)
+            removeVariables(expr) match {
+              case Some(expr) => Filter(expression(ctx, expr), tree)
+              case None => tree
             }
 
           case inputLookup: ast.InputLookup =>
@@ -1026,7 +1024,7 @@ object SplToCatalyst extends Logging {
   private def unfoldWildcards(ctx: LogicalContext,
                               convs: Seq[ast.FieldConversion]): Seq[ast.FieldConversion] = {
     val (wcFields, regFields) = convs.partition(_.field.value.contains("*"))
-    if (!wcFields.isEmpty && ctx.output.isEmpty) {
+    if (wcFields.nonEmpty && ctx.output.isEmpty) {
       throw EmptyContextOutput(ast.ConvertCommand(convs = Seq()))
     }
     regFields ++ wcFields.flatMap(wcField => {
@@ -1036,60 +1034,47 @@ object SplToCatalyst extends Logging {
     })
   }
 
-  private def createJoinCondition(tuples: Seq[(String, String)],
-                                  leftPrefix: Option[String],
-                                  rightPrefix: Option[String]): Expression = {
-    val equals = tuples.map(tuple => EqualTo(
-      UnresolvedAttribute(leftPrefix match {
-        case Some(name) => s"${name}.${tuple._1}"
-        case None => tuple._1
-      }),
-      UnresolvedAttribute(rightPrefix match {
-        case Some(name) => s"${name}.${tuple._2}"
-        case None => tuple._2
-      })).asInstanceOf[Expression]
-    )
-    equals.reduceLeft {
-      (left, right) => And(left, right).asInstanceOf[Expression]
-    }
-  }
-
-  def findVariables(search: ast.Expr): Seq[(String, String)] = search match {
-    case b @ ast.Binary(ast.Field(name), _, ast.Variable(value)) => Seq((name, value))
+  private def findVariables(search: ast.Expr): Seq[VariableAlias] = search match {
+    case b @ ast.Binary(ast.Field(name), _, ast.Variable(value)) => Seq(VariableAlias(name, value))
+    case b @ ast.Binary(ast.Variable(value), _, ast.Field(name)) => Seq(VariableAlias(name, value))
+    case b @ ast.Binary(_, _, ast.Variable(value)) =>
+      throw new Exception(s"Invalid use of variable ${value}")
+    case b @ ast.Binary(ast.Variable(value), _, _) =>
+      throw new Exception(s"Invalid use of variable ${value}")
     case ast.Binary(left, _, right) => findVariables(left) ++ findVariables(right)
     case _ => Seq()
   }
 
-  def cleanTree(search: ast.Expr): ast.Expr = {
-    search match {
-      case p @ ast.Binary(null, _, right) => right
-      case p @ ast.Binary(left, _, null) => left
-      case _ => search
-    }
+  private def isFieldVariableBinary(expr: ast.Expr) = expr match {
+    case ast.Binary(ast.Field(_), _, ast.Variable(_)) => true
+    case ast.Binary(ast.Variable(_), _, ast.Field(_)) => true
+    case _ => false
   }
 
-  def removeVariables(search: ast.Expr): ast.Expr = {
+  def removeVariables(search: ast.Expr): Option[ast.Expr] = {
+    val NullExpr = Option.empty[ast.Expr]
     search match {
-      case p @ ast.Binary(ast.Field(_), _, ast.Variable(_)) => null
-      case p @ ast.Binary(left, op, right) =>
-        (left, op, right) match {
-          case (l @ ast.Binary(ast.Field(_), _, ast.Variable(_)),
-          o @ operation,
-          r @ ast.Binary(ast.Field(_), _, ast.Variable(_))) => null
-
-          case (l @ ast.Binary(_, _, _),
-          o @ operation,
-          r @ ast.Binary(ast.Field(_), _, ast.Variable(_))) => removeVariables(l)
-
-          case (l @ ast.Binary(ast.Field(_), _, ast.Variable(_)),
-          o @ operation,
-          r @ ast.Binary(_, _, _)) => removeVariables(r)
-
-          case (l @ _, op @ _, r @ _) => cleanTree(
-            ast.Binary(removeVariables(l), op, removeVariables(r))
-          )
-        }
-      case _ => search
+      case b: ast.Binary if isFieldVariableBinary(b) =>
+        NullExpr
+      case ast.Binary(left, _, right)
+        if isFieldVariableBinary(left) && isFieldVariableBinary(right) =>
+        NullExpr
+      case ast.Binary(left, _, right) if isFieldVariableBinary(right) =>
+        removeVariables(left)
+      case ast.Binary(left, _, right) if isFieldVariableBinary(left) =>
+        removeVariables(right)
+      case ast.Binary(NullExpr, _, right) =>
+        removeVariables(right)
+      case ast.Binary(left, _, NullExpr) =>
+        removeVariables(left)
+      case ast.Binary(left, op, right) =>
+        Some(
+          ast.Binary(
+            removeVariables(left).get,
+            op,
+            removeVariables(right).get)
+        )
+      case _ => Some(search)
     }
   }
 
@@ -1099,7 +1084,7 @@ object SplToCatalyst extends Logging {
     val remainingCommands = mp.search.commands.tail
 
     if (remainingCommands.nonEmpty) {
-      throw new Exception("Error in map command, pipe in search option " +
+      throw new IllegalArgumentException("Error in map command, pipe in search option " +
           "is currently not supported !")
     }
 
@@ -1112,5 +1097,22 @@ object SplToCatalyst extends Logging {
         LeftSemi,
         Some(joinCondition),
         JoinHint.NONE)
+  }
+
+  private def createJoinCondition(varz: Seq[VariableAlias],
+                                  leftPrefix: Option[String],
+                                  rightPrefix: Option[String]): Expression = {
+    varz map {
+      case VariableAlias(name, alias) =>
+        EqualTo(
+          UnresolvedAttribute(leftPrefix match {
+            case Some(prefix) => s"${prefix}.${name}"
+            case None => name
+          }),
+          UnresolvedAttribute(rightPrefix match {
+            case Some(prefix) => s"${prefix}.${alias}"
+            case None => alias
+          })).asInstanceOf[Expression]
+    } reduceLeft(And)
   }
 }

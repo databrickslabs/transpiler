@@ -75,7 +75,7 @@ object SplParser {
       case Parsed.Success(value, _) => value
       case f: Parsed.Failure =>
         // scalastyle:off throwerror
-        throw new AssertionError(f.msg)
+        throw new IllegalArgumentException(f.msg)
         // scalastyle:on throwerror
     }
   }}

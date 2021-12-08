@@ -24,7 +24,6 @@ case class IPv4CIDR(value: String) extends Constant
 case class FV(field: String, value: String) extends LeafExpr
 case class FB(field: String, value: Boolean) extends LeafExpr
 case class FC(field: String, value: Constant) extends LeafExpr
-case class FP(field: String, value: Pipeline) extends LeafExpr
 
 case class CommandOptions(options: Seq[FC]) {
   private val inner = options.map(y => y.field -> y.value).toMap
