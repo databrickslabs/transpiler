@@ -23,5 +23,5 @@ private[spl] class LogicalContext(
            analyzePlan: (LogicalPlan) => Seq[Attribute] = this.analyzePlan,
            output: Seq[NamedExpression] = this.output): LogicalContext =
     new LogicalContext(indexName, timeFieldName, rawFieldName, searchVariables,
-        splFieldToAttr, analyzePlan, output)
+      splFieldToAttr, analyzePlan, output)
 }

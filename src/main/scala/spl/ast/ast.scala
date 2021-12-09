@@ -81,7 +81,7 @@ case class SearchCommand(expr: Expr) extends Command
 
 case class EvalCommand(fields: Seq[(Field, Expr)]) extends Command
 
-case class FieldConversion(func: String, field: Field, alias: Option[Field])
+case class FieldConversion(func: String, field: Field, alias: Option[Field]) extends Expr
 
 case class ConvertCommand(timeformat: String = "%m/%d/%Y %H:%M:%S",
                           convs: Seq[FieldConversion]) extends Command
