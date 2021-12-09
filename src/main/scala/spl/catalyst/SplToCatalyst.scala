@@ -74,10 +74,7 @@ object SplToCatalyst extends Logging {
             AppendData(UnresolvedRelation(Seq(cc.index)), tree, Map(), isByName = true)
 
           case st: ast.StatsCommand =>
-            val agg = aggregate(ctx, st.by, st.funcs, tree)
-            if (st.dedupSplitVals) {
-              Deduplicate(st.by.map(x => UnresolvedAttribute(x.value)), agg)
-            } else agg
+            applyStats(ctx, tree, st)
 
           case rc: ast.RexCommand =>
             // TODO find a way to implement max_match, offset_field and mode
@@ -165,14 +162,12 @@ object SplToCatalyst extends Logging {
           case args => args.map(expression(ctx, _))
         }), Complete, isDistinct = false)
     case "sum" =>
-      Sum(attr(call.args.head))
+      AggregateExpression(Sum(attr(call.args.head)), Complete, isDistinct = false)
     case "tonumber" =>
       Cast(attr(call.args.head), DoubleType)
     case "min" =>
-      // TODO: would currently fail on wildcard attributes
       determineMin(ctx, call)
     case "max" =>
-      // TODO: would currently fail on wildcard attributes
       determineMax(ctx, call)
     case "len" =>
       Length(attrOrExpr(ctx, call.args.head))
@@ -811,6 +806,58 @@ object SplToCatalyst extends Logging {
     determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, UnspecifiedFrame)
   }
 
+  private def applyStats(ctx: LogicalContext,
+                         tree: LogicalPlan,
+                         cmd: ast.StatsCommand): LogicalPlan = {
+    val (wcFuncs, regFuncs) = cmd.funcs.partition(containsWildcard(_))
+    if (!wcFuncs.isEmpty && ctx.output.isEmpty) assertCtxOutputNonEmpty(ctx, cmd)
+    val expandedFuncs = wcFuncs.flatMap(expandWildcards(ctx, _))
+    val agg = aggregate(ctx, cmd.by, regFuncs ++ expandedFuncs, tree)
+    if (cmd.dedupSplitVals) {
+      Deduplicate(cmd.by.map(x => UnresolvedAttribute(x.value)), agg)
+    } else agg
+  }
+
+  private def containsWildcard(expr: ast.Expr): Boolean = expr match {
+    case ast.Wildcard(_) => true
+    case ast.Field(name) => name.contains("*")
+    case ast.FieldConversion(_, ast.Field(name), _) => name.contains("*")
+    case ast.Call(_, args) => args.map(containsWildcard).contains(true)
+    case ast.Alias(expr, name) => containsWildcard(expr) || name.contains("*")
+    case _ => false
+  }
+
+  private def expandWildcards[E <: ast.Expr](ctx: LogicalContext,
+                                             expr: E): Seq[ast.Expr] = expr match {
+    case ast.Wildcard(value) =>
+      val regex = wcStrToRex(value).toString()
+      ctx.output.filter(_.name matches regex).map(f => ast.Field(f.name))
+    case ast.Field(value) => expandWildcards(ctx, ast.Wildcard(value))
+    case ast.Call(name, _ @ Seq(wc: ast.Wildcard)) =>
+      expandWildcards(ctx, wc).map(f => ast.Call(name, Seq(f)))
+    case ast.Alias(call @ ast.Call(_, _ @ Seq(wc: ast.Wildcard)), wcName) =>
+      val expandedCalls = expandWildcards(ctx, call).asInstanceOf[Seq[ast.Call]]
+      expandedCalls.map(f => ast.Alias(f,
+        expandAliasWc(wcName, wc.value, f.args.head.asInstanceOf[ast.Field].value)))
+    case ast.FieldConversion(func, field, alias) =>
+      expandWildcards(ctx, field)
+        .map(f => ast.FieldConversion(func, f.asInstanceOf[ast.Field], alias))
+    case _ => Seq(expr)
+  }
+
+  private def expandAliasWc(aliasName: String, fctWc: String, fctExp: String): String = {
+    if (fctWc.count(_ == '*') != aliasName.count(_ == '*')) {
+      throw new ConversionFailure("Resolved wildcards between field specifier" +
+        " and rename specifier do not match")
+    }
+    val groups = wcStrToRex(fctWc).findAllMatchIn(fctExp)
+    aliasName flatMap {case '*' => s"${groups.next().group(1)}" case c => s"$c"}
+  }
+
+  private def wcStrToRex(value: String): Regex = {
+    value.replace("*", "(\\w*)").r
+  }
+
   private def applyStreamStats(ctx: LogicalContext,
                                tree: LogicalPlan,
                                funcs: Seq[ast.Expr],
@@ -1013,7 +1060,6 @@ object SplToCatalyst extends Logging {
     val unfoldedNones = unfoldWildcards(ctx, noneFcs).map(_.field.value)
     val unfoldedConvs = unfoldWildcards(ctx, convs)
     val filteredConvs = unfoldedConvs.filter(fc => !unfoldedNones.contains(fc.field.value))
-    // TODO Add exception handling if wc fields cannot be processed due to empty ctx.output
     filteredConvs.foldLeft(tree) { (plan, fc) =>
       val name = fc.alias.getOrElse(fc.field).value
       val callArgs = Seq(fc.field, ast.StrValue(timeformat))
@@ -1023,15 +1069,13 @@ object SplToCatalyst extends Logging {
 
   private def unfoldWildcards(ctx: LogicalContext,
                               convs: Seq[ast.FieldConversion]): Seq[ast.FieldConversion] = {
-    val (wcFields, regFields) = convs.partition(_.field.value.contains("*"))
-    if (wcFields.nonEmpty && ctx.output.isEmpty) {
+    val (wcFields, regFields) = convs.partition(containsWildcard(_))
+    if (!wcFields.isEmpty && ctx.output.isEmpty) {
       throw EmptyContextOutput(ast.ConvertCommand(convs = Seq()))
     }
-    regFields ++ wcFields.flatMap(wcField => {
-      val regex = wcField.field.value.replace("*", "\\w*")
-      ctx.output.filter(_.name matches regex)
-        .map(f => ast.FieldConversion(wcField.func, ast.Field(f.name), wcField.alias))
-    })
+    val expWcFields = wcFields.flatMap(expandWildcards(ctx, _))
+      .asInstanceOf[Seq[ast.FieldConversion]]
+    regFields ++ expWcFields
   }
 
   private def findVariables(search: ast.Expr): Seq[VariableAlias] = search match {
