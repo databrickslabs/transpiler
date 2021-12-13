@@ -162,7 +162,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     ast.Equals,
                     ast.StrValue("localhost"))
             )),
-            Seq(ast.Field("host")),
+            Seq(ast.Field("host"),
+                ast.Field("_time")),
             Some(ast.TimeSpan(1, "day"))),
             (_, tree) =>
                 Aggregate(

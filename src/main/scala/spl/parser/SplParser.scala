@@ -255,10 +255,8 @@ object SplParser {
 
   def tstats[_: P]: P[TStatsCommand] = ("tstats" ~ commandOptions ~ statsCall ~
     (W("from") ~ token).? ~ (W("where") ~ expr).? ~ (W("by") ~
-    (fieldAndSpan | field).rep(sep = ",")).?).map {
-    case (options, funcs, from, where, by) =>
-      val span = extractSpan(by)
-      val filteredBy = filterSpan(by)
+    fieldList).?.map(fields => fields.getOrElse(Seq())) ~ ("span" ~ "=" ~ timeSpan).?).map {
+    case (options, funcs, from, where, by, span) =>
       TStatsCommand(
         options.getBoolean("append", false),
         options.getIntOption("fillnullvalue"),
@@ -266,25 +264,9 @@ object SplParser {
         funcs,
         from,
         where,
-        filteredBy,
+        by,
         span
       )
-  }
-
-  def extractSpan(fieldOrSpan: Option[Seq[Any]]): Option[TimeSpan] = fieldOrSpan match {
-    case Some(s) => s.filter({
-      case (_, _) => true
-      case _ => false
-    }).map({case (_, ts: TimeSpan) => ts}).headOption
-    case _ => None
-  }
-
-  def filterSpan(fieldOrSpan: Option[Seq[Any]]): Seq[Field] = fieldOrSpan match {
-    case Some(s) => s.filter({
-      case (_, _) => false
-      case _ => true
-    }).map({case f: Field => f})
-    case _ => Seq()
   }
 
   // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Rex

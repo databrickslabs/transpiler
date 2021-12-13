@@ -911,7 +911,8 @@ object SplToCatalyst extends Logging {
                                  span: Option[ast.TimeSpan]): LogicalPlan = {
     // TODO: Remove 'index' statement from where and filter subsequently by where expr
     val windowExprSeq = getWindowExprSeq(ctx, span)
-    val groupBy = by.map(attr)
+    val filteredBy = if (span.isDefined) by.dropRight(1) else by
+    val groupBy = filteredBy.map(attr)
     val agg = aggregates(ctx, funcs)
     newAggregateIgnoringABI(windowExprSeq ++ groupBy, windowExprSeq ++ groupBy ++ agg, tree)
   }
@@ -919,13 +920,12 @@ object SplToCatalyst extends Logging {
   private def getWindowExprSeq(ctx: LogicalContext,
                                span: Option[ast.TimeSpan]): Seq[NamedExpression] = span match {
       case Some(ts) =>
-        val windowDuration = s"${ts.value} ${ts.scale}"
+        val windowDuration = Literal.create(timeSpan(ts).toString())
         val timeColumn = UnresolvedAttribute(ctx.timeFieldName)
         Seq(Alias(new TimeWindow(timeColumn, Literal(windowDuration)), "window")())
 
       case _ => Seq()
-    }
-
+  }
 
   /**
    * https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Dedup
