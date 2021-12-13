@@ -66,6 +66,53 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         |""".stripMargin)
   }
 
+  test("stats w/o wildcards w/o alias") {
+    executes("index=fake | stats count(id) by gender",
+    """+------+-----+
+      ||gender|count|
+      |+------+-----+
+      ||F     |9    |
+      ||M     |11   |
+      |+------+-----+
+      |""".stripMargin)
+  }
+
+  test("stats w/ wildcards w/o alias") {
+    executes("index=fake | eval len_ip=len(ipAddress), len_mail=len(email)" +
+    " | fields +gender, len_ip, len_mail | stats sum(len_*) by gender | sort gender",
+    """+------+---+---+
+      ||gender|sum|sum|
+      |+------+---+---+
+      ||F     |84 |154|
+      ||M     |118|185|
+      |+------+---+---+
+      |""".stripMargin)
+  }
+
+  test("stats w/ wildcards w/ alias") {
+    executes("index=fake | eval len_ip=len(ipAddress), len_mail=len(email)" +
+      " | stats min(len_*) AS min_* by gender | sort gender",
+      """+------+------+--------+
+        ||gender|min_ip|min_mail|
+        |+------+------+--------+
+        ||F     |11    |16      |
+        ||M     |12    |18      |
+        |+------+------+--------+
+        |""".stripMargin)
+  }
+
+  test("stats on all fields") {
+    executes("index=fake | eval len_mail=len(email)" +
+      "| fields +id, gender, cardNumber, len_mail | stats max(*) AS max_* by gender | sort gender",
+      """+------+------+----------+-------------------+------------+
+        ||gender|max_id|max_gender|max_cardNumber     |max_len_mail|
+        |+------+------+----------+-------------------+------------+
+        ||F     |19    |F         |676148588124846639 |26          |
+        ||M     |20    |M         |6759229762621737928|25          |
+        |+------+------+----------+-------------------+------------+
+        |""".stripMargin)
+  }
+
   test("thing2") {
     executes("index=fake | id > 17 | fields + id, gender, email, ipAddress",
       """+---+------+-------------------------+--------------+

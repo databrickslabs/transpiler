@@ -22,6 +22,24 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("stats sum test w/ wildcards w/ empty context") {
+    // scalastyle:off
+    generates("stats sum(*) by valid",
+      """(spark.table('main')
+        |# Error in stats: spl.catalyst.EmptyContextOutput: Unable to tanslate spl.ast.StatsCommand due to empty context output)
+        |""".stripMargin)
+    // scalastyle:on
+  }
+
+  test("stats sum test w/ wildcards w/o empty context") {
+    generates("eval n=23 | stats sum(*) by valid",
+      """(spark.table('main')
+        |.withColumn('n', F.lit(23))
+        |.groupBy('valid')
+        |.agg(F.sum(F.col('n')).alias('sum')))
+        |""".stripMargin)
+  }
+
   test("stats sum test w/o groupBy") {
     generates("n>2 | stats sum(n)",
       """(spark.table('main')
