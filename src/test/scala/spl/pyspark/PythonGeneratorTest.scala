@@ -25,7 +25,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     ))
   }
 
-  test(".select(F.col('a'), F.col('b'))") {
+  test(".select('a', 'b')") {
     g(Project(
       Seq(
         UnresolvedAttribute("a"),
@@ -105,7 +105,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     ), global = true, src))
   }
 
-  test(".groupBy(F.col('host'))\n.agg(F.count().alias('count'))") {
+  test(".groupBy('host')\n.agg(F.count().alias('count'))") {
     g(Aggregate(
       Seq(UnresolvedAttribute("host")),
       Seq(Alias(Count(Seq()),
@@ -240,7 +240,7 @@ class PythonGeneratorTest extends AnyFunSuite {
     )
   }
 
-  test(".groupBy(F.col('ip'), F.col('port'))\n.agg(" +
+  test(".groupBy('ip', 'port')\n.agg(" +
     "F.array_join(F.collect_list(F.col('host')), ',').alias('host'))") {
     g(
       Aggregate(

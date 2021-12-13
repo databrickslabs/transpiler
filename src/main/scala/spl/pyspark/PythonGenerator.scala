@@ -87,13 +87,7 @@ object PythonGenerator {
       s"spark.table(${q(relation.name)})"
 
     case a: Aggregate =>
-      // matching against class name, as not all Spark implementations have compatible ABI
-      val grpExprsRev = a.groupingExpressions.map(_.toString)
-      // Removing col used for grouping from the agg expression
-      val aggExprRev = a.aggregateExpressions.filter(item => !grpExprsRev.contains(item.toString))
-      val aggs = smartDelimiters(ctx, aggExprRev.map(expressionCode))
-      val groupBy = exprCodeList(ctx, a.groupingExpressions)
-      s"${fromPlan(ctx, a.child)}\n.groupBy($groupBy)\n.agg($aggs)"
+      fromAggregate(ctx, a)
 
     case Join(left, right, joinType, condition, _) =>
       // TODO: condition and hints are not yet supported
@@ -134,8 +128,21 @@ object PythonGenerator {
       s"${fromPlan(ctx, child)}\n# $message"
   }
 
-  private def exprCodeList(ctx: GeneratorContext, exprs: Seq[Expression]) =
-    smartDelimiters(ctx, exprs.map(expressionCode))
+  private def fromAggregate(ctx: GeneratorContext, agg: Aggregate): String = {
+    // matching against class name, as not all Spark implementations have compatible ABI
+    val grpExprsRev = agg.groupingExpressions.map(_.toString)
+    // Removing col used for grouping from the agg expression
+    val aggExprRev = agg.aggregateExpressions.filter(item => !grpExprsRev.contains(item.toString))
+    val aggs = smartDelimiters(ctx, aggExprRev.map(expressionCode))
+    val groupBy = exprCodeList(ctx, agg.groupingExpressions)
+    s"${fromPlan(ctx, agg.child)}\n.groupBy($groupBy)\n.agg($aggs)"
+  }
+
+  private def exprCodeList(ctx: GeneratorContext, exprs: Seq[Expression]): String = {
+    if (exprs.forall(_.isInstanceOf[UnresolvedAttribute])) {
+      smartDelimiters(ctx, exprs.map(expression).map(q))
+    } else smartDelimiters(ctx, exprs.map(expressionCode))
+  }
 
   private def toPythonList(ctx: GeneratorContext, elements: Seq[String]): String =
     s"[${smartDelimiters(ctx, elements.map(q))}]"

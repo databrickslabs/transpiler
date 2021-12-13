@@ -8,7 +8,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     generates("n>2 | stats count() by valid",
       """(spark.table('main')
         |.where((F.col('n') > F.lit(2)))
-        |.groupBy(F.col('valid'))
+        |.groupBy('valid')
         |.agg(F.count(F.lit(1)).alias('count')))
         |""".stripMargin)
   }
@@ -17,7 +17,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     generates("n>2 | stats sum(n) by valid",
       """(spark.table('main')
         |.where((F.col('n') > F.lit(2)))
-        |.groupBy(F.col('valid'))
+        |.groupBy('valid')
         |.agg(F.sum(F.col('n')).alias('sum')))
         |""".stripMargin)
   }
@@ -234,6 +234,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   }
 
   test("custom configs") {
+    // scalastyle:off
     spark.conf.set("spl.field._time", "ts")
     spark.conf.set("spl.field._raw", "json")
     spark.conf.set("spl.index", "custom_table")
@@ -251,18 +252,13 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.withColumn('sourcetype', F.lit(None))
         |.withColumn('splunk_server', F.lit('local'))
         |.withColumn('splunk_server_group', F.lit(None))
-        |.select(F.col('json'),
-        |  F.col('ts'),
-        |  F.col('host'),
-        |  F.col('source'),
-        |  F.col('sourcetype'),
-        |  F.col('splunk_server'),
-        |  F.col('splunk_server_group')),
+        |.select('json', 'ts', 'host', 'source', 'sourcetype', 'splunk_server', 'splunk_server_group'),
         |['id'], 'inner'))
         |""".stripMargin, generatedCode, "Code does not match")
     spark.conf.set("spl.field._time", "_time")
     spark.conf.set("spl.field._raw", "_raw")
     spark.conf.set("spl.index", "main")
+    // scalastyle:on
   }
 
   test("tstats sum(n) AS sumN WHERE index=main BY host, _time span=1d") {
@@ -357,8 +353,8 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     // scalastyle:off
     generates("multisearch [index=regionA | fields +country, orders] [index=regionB | fields +country, orders]",
       """(spark.table('regionA')
-        |.select(F.col('country'), F.col('orders')).unionByName(spark.table('regionB')
-        |.select(F.col('country'), F.col('orders')), allowMissingColumns=True))
+        |.select('country', 'orders').unionByName(spark.table('regionB')
+        |.select('country', 'orders'), allowMissingColumns=True))
         |""".stripMargin)
     // scalastyle:on
   }
