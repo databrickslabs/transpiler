@@ -80,9 +80,6 @@ object SplParser {
     }
   }}
 
-  def fieldAndSpan[_: P]: P[(Field, TimeSpan)] = (field ~ "span" ~ "=" ~ timeSpan) map
-    { case (f: Field, s: TimeSpan) => (f, s)}
-
   def commandOptions[_: P]: P[CommandOptions] = fieldAndConstant.rep map CommandOptions
 
   def fieldList[_: P]: P[Seq[Field]] = field.rep(sep = ",")
