@@ -264,7 +264,9 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("tstats sum(n) AS sumN WHERE index=main BY host, _time span=1d") {
     generates("tstats sum(n) AS sumN WHERE index=main BY host, _time span=1d",
       """(spark.table('main')
-        |.groupBy(F.window(F.col('_time'), '24 hours').alias('window'), F.col('host'))
+        |.withColumn('window', F.window(F.col('_time'), '24 hours'))
+        |.withColumn('window', F.col('window.start'))
+        |.groupBy('host', 'window')
         |.agg(F.sum(F.col('n')).alias('sumN')))
         |""".stripMargin)
   }

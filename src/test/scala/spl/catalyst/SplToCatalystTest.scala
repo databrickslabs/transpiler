@@ -168,20 +168,27 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             (_, tree) =>
                 Aggregate(
                     Seq(
-                        Alias(new TimeWindow(UnresolvedAttribute("_time"),
-                            Literal("1 day")), "window")(),
-                        UnresolvedAttribute("host")),
-                    Seq(
-                        Alias(new TimeWindow(UnresolvedAttribute("_time"),
-                            Literal("1 day")), "window")(),
                         UnresolvedAttribute("host"),
-                        Alias(
-                            AggregateExpression(
-                                Count(Seq(Literal.create(1))),
-                                Complete, isDistinct = false
-                            ), "count")()),
-                    tree))
+                        UnresolvedAttribute("window")),
+                    Seq(
+                        UnresolvedAttribute("host"),
+                        UnresolvedAttribute("window"),
+                        Alias(AggregateExpression(
+                            Count(Seq(Literal.create(1))),
+                            Complete, isDistinct = false), "count")()),
+                    Project(
+                        Seq(
+                            Alias(UnresolvedAttribute("window.start"),
+                                "window")()),
+                        Project(
+                            Seq(
+                                Alias(new TimeWindow(UnresolvedAttribute("_time"),
+                                    Literal("1 day")),
+                                    "window")()
+                                ),
+                            tree))))
     }
+
 
     test("sum(connection_time)") {
         check(ast.StatsCommand(

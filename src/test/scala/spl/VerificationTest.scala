@@ -663,16 +663,16 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("tstats count(timestamp) AS c where index=fake by gender, _time span=10m") {
-    executes("eval _time=timestamp | " +
+    executes("eval _time=timestamp | fields +_time, gender |" +
       "tstats count() AS c where index=fake by gender, _time span=10m | sort window, gender",
-      """+------------------------------------------+------+---+
-        ||window                                    |gender|c  |
-        |+------------------------------------------+------+---+
-        ||{2021-11-05 21:20:00, 2021-11-05 21:30:00}|F     |5  |
-        ||{2021-11-05 21:20:00, 2021-11-05 21:30:00}|M     |5  |
-        ||{2021-11-05 21:30:00, 2021-11-05 21:40:00}|F     |4  |
-        ||{2021-11-05 21:30:00, 2021-11-05 21:40:00}|M     |6  |
-        |+------------------------------------------+------+---+
+      """+------+-------------------+---+
+        ||gender|window             |c  |
+        |+------+-------------------+---+
+        ||F     |2021-11-05 21:20:00|5  |
+        ||M     |2021-11-05 21:20:00|5  |
+        ||F     |2021-11-05 21:30:00|4  |
+        ||M     |2021-11-05 21:30:00|6  |
+        |+------+-------------------+---+
         |""".stripMargin)
   }
 

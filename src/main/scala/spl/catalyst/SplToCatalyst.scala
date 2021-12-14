@@ -910,21 +910,15 @@ object SplToCatalyst extends Logging {
                                  by: Seq[ast.Expr],
                                  span: Option[ast.TimeSpan]): LogicalPlan = {
     // TODO: Remove 'index' statement from where and filter subsequently by where expr
-    val windowExprSeq = getWindowExprSeq(ctx, span)
-    val filteredBy = if (span.isDefined) by.dropRight(1) else by
-    val groupBy = filteredBy.map(attr)
+    val (windowProject, newBy) = if (span.isDefined) {
+      val timeColumn = UnresolvedAttribute(ctx.timeFieldName)
+      val alias = "window"
+      val tmpBy = by.dropRight(1) ++ Seq(ast.Field(alias))
+      (getWindowProject(ctx, tree, span.get, timeColumn, alias), tmpBy)
+    } else (tree, by)
+    val groupBy = newBy.map(attr)
     val agg = aggregates(ctx, funcs)
-    newAggregateIgnoringABI(windowExprSeq ++ groupBy, windowExprSeq ++ groupBy ++ agg, tree)
-  }
-
-  private def getWindowExprSeq(ctx: LogicalContext,
-                               span: Option[ast.TimeSpan]): Seq[NamedExpression] = span match {
-      case Some(ts) =>
-        val windowDuration = Literal.create(timeSpan(ts).toString())
-        val timeColumn = UnresolvedAttribute(ctx.timeFieldName)
-        Seq(Alias(new TimeWindow(timeColumn, Literal(windowDuration)), "window")())
-
-      case _ => Seq()
+    newAggregateIgnoringABI(groupBy, groupBy ++ agg, windowProject)
   }
 
   /**
@@ -1061,6 +1055,14 @@ object SplToCatalyst extends Logging {
       throw new ConversionFailure(s"Currently, only `span` is implemented: $bc")
     }
     val ts = bc.span.get.asInstanceOf[ast.TimeSpan]
+    getWindowProject(ctx, tree, ts, field, alias)
+  }
+
+  private def getWindowProject(ctx: LogicalContext,
+                               tree: LogicalPlan,
+                               ts: ast.TimeSpan,
+                               field: UnresolvedAttribute,
+                               alias: String): Project = {
     val duration = Literal.create(timeSpan(ts).toString())
     // technically, we can do it in one stage, but generated code would be less readable
     val projectWindow = withColumn(ctx, tree, alias, new TimeWindow(field, duration))
