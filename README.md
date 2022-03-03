@@ -7,8 +7,8 @@
 For code-generation mode:
 
 ```shell script
-mvn package
-cat target/spl-query.txt | java -jar target/spark-spl-0.1-jar-with-dependencies.jar > pyspark-equivalent.py
+mvn -DskipTests=true -Plocal package
+cat spl-query.txt | java -jar target/spark-spl-0.4.jar > pyspark-equivalent.py
 ```
 
 ## Commands
