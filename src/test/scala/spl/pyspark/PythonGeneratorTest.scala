@@ -348,6 +348,17 @@ class PythonGeneratorTest extends AnyFunSuite {
       byName = true, allowMissingCol = true))
   }
 
+  test(".withColumn('lowercased', F.lower(F.col('x')))") {
+    g(Project(
+      Seq(
+        Alias(
+          Lower(
+            UnresolvedAttribute("x")),
+          "lowercased")()
+      ),
+      src))
+  }
+
   private def g(plan: LogicalPlan)(implicit pos: Position): Unit = {
     val code = PythonGenerator.fromPlan(GeneratorContext(), plan)
         // replace src shim to make tests readable

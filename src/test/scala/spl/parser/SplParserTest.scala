@@ -412,6 +412,19 @@ class SplParserTest extends ParserSuite {
     )))
   }
 
+  test("eval email_lower=lower(email)") {
+    p(eval(_), EvalCommand(Seq(
+      (Field("email_lower"), Call("lower", Seq(Field("email"))))
+    )))
+  }
+
+  test("eval replaced=replace(email, \"@.+\", \"\")") {
+    p(eval(_), EvalCommand(Seq(
+      (Field("replaced"),
+        Call("replace", Seq(Field("email"), StrValue("@.+"), StrValue(""))))
+    )))
+  }
+
   test("eval hash_sha256= lower(hash_sha256), b=c") {
     p(eval(_), EvalCommand(Seq(
       (Field("hash_sha256"), Call("lower", Seq(Field("hash_sha256")))),
