@@ -233,6 +233,13 @@ object SplToCatalyst extends Logging {
       callAuto(ctx, call)
     case "num" =>
       callAuto(ctx, call, true)
+    case "replace" =>
+      val str = attrOrExpr(ctx, call.args.head)
+      val regex = attrOrExpr(ctx, call.args(1))
+      val replace = attrOrExpr(ctx, call.args(2))
+      RegExpReplace(str, regex, replace)
+    case "lower" =>
+      Lower(attrOrExpr(ctx, call.args.head))
     case _ =>
       val approx = s"${call.name}(${call.args.map(_.toString).mkString(",")})"
       throw new ConversionFailure(s"Unknown SPL function: $approx")

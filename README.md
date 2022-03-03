@@ -88,6 +88,8 @@ Secondary batch of commands:
 | ctime() | ✅ |
 | auto() | ✅ |
 | num() | ✅ |
+| replace() | ✅ |
+| lower() | ✅ |
 | none() | ✅ |
 
 ## Overriding `_time`, `_raw` and index names

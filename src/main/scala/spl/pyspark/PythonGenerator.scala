@@ -320,6 +320,8 @@ object PythonGenerator {
       "F.expr(" + "\"" + s"cidr_match(${expression(cidr)}, ${expression(ip)})" + "\")"
     case Upper(child) =>
       s"F.upper(${expressionCode(child)})"
+    case Lower(child) =>
+      s"F.lower(${expressionCode(child)})"
     case _ =>
       s"F.expr(${q(expr.sql)})"
   }
