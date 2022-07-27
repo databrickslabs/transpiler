@@ -232,7 +232,7 @@ object SplToCatalyst extends Logging {
     case "auto" =>
       callAuto(ctx, call)
     case "num" =>
-      callAuto(ctx, call, true)
+      callAuto(ctx, call, rmNonConv = true)
     case "replace" =>
       val str = attrOrExpr(ctx, call.args.head)
       val regex = attrOrExpr(ctx, call.args(1))
@@ -292,7 +292,7 @@ object SplToCatalyst extends Logging {
     ip match {
       case str: Literal => CidrMatch(cidr, str)
       case attr: UnresolvedAttribute =>
-        val ipRef = ctx.output.filter(e => e.name.equals(attr.name)).headOption.getOrElse(attr)
+        val ipRef = ctx.output.find(e => e.name.equals(attr.name)).getOrElse(attr)
         CidrMatch(cidr, ipRef)
       case _ => throw new ConversionFailure(s"ip must be String or Field: ${ip.toString()}")
     }
@@ -649,6 +649,11 @@ object SplToCatalyst extends Logging {
       case ast.UnaryNot => Not(expression(ctx, right))
       case _ => throw new ConversionFailure(s"unsupported unary: $symbol")
     }
+    case ast.FieldIn(field, exprs) if exprs.exists(_.isInstanceOf[ast.Wildcard]) =>
+      val equaLike = (expr: ast.Expr) => ast.Binary(ast.Field(field), ast.Equals, expr)
+      expression(ctx, exprs.tail.foldLeft(equaLike(exprs.head)) {
+        (left, right) => ast.Binary(left, ast.Or, equaLike(right))
+      })
     case ast.FieldIn(field, exprs) =>
       In(UnresolvedAttribute(field), exprs.map(expression(ctx, _)))
     case ast.Binary(left, ast.Equals, ast.Wildcard(pattern)) =>
@@ -1089,9 +1094,9 @@ object SplToCatalyst extends Logging {
     case b @ ast.Binary(ast.Field(name), _, ast.Variable(value)) => Seq(VariableAlias(name, value))
     case b @ ast.Binary(ast.Variable(value), _, ast.Field(name)) => Seq(VariableAlias(name, value))
     case b @ ast.Binary(_, _, ast.Variable(value)) =>
-      throw new IllegalArgumentException(s"Invalid use of variable ${value}")
+      throw new IllegalArgumentException(s"Invalid use of variable $value")
     case b @ ast.Binary(ast.Variable(value), _, _) =>
-      throw new IllegalArgumentException(s"Invalid use of variable ${value}")
+      throw new IllegalArgumentException(s"Invalid use of variable $value")
     case ast.Binary(left, _, right) => findVariables(left) ++ findVariables(right)
     case _ => Seq()
   }
@@ -1153,12 +1158,12 @@ object SplToCatalyst extends Logging {
       case VariableAlias(name, alias) =>
         EqualTo(
           UnresolvedAttribute(leftPrefix match {
-            case Some(prefix) => s"${prefix}.${name}"
+            case Some(prefix) => s"$prefix.$name"
             case None => name
           }),
           UnresolvedAttribute(rightPrefix match {
-            case Some(prefix) => s"${prefix}.${alias}"
+            case Some(prefix) => s"$prefix.$alias"
             case None => alias
           })).asInstanceOf[Expression]
-    } reduceLeft(And)
+    } reduceLeft And
 }
