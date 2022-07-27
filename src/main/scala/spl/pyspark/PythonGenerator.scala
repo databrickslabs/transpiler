@@ -50,10 +50,10 @@ object PythonGenerator {
             us.target match {
               case Some(values) =>
                 val starList = values.map(id => {
-                  val starExpr = s"${id}.*"
+                  val starExpr = s"$id.*"
                   s"F.col(${q(starExpr)})"
                 }).mkString(", ")
-                s"$childCode\n.select(${starList})"
+                s"$childCode\n.select($starList)"
               case None => ""
             }
           case _ =>
@@ -155,7 +155,6 @@ object PythonGenerator {
 
   private def unfoldWheres(expr: Expression): String = expr match {
     case And(left, right) => s"${unfoldWheres(left)}\n${unfoldWheres(right)}"
-    // case _ => s".where(${q(expression(expr))})"
     case _ => s".where(${expressionCode(expr)})"
   }
 
@@ -322,6 +321,8 @@ object PythonGenerator {
       s"F.upper(${expressionCode(child)})"
     case Lower(child) =>
       s"F.lower(${expressionCode(child)})"
+    case Like(col, Literal(value, _ @ StringType), _) =>
+      s"${expressionCode(col)}.like('$value')"
     case _ =>
       s"F.expr(${q(expr.sql)})"
   }

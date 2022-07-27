@@ -13,6 +13,15 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("thing222") {
+    generates("code IN(4*, 5*)",
+      """(spark.table('main')
+        |.where((F.col('n') > F.lit(2)))
+        |.groupBy('valid')
+        |.agg(F.count(F.lit(1)).alias('count')))
+        |""".stripMargin)
+  }
+
   test("stats sum test w/ groupBy") {
     generates("n>2 | stats sum(n) by valid",
       """(spark.table('main')
