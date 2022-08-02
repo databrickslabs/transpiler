@@ -16,9 +16,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("thing222") {
     generates("code IN(4*, 5*)",
       """(spark.table('main')
-        |.where((F.col('n') > F.lit(2)))
-        |.groupBy('valid')
-        |.agg(F.count(F.lit(1)).alias('count')))
+        |.where((F.col('code').like('4%') | F.col('code').like('5%'))))
         |""".stripMargin)
   }
 
