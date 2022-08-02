@@ -41,7 +41,11 @@ jobs:
       - name: Run Tests with Maven
         run: mvn -B test --file pom.xml --fail-at-end
 
-      - name: Publish test coverage
-        uses: codecov/codecov-action@v3
+      - name: Add coverage to PR
+        id: jacoco
+        uses: madrapps/jacoco-report@v1.2
         with:
-          directory: target/site/jacoco
+          paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 80
+          min-coverage-changed-files: 80
