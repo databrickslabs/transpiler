@@ -47,6 +47,7 @@ jobs:
           filename: target/cobertura.xml
           badge: false
           format: markdown
+          output: both
           hide_branch_rate: false
           hide_complexity: true
           indicators: true
