@@ -1,6 +1,6 @@
 package spl.catalyst
 
-import org.apache.spark.sql.{CidrMatch, FillNullShim}
+import org.apache.spark.sql.{CidrMatch, FillNullShim, Term}
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.expressions.{Length, Substring, _}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
@@ -714,15 +714,18 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("FillNumShim output method") {
+
+    }
+
     test("fillnull") {
         check(ast.FillNullCommand(
             Some("0"),
             None
         ),
-            (_, tree) => {
-                FillNullShim("0", Set.empty[String], tree)
-            }
-        )
+        (_, tree) => {
+            FillNullShim("0", Set.empty[String], tree)
+        })
     }
 
     test("fillnull value=\"NaN\" host port ip") {
@@ -839,6 +842,18 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     ),
                     tree)
             }
+        )
+    }
+
+    test("Term command should generate a Filter") {
+        check(
+            ast.SearchCommand(
+                ast.Call("TERM", Seq(
+                    ast.StrValue("myTermSearch")
+                ))
+            ),
+            (_, tree) =>
+                Filter(Term(Literal("myTermSearch")), tree)
         )
     }
 
@@ -1462,21 +1477,21 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
             null,
             "Total"
         ),
-            (_, tree) => Project(Seq(
-                UnresolvedAttribute("num_men"),
-                UnresolvedAttribute("num_women"),
-                Alias(Add(
-                    CaseWhen(Seq((
-                      IsNotNull(Cast(UnresolvedAttribute("num_women"), DoubleType)),
-                      UnresolvedAttribute("num_women"))), Literal(0.0)),
-                    CaseWhen(Seq((
-                      IsNotNull(Cast(UnresolvedAttribute("num_men"), DoubleType)),
-                      UnresolvedAttribute("num_men"))), Literal(0.0))
-                ), "num_total")()
-            ), tree), injectOutput = Seq(
-                UnresolvedAttribute("num_men"),
-                UnresolvedAttribute("num_women"))
-        )
+        (_, tree) => Project(Seq(
+            UnresolvedAttribute("num_men"),
+            UnresolvedAttribute("num_women"),
+            Alias(Add(
+                CaseWhen(Seq((
+                  IsNotNull(Cast(UnresolvedAttribute("num_women"), DoubleType)),
+                  UnresolvedAttribute("num_women"))), Literal(0.0)),
+                CaseWhen(Seq((
+                  IsNotNull(Cast(UnresolvedAttribute("num_men"), DoubleType)),
+                  UnresolvedAttribute("num_men"))), Literal(0.0))
+            ), "num_total")()
+        ), tree), injectOutput = Seq(
+            UnresolvedAttribute("num_men"),
+            UnresolvedAttribute("num_women"))
+    )
     }
 
     test("map search=\"search index=fake_for_join id=$id$\"") {

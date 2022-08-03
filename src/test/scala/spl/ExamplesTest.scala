@@ -371,4 +371,46 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |'left_semi'))
         |""".stripMargin)
   }
+
+  test("mvindex with negative start and stop product should " +
+       "generate an `ConversionFailure` exception in the generated code") {
+    assert(
+      extractExceptionIfExists(
+        "mvindex(sport, -1, 2)").contains(
+          "A combination of negative and positive start and stop indices is not supported.")
+    )
+  }
+
+  test("mvfilter referencing more than one field should" +
+    "generate an `ConversionFailure` exception in the generated code") {
+    assert(
+      extractExceptionIfExists(
+        "mvfilter((score > 50) AND sport = \"football\")").contains(
+          "spl.catalyst.ConversionFailure: Expression references more than one field")
+    )
+  }
+
+  test("An unknown function should generate an `ConversionFailure` " +
+       "exception in the generated code") {
+    assert(
+      extractExceptionIfExists(
+        "unknownFn()").contains(
+          "spl.catalyst.ConversionFailure: Unknown SPL function")
+    )
+  }
+
+  test("replace function should produce a F.regexp_replace(...)") {
+    generates("replace(myColumn, \"before\", \"after\")",
+      """(spark.table('main')
+        |.where(F.regexp_replace(F.col('myColumn'), 'before', 'after')))
+        |""".stripMargin)
+  }
+
+  test("lower function should produce a F.lower(...)") {
+    generates("lower(myColumn)",
+      """(spark.table('main')
+        |.where(F.lower(F.col('myColumn'))))
+        |""".stripMargin)
+  }
+
 }

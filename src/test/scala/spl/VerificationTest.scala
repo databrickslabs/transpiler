@@ -1,8 +1,7 @@
 package spl
 
 import java.sql.Timestamp
-
-import org.apache.spark.sql.{FakeData, FakeDataForJoin, ProcessProxy}
+import org.apache.spark.sql.{FakeData, FakeDataForJoin, FakeDataWithDoubleValues, ProcessProxy}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -46,11 +45,19 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
     FakeDataForJoin(10, "Football")
   )
 
+  val fakeDataWithDoubleAndMullValues = Seq(
+    FakeDataWithDoubleValues(1, 0.45),
+    FakeDataWithDoubleValues(2, 0.88),
+    FakeDataWithDoubleValues(3, Double.NaN),
+    FakeDataWithDoubleValues(4, Double.NaN)
+  )
+
   override def beforeAll(): Unit = {
     import spark.implicits._
     spark.conf.set("spark.sql.parser.quotedRegexColumnNames", value = true)
     spark.createDataset(fakeData).createOrReplaceTempView("fake")
     spark.createDataset(fakeDataForJoin).createOrReplaceTempView("fake_for_join")
+    spark.createDataset(fakeDataWithDoubleAndMullValues).createOrReplaceTempView("fake_with_double")
   }
 
   test("bin span execute") {
@@ -541,6 +548,19 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
         ||19 |null   |
         ||20 |null   |
         |+---+-------+
+        |""".stripMargin)
+  }
+
+  test("fillnull when having NaN values") {
+    executes("index=fake_with_double | fields +id, score | fillnull",
+      """+---+-----+
+        ||id |score|
+        |+---+-----+
+        ||1  |0.45 |
+        ||2  |0.88 |
+        ||3  |0.0  |
+        ||4  |0.0  |
+        |+---+-----+
         |""".stripMargin)
   }
 

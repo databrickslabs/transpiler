@@ -2,6 +2,7 @@ package spl.pyspark
 
 import org.apache.spark.sql.{CidrMatch, FillNullShim}
 
+import scala.util.Try
 import scala.util.matching.Regex
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.sql.catalyst.analysis._
@@ -124,10 +125,19 @@ object PythonGenerator {
 
     case FillNullShim(value, columns, child) =>
       val childCode = fromPlan(ctx, child)
-      if (columns.isEmpty) {
+      val generatedCode = if (columns.isEmpty) {
         s"$childCode\n.na.fill(${q(value)})"
       } else {
         s"$childCode\n.na.fill(${q(value)}, ${toPythonList(ctx, columns.toSeq)})"
+      }
+
+      Try(value.toDouble).toOption match {
+        case Some(value) =>
+          s"""
+             |$generatedCode\n
+             |.replace(float('nan'), float(${value}))
+             |""".stripMargin
+        case _ => generatedCode
       }
 
     case UnknownPlanShim(message, child) =>
