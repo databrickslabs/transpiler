@@ -16,6 +16,8 @@ import org.apache.spark.sql.catalyst.util.IntervalUtils
 import org.apache.spark.unsafe.types.UTF8String
 import spl.ast
 
+import java.util.Locale
+
 object SplToCatalyst extends Logging {
   def pipeline(ctx: LogicalContext, p: ast.Pipeline): LogicalPlan = {
     val (table, pipe) = p.commands.head match {
@@ -554,7 +556,7 @@ object SplToCatalyst extends Logging {
     } catch {
       case NonFatal(e) =>
         val name = command.getClass.getSimpleName
-          .replace("Command", "").toLowerCase
+          .replace("Command", "").toLowerCase(Locale.ROOT)
         log.warn(s"Error in $name", e)
         UnknownPlanShim(s"Error in $name: $e", plan)
     }

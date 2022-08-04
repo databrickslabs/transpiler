@@ -8,7 +8,6 @@ private[parser] class ParserDebug[R](r: R) {
     val indent = "  " * ctx.logDepth
     val rep = ctx.successValue.toString.replaceAll("ArrayBuffer", "Seq")
     val debug = rep.substring(0, Math.min(rep.length, 128))
-    if ("()".equals(debug)) return r
     print(s"$indent@${name.value}: $debug\n")
     r
   }

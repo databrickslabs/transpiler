@@ -17,6 +17,23 @@ class SplParserTest extends ParserSuite {
     parses("a b", te(_), "b")
   }
 
+  test("debugging behaviour when logging is not enabled") {
+    import fastparse._
+    import fastparse.MultiLineWhitespace._
+    def te[_: P]: P[String] = ("A" ~ token).log.@@
+    assert(
+      parseInputRaw("A B", te(_), enableLogging = false).successValue == "B"
+    )
+  }
+
+  test("more debugging") {
+    import fastparse._
+    import fastparse.MultiLineWhitespace._
+
+    def tap[_: P]: P[String] = ("a" ~ token).log.tap(r => r.toString)
+    parses("a b", tap(_), "b")
+  }
+
   test("false") {
     p(bool(_), Bool(false))
   }
