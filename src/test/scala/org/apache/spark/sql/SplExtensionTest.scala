@@ -3,7 +3,8 @@ package org.apache.spark.sql
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.must.Matchers._
 import org.apache.spark.sql.{functions => F}
-import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedException}
+import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedException, UnresolvedRelation}
+import org.apache.spark.sql.catalyst.plans.logical.Filter
 
 case class Dummy(a: String, b: String, c: String, n: Int, valid: Boolean)
 
@@ -85,4 +86,15 @@ class SplExtensionTest extends AnyFunSuite with ProcessProxy {
     assert(!Term(UnresolvedAttribute("n")).nullable)
   }
 
+  test("TermExpansion should raise an `AnalysisException` if term(...) parameter is not resolved") {
+    val termWithUnresolvedChildPlan = Filter(
+      Term(UnresolvedAttribute("test")),
+      UnresolvedRelation(Seq("main")))
+
+    val caught = intercept[AnalysisException] {
+      Dataset.ofRows(spark, termWithUnresolvedChildPlan)
+    }
+
+    assert(caught.getMessage().contains("Child expression must be resolved"))
+  }
 }
