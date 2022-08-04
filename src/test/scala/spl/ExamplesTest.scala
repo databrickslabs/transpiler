@@ -16,9 +16,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("thing222") {
     generates("code IN(4*, 5*)",
       """(spark.table('main')
-        |.where((F.col('n') > F.lit(2)))
-        |.groupBy('valid')
-        |.agg(F.count(F.lit(1)).alias('count')))
+        |.where((F.col('code').like('4%') | F.col('code').like('5%'))))
         |""".stripMargin)
   }
 
@@ -372,5 +370,77 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |(F.col('l.id') == F.col('r.id')),
         |'left_semi'))
         |""".stripMargin)
+  }
+
+  test("mvindex with negative start and stop product should " +
+       "generate an `ConversionFailure` exception in the generated code") {
+    assert(
+      extractExceptionIfExists(
+        "mvindex(sport, -1, 2)").contains(
+          "A combination of negative and positive start and stop indices is not supported.")
+    )
+  }
+
+  test("mvfilter referencing more than one field should" +
+    "generate an `ConversionFailure` exception in the generated code") {
+    assert(
+      extractExceptionIfExists(
+        "mvfilter((score > 50) AND sport = \"football\")").contains(
+          "spl.catalyst.ConversionFailure: Expression references more than one field")
+    )
+  }
+
+  test("An unknown function should generate an `ConversionFailure` " +
+       "exception in the generated code") {
+    assert(
+      extractExceptionIfExists(
+        "unknownFn()").contains(
+          "spl.catalyst.ConversionFailure: Unknown SPL function")
+    )
+  }
+
+  test("replace function should produce a F.regexp_replace(...)") {
+    generates("replace(myColumn, \"before\", \"after\")",
+      """(spark.table('main')
+        |.where(F.regexp_replace(F.col('myColumn'), 'before', 'after')))
+        |""".stripMargin)
+  }
+
+  test("lower function should produce a F.lower(...)") {
+    generates("lower(myColumn)",
+      """(spark.table('main')
+        |.where(F.lower(F.col('myColumn'))))
+        |""".stripMargin)
+  }
+
+  test("strftime should generate a F.date_format(...) " +
+       "even if `format` is not quoted") {
+    generates("strftime(_time, test)",
+      """(spark.table('main')
+        |.where(F.date_format(F.col('_time'), 'test')))
+        |""".stripMargin)
+  }
+
+  test("strftime should generate a `ConversionFailure` in the code if a wrong format is supplied") {
+    assert(
+      extractExceptionIfExists(
+        "strftime(_time, unknowfn())").contains(
+        "spl.catalyst.ConversionFailure: Invalid strftime format given")
+    )
+  }
+
+  test("cidrmatch(...) should generate a `ConversionFailure` in the code") {
+    assert(
+      extractExceptionIfExists(
+        "cidrmatch(ip, substr(ip, 0, 4))").contains(
+        "spl.catalyst.ConversionFailure: ip must be String or Field")
+    )
+  }
+
+  test("multiple indexes should lead to an exception ") {
+    val caught = intercept[spl.catalyst.ConversionFailure] {
+      generates("index=A index=B", null)
+    }
+    assert(caught.getMessage.contains("Only one index allowed"))
   }
 }

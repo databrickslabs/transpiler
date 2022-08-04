@@ -1,7 +1,6 @@
 package org.apache.spark.sql
 
 import java.io.{BufferedWriter, File, FileWriter}
-
 import org.apache.spark.api.python.{Py4JServer, PythonException}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.util.sideBySide
@@ -10,6 +9,7 @@ import org.scalatest.Assertions
 import spl.Transpiler
 
 import scala.sys.process.{Process, ProcessLogger}
+import scala.util.matching.Regex
 
 
 class Capture extends ProcessLogger {
@@ -36,6 +36,16 @@ trait ProcessProxy extends Logging {
   def generates(search: String, expectedCode: String): Unit = {
     val generatedCode = Transpiler.toPython(search)
     readableAssert(expectedCode, generatedCode, "Code does not match")
+  }
+
+  def extractExceptionIfExists(search: String): String = {
+    val pattern: Regex = "# Error in ([a-zA-Z]+):(.*)".r
+    val generatedCode = Transpiler.toPython(search)
+
+    pattern.findFirstMatchIn(generatedCode) match {
+      case Some(value) => generatedCode
+      case None => ""
+    }
   }
 
   def executes(search: String, results: String, truncate: Int = 0): Unit = {
