@@ -413,4 +413,34 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |""".stripMargin)
   }
 
+  test("strftime should generate a F.date_format(...) " +
+       "even if `format` is not quoted") {
+    generates("strftime(_time, test)",
+      """(spark.table('main')
+        |.where(F.date_format(F.col('_time'), 'test')))
+        |""".stripMargin)
+  }
+
+  test("strftime should generate a `ConversionFailure` in the code if a wrong format is supplied") {
+    assert(
+      extractExceptionIfExists(
+        "strftime(_time, unknowfn())").contains(
+        "spl.catalyst.ConversionFailure: Invalid strftime format given")
+    )
+  }
+
+  test("cidrmatch(...) should generate a `ConversionFailure` in the code") {
+    assert(
+      extractExceptionIfExists(
+        "cidrmatch(ip, substr(ip, 0, 4))").contains(
+        "spl.catalyst.ConversionFailure: ip must be String or Field")
+    )
+  }
+
+  test("multiple indexes should lead to an exception ") {
+    val caught = intercept[spl.catalyst.ConversionFailure] {
+      generates("index=A index=B", null)
+    }
+    assert(caught.getMessage.contains("Only one index allowed"))
+  }
 }
