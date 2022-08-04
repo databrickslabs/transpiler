@@ -17,7 +17,7 @@ class SplParserTest extends ParserSuite {
     parses("a b", te(_), "b")
   }
 
-  test("more and more debugging") {
+  test("debugging behaviour when logging is not enabled") {
     import fastparse._
     import fastparse.MultiLineWhitespace._
     def te[_: P]: P[String] = ("A" ~ token).log.@@

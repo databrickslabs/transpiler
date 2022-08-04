@@ -714,10 +714,6 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
-    test("FillNumShim output method") {
-
-    }
-
     test("fillnull") {
         check(ast.FillNullCommand(
             Some("0"),
