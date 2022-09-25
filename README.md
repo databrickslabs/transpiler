@@ -35,25 +35,13 @@ spark.conf.set("spl.field._raw", "json")
 spark.conf.set("spl.index", "custom_table")
 ```
 
-## Developing 
+## Featured on
 
-Parsers are implemented using [fastparse](https://github.com/com-lihaoyi/fastparse) (MIT)
+* [Cutting the Edge in Fighting Cybercrime: Reverse-Engineering a Search Language to Cross-Compile to PySpark](https://www.youtube.com/watch?v=y8rKzRaM7c4) at DATA+AI Summit 2022
+* [Accidentally Building a Petabyte-Scale Cybersecurity Data Mesh in Azure With Delta Lake](https://www.youtube.com/watch?v=G9x-1s-1TJI) at DATA+AI Summit 2022
 
-Quick installation on Databricks: `mvn -DskipTests=true package && databricks --profile=demo fs cp target/spark-spl-0.4.jar dbfs:/tmp/spark-spl.jar --overwrite`
 
-If you want to use `TERM()` function, you have to enable Spark extension:
+### Project Support
+Please note that all projects in the `databrickslabs` github space are provided for your exploration only, and are not formally supported by Databricks with Service Level Agreements (SLAs). They are provided AS-IS and we do not make any guarantees of any kind. Please do not submit a support ticket relating to any issues arising from the use of these projects.
 
-```conf
-spark.sql.extensions org.apache.spark.sql.SplExtension
-```
-
-`mvn compile` should give no warnings
-
-Scalastyle complaints:
-
-* run `mvn scalastyle:check`
-* `illegal start of simple expression` - open file with `vim` and `:goto <number>`
-
-Code coverage report:
-
-* `open target/site/jacoco/index.html`
+Any issues discovered through the use of this project should be filed as GitHub Issues on the Repo. They will be reviewed as time permits, but there are no formal SLAs for support.
