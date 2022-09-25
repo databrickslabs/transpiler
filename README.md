@@ -1,4 +1,4 @@
-# Splunk Query Language to PySpark transpiler
+# SPL-to-PySpark transpiler
 
 ![.](spark-spl.png)
 
@@ -11,88 +11,20 @@ mvn -DskipTests=true -Plocal package
 cat spl-query.txt | java -jar target/spark-spl-0.4.jar > pyspark-equivalent.py
 ```
 
-## Commands
+## Language support
 
-| Command/Feature | Parser | Catalyst | Codegen |
-| ---: | :---: | :---: | :---: |
-| search | ✅ | ✅ | ✅ |
-| eval | ✅ | ✅ | ✅ |
-| table | ✅ | ✅ | ✅ |
-| rex | ✅ | ✅ | ✅ |
-| regex | ✅ | ✅ | ✅ |
-| where | ✅ | ✅ | ✅ |
-| lookup | ✅ | ✅ | ✅ |
-| bin | ✅ | ✅ | ✅ |
-| rename | ✅ | ✅ | ✅ |
-| join | ✅ | ✅ | ✅ |
-| fields | ✅ | ✅ | ✅ |
-| convert | ✅ | ✅ | ✅ |
-| collect | ✅ | ✅ | ✅ |
-| stats | ✅ | ✅ | ✅ |
-| sort | ✅ | ✅ | ✅ |
-| return | ✅ | ✅ | ✅ |
-| mvcombine | ✅ | ✅ | ✅ |
-| map | ✅ | ✅ | ✅ |
-| inputlookup | ✅ | ✅ | ✅ |
-| head | ✅ | ✅ | ✅ |
-| format | ✅ | ✅ | ✅ |
-| fillnull | ✅ | ✅ | ✅ |
-| eventstats | ✅ | ✅ | ✅ |
-| dedup | ✅ | ✅ | ✅ |
-| makeresults | ✅ | ✅ | ✅ |
-| mvexpand | ✅ | ✅ | ✅ |
-| streamstats | ✅ | ✅ | ✅ |
-| addtotals | ✅ | ✅ | ✅ |
-| multisearch | ✅ | ✅ | ✅ |
+There's basic support for the most used commands like `addtotals`, `bin`, `collect`, `convert`, `dedup`, `eval`, `eventstats`, `fields`, `fillnull`, 
+`format`, `head`, `inputlookup`, `join`, `lookup`, `makeresults`, `map`, `multisearch`, 
+`mvcombine`, `mvexpand`, `regex`, `rename`, `return`, `rex`, `search`, `sort`, `stats`, 
+`streamstats`, `table`, `where`.
 
-Secondary batch of commands:
+There's also basic support for functions like `auto()`, `cidr_match()`, `coalesce()`, `count()`, 
+`ctime()`, `earliest()`, `if()`, `isnotnull()`, `latest()`, `len()`, `lower()`, `max()`, 
+`memk()`, `min()`, `mvappend()`, `mvcount()`, `mvfilter()`, `mvindex()`, `none()`, 
+`null()`, `num()`, `replace()`, `rmcomma()`, `rmunit()`, `round()`, `strftime()`, 
+`substr()`, `sum()`, `term()`, `values()`. 
 
-| Command/Feature | Parser | Catalyst | Codegen |
-| ---: | :---: | :---: | :---: |
-| tstats |  |  |  |
-| chart |  |  |  |
-| timechart |  |  |  |
-| export |  |  |  |
-| geom |  |  |  |
-| foreach |  |  |  |
-
- 
-## Functions
-
-| Function | Catalyst |
-| ---: | :---: |
-| term() | extension ✅ |
-| [CIDR search](https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/ConditionalFunctions#cidrmatch.28.22X.22.2CY.29) | ✅ |
-| strftime() | ✅ |
-| values() | ✅ |
-| latest() | ✅ |
-| earliest() | ✅ |
-| if() | ✅ |
-| [mvcount()](https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/MultivalueEvalFunctions#mvcount.28MVFIELD.29) | ✅ |
-| coalesce() | ✅ |
-| mvindex() | ✅ |
-| mvappend() | ✅ |
-| null() | ✅ |
-| min() | ✅ |
-| round() | ✅ |
-| max() | ✅ |
-| substr() | ✅ |
-| isnotnull() | ✅ |
-| sum() | ✅ |
-| mvfilter() | ✅ |
-| len() | ✅ |
-| count() | ✅ |
-| memk() | ✅ |
-| rmunit() | ✅ |
-| rmcomma() | ✅ |
-| ctime() | ✅ |
-| auto() | ✅ |
-| num() | ✅ |
-| replace() | ✅ |
-| lower() | ✅ |
-| none() | ✅ |
-
-## Overriding `_time`, `_raw` and index names
+### Overriding `_time`, `_raw` and index names
 
 Your Delta Lake may have other column names containing timestamps and raw records, so you can override those by 
 setting the following spark conf values from code or cluster config:
