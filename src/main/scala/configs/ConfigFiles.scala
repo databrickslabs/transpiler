@@ -1,4 +1,4 @@
-package splunkql
+package configs
 
 import java.io.InputStream
 
@@ -36,7 +36,7 @@ class MacrosFile(is: InputStream) {
     t.replace(s"`${m.name}`", m.definition))
 }
 
-case class SplunkContext(sf: SearchesFile, mf: MacrosFile) {
+case class ConfigContext(sf: SearchesFile, mf: MacrosFile) {
   def getSearch(name: String): Option[String] =
     sf.get(name).map(savedSearch =>
       mf.expand(savedSearch.search))

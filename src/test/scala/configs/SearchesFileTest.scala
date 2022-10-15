@@ -1,4 +1,4 @@
-package splunkql
+package configs
 
 import org.apache.spark.internal.Logging
 import org.scalatest.funsuite.AnyFunSuite
@@ -12,7 +12,7 @@ class SearchesFileTest extends AnyFunSuite with Logging {
   }
 
   test("expansion") {
-    val sc = SplunkContext(
+    val sc = ConfigContext(
       new SearchesFile(res("/savedsearches.conf")),
       new MacrosFile(res("/macros.conf")))
 

@@ -1412,8 +1412,8 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         check(ast.MakeResults(
             count = 10,
             annotate = true,
-            splunkServer = "local",
-            splunkServerGroup = "group0"),
+            server = "local",
+            serverGroup = "group0"),
             (_, tree) =>
                 Project(Seq(
                     UnresolvedAttribute("_raw"),
@@ -1421,23 +1421,23 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     UnresolvedAttribute("host"),
                     UnresolvedAttribute("source"),
                     UnresolvedAttribute("sourcetype"),
-                    UnresolvedAttribute("splunk_server"),
-                    UnresolvedAttribute("splunk_server_group")),
+                    UnresolvedAttribute("server"),
+                    UnresolvedAttribute("server_group")),
                     Project(Seq(
                         Alias(Literal(null), "_raw")(),
                         Alias(CurrentTimestamp(), "_time")(),
                         Alias(Literal(null), "host")(),
                         Alias(Literal(null), "source")(),
                         Alias(Literal(null), "sourcetype")(),
-                        Alias(Literal("local"), "splunk_server")(),
-                        Alias(Literal("group0"), "splunk_server_group")()
+                        Alias(Literal("local"), "server")(),
+                        Alias(Literal("group0"), "server_group")()
                     ), Project(Seq(
                         Alias(Literal(null), "_raw")(),
                         Alias(CurrentTimestamp(), "_time")(),
                         Alias(Literal(null), "host")(),
                         Alias(Literal(null), "source")(),
                         Alias(Literal(null), "sourcetype")(),
-                        Alias(Literal("local"), "splunk_server")()
+                        Alias(Literal("local"), "server")()
                     ), Project(Seq(
                         Alias(Literal(null), "_raw")(),
                         Alias(CurrentTimestamp(), "_time")(),

@@ -581,9 +581,6 @@ object SplToCatalyst extends Logging {
     ), tree)
   }
 
-  // https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Commontimeformatvariables
-  // https://spark.apache.org/docs/latest/sql-ref-datetime-pattern.html
-  // and fix whatever is missing...
   // UNSUPPORTED: %V, %U, %w, %k, %s, ...
   private val stftimeToDateFormat = Map(
     "%Y" -> "yyyy",
@@ -628,7 +625,6 @@ object SplToCatalyst extends Logging {
     TruncTimestamp(Literal.create(format), time)
   }
 
-  // https://docs.splunk.com/Documentation/SCS/current/Search/Timemodifiers
   private def relativeTime(expr: ast.Expr): Expression = expr match {
     case ast.Field("now") => Now()
     case ts: ast.TimeSpan => Add(Now(), timeSpan(ts))
@@ -742,7 +738,6 @@ object SplToCatalyst extends Logging {
           SortOrder(Cast(attr(args.head), StringType), order)
         case "ip" =>
           // TODO implement logic for ip function
-          // see https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/sort
           SortOrder(attr(args.head), order)
         case _ =>
           SortOrder(attr(args.head), order)
@@ -908,9 +903,6 @@ object SplToCatalyst extends Logging {
     }
   }
 
-  /**
-   * https://docs.splunk.com/Documentation/Splunk/8.2.2/SearchReference/Dedup
-   */
   private def getSortByWindowExpr(fields: Seq[ast.Field], cmd: ast.SortCommand): WindowExpression =
     WindowExpression(RowNumber(), WindowSpecDefinition(
       partitionSpec = fields.map(attr),
@@ -1001,8 +993,8 @@ object SplToCatalyst extends Logging {
               "host", Literal(null)),
             "source", Literal(null)),
           "sourcetype", Literal(null)),
-        "splunk_server", Literal(mr.splunkServer)),
-      "splunk_server_group", Literal(mr.splunkServerGroup))
+        "server", Literal(mr.server)),
+      "server_group", Literal(mr.serverGroup))
 
     if (!mr.annotate) {
       Project(Seq(
@@ -1015,8 +1007,8 @@ object SplToCatalyst extends Logging {
         UnresolvedAttribute("host"),
         UnresolvedAttribute("source"),
         UnresolvedAttribute("sourcetype"),
-        UnresolvedAttribute("splunk_server"),
-        UnresolvedAttribute("splunk_server_group")
+        UnresolvedAttribute("server"),
+        UnresolvedAttribute("server_group")
       ), genPlan)
     }
   }

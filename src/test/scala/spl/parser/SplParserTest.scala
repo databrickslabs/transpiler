@@ -939,16 +939,16 @@ class SplParserTest extends ParserSuite {
     p(command(_), MakeResults(
       count = 1,
       annotate = false,
-      splunkServer = "local",
-      splunkServerGroup = null))
+      server = "local",
+      serverGroup = null))
   }
 
-  test("makeresults count=10 annotate=t splunk_server_group=group0") {
+  test("makeresults count=10 annotate=t server_group=group0") {
     p(command(_), MakeResults(
       count = 10,
       annotate = true,
-      splunkServer = "local",
-      splunkServerGroup = "group0"))
+      server = "local",
+      serverGroup = "group0"))
   }
 
   test("addtotals row=t col=f fieldname=num_total num_1 num_2") {
