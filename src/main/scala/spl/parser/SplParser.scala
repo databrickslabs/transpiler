@@ -6,12 +6,6 @@ import spl.ast._
 
 /*
  * SPL parser and AST
- *
- * https://docs.splunk.com/Splexicon:Searchprorcessinglanguage
- * @link https://gist.github.com/ChrisYounger/520bdb1a7c8b22f5210213f83a3ab2db
- * @link https://gist.github.com/ChrisYounger/e51f9c3aba0f1ed02e5caee7d4a6128b
- * @link https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Search
- * @link https://docs.splunk.com/Documentation/Splunk/8.2.1/Search/Aboutsearchlanguagesyntax
  */
 object SplParser {
   private[parser] implicit def debugger[R](r: R): ParserDebug[R] = new ParserDebug[R](r)
@@ -44,7 +38,6 @@ object SplParser {
     case a: Any => throw new IllegalArgumentException(s"timeSpan $a")
   }
 
-  // https://docs.splunk.com/Documentation/SCS/current/Search/Specifyrelativetime
   def relativeTime[_: P]: P[SnapTime] = (
       (timeSpan|timeSpanOne).? ~~ "@" ~~ timeUnit ~~ timeSpan.?).map(SnapTime.tupled)
 
@@ -195,9 +188,6 @@ object SplParser {
     "lookup" ~ token ~ fieldRep ~ lookupOutput.? map LookupCommand.tupled
 
   /**
-   * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Head
-   * Function is missing the case where both a limit and a condition are passed
-   * ie. head limit=10 (1==1)
    * TODO Add condition
    * TODO: refactor to use command options
    */
@@ -208,7 +198,6 @@ object SplParser {
   })
 
   /*
-   * https://docs.splunk.com/Documentation/Splunk/8.2.1/SearchReference/Fields
    * Function is missing wildcard fields (except when discarding fields ie. fields - myField, ...)
    */
   def fields[_: P]: P[FieldsCommand] =
@@ -221,15 +210,11 @@ object SplParser {
         }
     }
 
-  /*
-   * https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/Sort
-   */
   def sort[_: P]: P[SortCommand] =
     "sort" ~ (("+"|"-").!.? ~~ expr).rep(min = 1, sep = ",") map SortCommand
   // where <predicate-expression>
   def where[_: P]: P[WhereCommand] = "where" ~ expr map WhereCommand
   def table[_: P]: P[TableCommand] = "table" ~ field.rep(1) map TableCommand
-  // https://docs.splunk.com/Documentation/SplunkCloud/8.2.2106/SearchReference/Stats
   def aliasedCall[_: P]: P[Alias] = call ~ W("as") ~ token map Alias.tupled
   def statsCall[_: P]: P[Seq[Expr with Product with Serializable]] = (aliasedCall | call |
     token.filter(!_.toLowerCase.equals("by")).map(Call(_))).rep(1, ",".?)
@@ -391,8 +376,8 @@ object SplParser {
       MakeResults(
         count = options.getInt("count", 1),
         annotate = options.getBoolean("annotate"),
-        splunkServer = options.getString("splunk_server", "local"),
-        splunkServerGroup = options.getString("splunk_server_group", null)
+        server = options.getString("splunk_server", "local"),
+        serverGroup = options.getString("splunk_server_group", null)
       )
   }
 

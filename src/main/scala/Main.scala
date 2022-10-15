@@ -2,8 +2,8 @@ import spl.Transpiler
 
 object Main extends App {
   try {
-    val splunkCommand: String = scala.io.Source.fromInputStream(System.in).mkString
-    val pythonCode = Transpiler.toPython(splunkCommand)
+    val command: String = scala.io.Source.fromInputStream(System.in).mkString
+    val pythonCode = Transpiler.toPython(command)
     // scalastyle:off println
     println(pythonCode)
     // scalastyle:on println

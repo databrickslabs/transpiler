@@ -858,10 +858,10 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("makeresults") {
-    executes("makeresults count=5 annotate=t splunk_server_group=\"group1\" " +
+    executes("makeresults count=5 annotate=t server_group=\"group1\" " +
       "| fields - _time",
       """+----+----+------+----------+-------------+-------------------+
-        ||_raw|host|source|sourcetype|splunk_server|splunk_server_group|
+        ||_raw|host|source|sourcetype|server|server_group|
         |+----+----+------+----------+-------------+-------------------+
         ||null|null|null  |null      |local        |group1             |
         ||null|null|null  |null      |local        |group1             |

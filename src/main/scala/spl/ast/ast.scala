@@ -170,8 +170,8 @@ case class MvCombineCommand(delim: Option[String], field: Field) extends Command
 
 case class MvExpandCommand(field: Field, limit: Option[Int]) extends Command
 
-case class MakeResults(count: Int, annotate: Boolean, splunkServer: String,
-                       splunkServerGroup: String) extends Command
+case class MakeResults(count: Int, annotate: Boolean, server: String,
+                       serverGroup: String) extends Command
 
 case class AddTotals(fields: Seq[Field],
                      row: Boolean,
