@@ -23,7 +23,7 @@ jobs:
 
       - name: Install pySpark
         run: |
-          pip3 install pyspark==3.2.0
+          pip3 install pyspark==3.3.0
 
       - name: Checkout
         uses: actions/checkout@v2
