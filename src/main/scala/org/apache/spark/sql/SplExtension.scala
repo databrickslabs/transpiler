@@ -14,26 +14,19 @@ class SplExtension extends (SparkSessionExtensions => Unit) {
 
   private def registerTerm(extensions: SparkSessionExtensions): Unit = {
     val clazz = classOf[Term]
-    val df = clazz.getAnnotation(classOf[ExpressionDescription])
-    extensions.injectFunction((FunctionIdentifier("term"), new ExpressionInfo(
-      clazz.getCanonicalName, null, "term", df.usage(),
-      df.arguments(), df.examples(), df.note(), df.group(),
-      df.since(), df.deprecated()), {
-      case Seq(expr) => Term(expr)
-      case _ => throw new AnalysisException("TERM() expects only single argument")
+    extensions.injectFunction((FunctionIdentifier("term"),
+      new ExpressionInfo(clazz.getCanonicalName, "term"), {
+        case Seq(expr) => Term(expr)
+        case _ => throw new AnalysisException("TERM() expects only single argument")
     }))
   }
 
   private def registerCidrMatch(extensions: SparkSessionExtensions): Unit = {
     val clazz = classOf[CidrMatch]
-    val df = clazz.getAnnotation(classOf[ExpressionDescription])
-
-    extensions.injectFunction((FunctionIdentifier("cidr_match"), new ExpressionInfo(
-      clazz.getCanonicalName, null, "cidr_match", df.usage(),
-      df.arguments(), df.examples(), df.note(), df.group(),
-      df.since(), df.deprecated()), {
-      case Seq(cidr, ip) => CidrMatch(cidr, ip)
-      case _ => throw new AnalysisException("CIDR_MATCH() expects two arguments")
+    extensions.injectFunction((FunctionIdentifier("cidr_match"),
+      new ExpressionInfo(clazz.getCanonicalName, "cidr_match"), {
+        case Seq(cidr, ip) => CidrMatch(cidr, ip)
+        case _ => throw new AnalysisException("CIDR_MATCH() expects two arguments")
     }))
   }
 }

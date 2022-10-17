@@ -20,7 +20,7 @@ object PythonGenerator {
   private val pattern: Regex = "((?<![\\\\])['])".r
 
   def fromPlan(ctx: GeneratorContext, plan: LogicalPlan): String = plan match {
-    case AppendData(table, query, writeOptions, isByName) =>
+    case AppendData(table, query, writeOptions, isByName, _) =>
       s"${fromPlan(ctx, query)}\n.write.saveAsTable(${q(table.name)}, mode='append')"
 
     case SubqueryAlias(identifier, child) =>
@@ -76,7 +76,7 @@ object PythonGenerator {
           "asc()"
         } else "desc()"
         item.child match {
-          case Cast(colExpr, dataType, _) =>
+          case Cast(colExpr, dataType, _, _) =>
             s"F.col(${q(expression(colExpr))}).cast(${q(dataType.simpleString)}).$dirStr"
           case UnresolvedAttribute(nameParts) =>
             s"F.col(${q(nameParts.mkString("."))}).$dirStr"
@@ -102,7 +102,9 @@ object PythonGenerator {
         case UsingJoin(tp, usingColumns) => (tp, usingColumns)
         case tp => (tp, Seq())
       }
+      // scalastyle:off caselocale
       val how = q(tp.sql.replace(" ", "_").toLowerCase)
+      // scalastyle:on caselocale
       condition match {
         case Some(exp) =>
           s"""${fromPlan(ctx, left)}
@@ -249,13 +251,13 @@ object PythonGenerator {
       s"F.count(${children.map(expressionCode).mkString(", ")})"
     case Round(child, scale) =>
       s"F.round(${expressionCode(child)}, ${expression(scale)})"
-    case Sum(child) =>
+    case Sum(child, _) =>
       s"F.sum(${expressionCode(child)})"
     case Length(child) =>
       s"F.length(${expressionCode(child)})"
     case Size(child, _) =>
       s"F.size(${expressionCode(child)})"
-    case Cast(colExpr, dataType, _) =>
+    case Cast(colExpr, dataType, _, _) =>
       s"${expressionCode(colExpr)}.cast(${q(dataType.simpleString)})"
     case Min(expr) =>
       s"F.min(${expressionCode(expr)})"

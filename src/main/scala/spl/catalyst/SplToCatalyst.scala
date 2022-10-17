@@ -7,7 +7,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{CidrMatch, FillNullShim, Term}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types.{DoubleType, StringType}
+import org.apache.spark.sql.types.{DataType, DoubleType, StringType}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, LeftSemi, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
@@ -464,6 +464,32 @@ object SplToCatalyst extends Logging {
     // and it's not filling in default arguments
     newAggregateIgnoringABI(groupBy, groupBy ++ agg, child)
   }
+
+  // Spark 3.3.x came with ASCII mode, which requires a bit more ABI hacks, than before
+  private def newArithIgnoringABI[T](klass: Class[T],
+                                     left: Expression,
+                                     right: Expression): T = klass
+    .getConstructor(classOf[Expression], classOf[Expression])
+    .newInstance(left, right)
+    .asInstanceOf[T]
+
+  private def Cast(left: Expression, dt: DataType, timeZoneId: Option[String] = None): Cast =
+    classOf[Cast]
+      .getConstructor(classOf[Expression], classOf[DataType], classOf[Option[String]])
+      .newInstance(left, dt, timeZoneId)
+      .asInstanceOf[Cast]
+
+  private def Add(left: Expression, right: Expression): Add =
+    newArithIgnoringABI(classOf[Add], left, right)
+
+  private def Subtract(left: Expression, right: Expression): Subtract =
+    newArithIgnoringABI(classOf[Subtract], left, right)
+
+  private def Multiply(left: Expression, right: Expression): Multiply =
+    newArithIgnoringABI(classOf[Multiply], left, right)
+
+  private def Divide(left: Expression, right: Expression): Divide =
+    newArithIgnoringABI(classOf[Divide], left, right)
 
   // we're using Spark Catalyst's private APIs, so there are absolutely no guarantees
   // on binary compatibility of different Spark implementations. This is a hack to

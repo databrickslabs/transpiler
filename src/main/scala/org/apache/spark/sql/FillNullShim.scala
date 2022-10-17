@@ -30,6 +30,8 @@ class FillNullShimExpansion(spark: SparkSession) extends Rule[LogicalPlan] {
 
 case class FillNullShim(value: String, columns: Set[String], child: LogicalPlan)
   extends OrderPreservingUnaryNode {
-  override def output: Seq[Attribute] = throw new UnresolvedException(this, "FillNullShim")
+  override def output: Seq[Attribute] = throw new UnresolvedException("FillNullShim")
   override lazy val resolved: Boolean = false
+
+  override protected def withNewChildInternal(newChild: LogicalPlan): LogicalPlan = newChild
 }

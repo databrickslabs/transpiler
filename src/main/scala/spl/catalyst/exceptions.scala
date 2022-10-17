@@ -15,4 +15,8 @@ case class EmptyContextOutput(command: Command) extends Exception {
 case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
   override def output: Seq[Attribute] = child.output
   override def children: Seq[LogicalPlan] = child.children
+
+  override protected def withNewChildrenInternal(
+    newChildren: IndexedSeq[LogicalPlan]
+  ): LogicalPlan = newChildren(0)
 }
