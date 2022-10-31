@@ -33,5 +33,6 @@ case class FillNullShim(value: String, columns: Set[String], child: LogicalPlan)
   override def output: Seq[Attribute] = throw new UnresolvedException("FillNullShim")
   override lazy val resolved: Boolean = false
 
-  override protected def withNewChildInternal(newChild: LogicalPlan): LogicalPlan = newChild
+  override protected def withNewChildInternal(newChild: LogicalPlan): LogicalPlan =
+    copy(value, columns, newChild)
 }

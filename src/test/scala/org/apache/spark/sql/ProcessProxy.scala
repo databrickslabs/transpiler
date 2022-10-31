@@ -50,10 +50,10 @@ trait ProcessProxy extends Logging {
 
   def executes(search: String, results: String, truncate: Int = 0): Unit = {
     val pyOutput = launchPy(search, truncate)
-    readableAssert(results, pyOutput, "Python results do not match")
+    readableAssert(results, pyOutput, "Expected (left) and Python (right) results do not match")
     val df = Transpiler.toDataFrame(spark, search)
-    val jvmOutput = df.showString(20, truncate)
-    readableAssert(results, jvmOutput, "Results do not match")
+    val jvmOutput = df.showString(20, truncate, vertical = false)
+    readableAssert(pyOutput, jvmOutput, "Python (left) and JVM (right) results do not match")
   }
 
   private def launchPy(search: String, truncate: Int): String = {
@@ -66,10 +66,11 @@ trait ProcessProxy extends Logging {
     thread.start()
     thread.join()
     try {
-      val process = Process(s"python3 $file", new java.io.File(folder),
+      val env = Map(
         "PYSPARK_GATEWAY_PORT" -> gatewayServer.getListeningPort.toString,
         "PYSPARK_GATEWAY_SECRET" -> gatewayServer.secret,
         "PATH" -> "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
+      val process = Process(s"python3 $file", new java.io.File(folder), env.toSeq: _*)
       val capture = new Capture
       if (process.!(capture) != 0) {
         val error = capture.getError
@@ -115,7 +116,7 @@ trait ProcessProxy extends Logging {
   def readableAssert(expected: String, actual: String, caption: String): Unit =
     if (actual != expected) {
       Assertions.fail(s"""FAILURE: $caption
-        |${sideBySide(actual, expected).mkString("\n")}
+        |${sideBySide(expected, actual).mkString("\n")}
         |""".stripMargin)
     }
 }

@@ -18,5 +18,5 @@ case class UnknownPlanShim(t: String, child: LogicalPlan) extends LogicalPlan {
 
   override protected def withNewChildrenInternal(
     newChildren: IndexedSeq[LogicalPlan]
-  ): LogicalPlan = newChildren(0)
+  ): LogicalPlan = copy(t, newChildren(0))
 }

@@ -740,8 +740,8 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
       """+------+------+
         ||gender|static|
         |+------+------+
-        ||M     |10    |
         ||F     |10    |
+        ||M     |10    |
         |+------+------+
         |""".stripMargin)
   }
@@ -860,15 +860,15 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   test("makeresults") {
     executes("makeresults count=5 annotate=t server_group=\"group1\" " +
       "| fields - _time",
-      """+----+----+------+----------+-------------+-------------------+
+      """+----+----+------+----------+------+------------+
         ||_raw|host|source|sourcetype|server|server_group|
-        |+----+----+------+----------+-------------+-------------------+
-        ||null|null|null  |null      |local        |group1             |
-        ||null|null|null  |null      |local        |group1             |
-        ||null|null|null  |null      |local        |group1             |
-        ||null|null|null  |null      |local        |group1             |
-        ||null|null|null  |null      |local        |group1             |
-        |+----+----+------+----------+-------------+-------------------+
+        |+----+----+------+----------+------+------------+
+        ||null|null|null  |null      |local |null        |
+        ||null|null|null  |null      |local |null        |
+        ||null|null|null  |null      |local |null        |
+        ||null|null|null  |null      |local |null        |
+        ||null|null|null  |null      |local |null        |
+        |+----+----+------+----------+------+------------+
         |""".stripMargin)
   }
 
