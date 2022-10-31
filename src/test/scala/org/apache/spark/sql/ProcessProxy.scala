@@ -35,7 +35,8 @@ trait ProcessProxy extends Logging {
 
   def generates(search: String, expectedCode: String): Unit = {
     val generatedCode = Transpiler.toPython(search)
-    readableAssert(expectedCode, generatedCode, "Code does not match")
+    readableAssert(expectedCode, generatedCode,
+      "Expected (left) and generated (right) do not match")
   }
 
   def extractExceptionIfExists(search: String): String = {

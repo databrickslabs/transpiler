@@ -101,7 +101,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("eval coalesced=coalesce(b,c)") {
     generates("index=main | eval coalesced=coalesce(b,c)",
       """(spark.table('main')
-        |.withColumn('coalesced', F.expr('coalesce(`b`, `c`)')))
+        |.withColumn('coalesced', F.expr('coalesce(b, c)')))
         |""".stripMargin)
   }
 
@@ -123,7 +123,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("eval mvsubset=mvindex(d,0,1)") {
     generates("eval count=mvindex(d,0,1)",
       """(spark.table('main')
-        |.withColumn('count', F.expr('slice(`d`, 1, 2)')))
+        |.withColumn('count', F.expr('slice(d, 1, 2)')))
         |""".stripMargin)
   }
 
@@ -258,13 +258,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.withColumn('sourcetype', F.lit(None))
         |.withColumn('server', F.lit('local'))
         |.withColumn('server_group', F.lit(None))
-        |.select(F.col('json'),
-        |  F.col('ts'),
-        |  F.col('host'),
-        |  F.col('source'),
-        |  F.col('sourcetype'),
-        |  F.col('server'),
-        |  F.col('server_group')),
+        |.select(F.col('json'), F.col('ts'), F.col('host'), F.col('source'), F.col('sourcetype'), F.col('server'), F.col('server_group')),
         |['id'], 'inner'))
         |""".stripMargin, generatedCode, "Code does not match")
      spark.conf.set("spl.field._time", "_time")

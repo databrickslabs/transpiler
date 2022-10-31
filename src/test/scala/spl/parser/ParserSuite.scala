@@ -57,17 +57,17 @@ class ParserSuite extends AnyFunSuite with Matchers with TimeLimitedTests {
 
   private def pretty(x: Any): String = pprint.apply(x, width = 40).plainText
 
-  def parses[T](input: String, parser: P[_] => P[T], result: T): Unit =
+  def parses[T](input: String, parser: P[_] => P[T], expected: T): Unit =
     parse(input, parser) match {
       case Parsed.Success(value, _) =>
-        if (value != result) {
-          Assertions.fail(s"""FAILURE: ASTs do not match
+        if (value != expected) {
+          Assertions.fail(s"""Expected AST (left) and result (right) do not match
                              |=======
-                             |${sideBySide(pretty(value), pretty(result)).mkString("\n")}
+                             |${sideBySide(pretty(expected), pretty(value)).mkString("\n")}
                              |""".stripMargin)
         }
 
-        value mustEqual result
+        value mustEqual expected
       case Parsed.Failure(_, _, extra) =>
         fail(extra.trace(true).longAggregateMsg)
     }
