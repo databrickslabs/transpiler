@@ -655,62 +655,62 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   test("eventstats max(n) AS max_n, min(n) by gender") {
     executes("index=fake | eval n = len(email) | fields +id, email, gender, n " +
       "| eventstats max(n) AS max_n, min(n) by gender",
-      """+---+--------------------------+------+----+-----+------+
-        ||id |email                     |gender|n   |max_n|min(n)|
-        |+---+--------------------------+------+----+-----+------+
-        ||4  |null                      |F     |null|26   |16    |
-        ||5  |abasilotta4@mediafire.com |F     |25  |26   |16    |
-        ||6  |bhaskins5@w3.org          |F     |16  |26   |16    |
-        ||8  |cmacentee7@mayoclinic.com |F     |25  |26   |16    |
-        ||9  |wgasnoll8@mit.edu         |F     |17  |26   |16    |
-        ||14 |kstainburnd@bloomberg.com |F     |25  |26   |16    |
-        ||15 |dcanacotte@stumbleupon.com|F     |26  |26   |16    |
-        ||16 |null                      |F     |null|26   |16    |
-        ||19 |bkillfordi@cisco.com      |F     |20  |26   |16    |
-        ||1  |jcraisford0@imdb.com      |M     |20  |25   |18    |
-        ||2  |null                      |M     |null|25   |18    |
-        ||3  |slockyer2@fotki.com       |M     |19  |25   |18    |
-        ||7  |arootham6@harvard.edu     |M     |21  |25   |18    |
-        ||10 |nhartnup9@opensource.org  |M     |24  |25   |18    |
-        ||11 |sflewetta@linkedin.com    |M     |22  |25   |18    |
-        ||12 |gstureb@nsw.gov.au        |M     |18  |25   |18    |
-        ||13 |null                      |M     |null|25   |18    |
-        ||17 |sbrunettig@msu.edu        |M     |18  |25   |18    |
-        ||18 |llesurfh@google.pl        |M     |18  |25   |18    |
-        ||20 |ehartoppj@istockphoto.com |M     |25  |25   |18    |
-        |+---+--------------------------+------+----+-----+------+
+      """+---+--------------------------+------+----+-----+--------+
+        ||id |email                     |gender|n   |max_n|`min(n)`|
+        |+---+--------------------------+------+----+-----+--------+
+        ||4  |null                      |F     |null|26   |16      |
+        ||5  |abasilotta4@mediafire.com |F     |25  |26   |16      |
+        ||6  |bhaskins5@w3.org          |F     |16  |26   |16      |
+        ||8  |cmacentee7@mayoclinic.com |F     |25  |26   |16      |
+        ||9  |wgasnoll8@mit.edu         |F     |17  |26   |16      |
+        ||14 |kstainburnd@bloomberg.com |F     |25  |26   |16      |
+        ||15 |dcanacotte@stumbleupon.com|F     |26  |26   |16      |
+        ||16 |null                      |F     |null|26   |16      |
+        ||19 |bkillfordi@cisco.com      |F     |20  |26   |16      |
+        ||1  |jcraisford0@imdb.com      |M     |20  |25   |18      |
+        ||2  |null                      |M     |null|25   |18      |
+        ||3  |slockyer2@fotki.com       |M     |19  |25   |18      |
+        ||7  |arootham6@harvard.edu     |M     |21  |25   |18      |
+        ||10 |nhartnup9@opensource.org  |M     |24  |25   |18      |
+        ||11 |sflewetta@linkedin.com    |M     |22  |25   |18      |
+        ||12 |gstureb@nsw.gov.au        |M     |18  |25   |18      |
+        ||13 |null                      |M     |null|25   |18      |
+        ||17 |sbrunettig@msu.edu        |M     |18  |25   |18      |
+        ||18 |llesurfh@google.pl        |M     |18  |25   |18      |
+        ||20 |ehartoppj@istockphoto.com |M     |25  |25   |18      |
+        |+---+--------------------------+------+----+-----+--------+
         |""".stripMargin)
   }
 
   test("streamstats count") {
     executes("index=fake | eval _time=timestamp | streamstats count(_time) AS n | " +
       "eval cat=if(n < 4, \"A\",\"B\") | table _time cat n " +
-        "| streamstats max(n) AS max_n, min(n) by cat " +
+        "| streamstats max(n) AS max_n, min(n) AS min_n by cat " +
         "| streamstats current=false window=2 min(n) AS min_n_lag",
-      """+-------------------+---+---+-----+------+---------+
-        ||_time              |cat|n  |max_n|min(n)|min_n_lag|
-        |+-------------------+---+---+-----+------+---------+
-        ||2021-11-05 21:20:32|A  |1  |1    |1     |null     |
-        ||2021-11-05 21:21:32|A  |2  |2    |1     |1        |
-        ||2021-11-05 21:22:32|A  |3  |3    |1     |1        |
-        ||2021-11-05 21:23:32|B  |4  |4    |4     |2        |
-        ||2021-11-05 21:24:32|B  |5  |5    |4     |3        |
-        ||2021-11-05 21:25:32|B  |6  |6    |4     |4        |
-        ||2021-11-05 21:26:32|B  |7  |7    |4     |5        |
-        ||2021-11-05 21:27:32|B  |8  |8    |4     |6        |
-        ||2021-11-05 21:28:32|B  |9  |9    |4     |7        |
-        ||2021-11-05 21:29:32|B  |10 |10   |4     |8        |
-        ||2021-11-05 21:30:32|B  |11 |11   |4     |9        |
-        ||2021-11-05 21:31:32|B  |12 |12   |4     |10       |
-        ||2021-11-05 21:32:32|B  |13 |13   |4     |11       |
-        ||2021-11-05 21:33:32|B  |14 |14   |4     |12       |
-        ||2021-11-05 21:34:32|B  |15 |15   |4     |13       |
-        ||2021-11-05 21:35:32|B  |16 |16   |4     |14       |
-        ||2021-11-05 21:36:32|B  |17 |17   |4     |15       |
-        ||2021-11-05 21:37:32|B  |18 |18   |4     |16       |
-        ||2021-11-05 21:38:32|B  |19 |19   |4     |17       |
-        ||2021-11-05 21:39:32|B  |20 |20   |4     |18       |
-        |+-------------------+---+---+-----+------+---------+
+      """+-------------------+---+---+-----+-----+---------+
+        ||_time              |cat|n  |max_n|min_n|min_n_lag|
+        |+-------------------+---+---+-----+-----+---------+
+        ||2021-11-05 21:20:32|A  |1  |1    |1    |null     |
+        ||2021-11-05 21:21:32|A  |2  |2    |1    |1        |
+        ||2021-11-05 21:22:32|A  |3  |3    |1    |1        |
+        ||2021-11-05 21:23:32|B  |4  |4    |4    |2        |
+        ||2021-11-05 21:24:32|B  |5  |5    |4    |3        |
+        ||2021-11-05 21:25:32|B  |6  |6    |4    |4        |
+        ||2021-11-05 21:26:32|B  |7  |7    |4    |5        |
+        ||2021-11-05 21:27:32|B  |8  |8    |4    |6        |
+        ||2021-11-05 21:28:32|B  |9  |9    |4    |7        |
+        ||2021-11-05 21:29:32|B  |10 |10   |4    |8        |
+        ||2021-11-05 21:30:32|B  |11 |11   |4    |9        |
+        ||2021-11-05 21:31:32|B  |12 |12   |4    |10       |
+        ||2021-11-05 21:32:32|B  |13 |13   |4    |11       |
+        ||2021-11-05 21:33:32|B  |14 |14   |4    |12       |
+        ||2021-11-05 21:34:32|B  |15 |15   |4    |13       |
+        ||2021-11-05 21:35:32|B  |16 |16   |4    |14       |
+        ||2021-11-05 21:36:32|B  |17 |17   |4    |15       |
+        ||2021-11-05 21:37:32|B  |18 |18   |4    |16       |
+        ||2021-11-05 21:38:32|B  |19 |19   |4    |17       |
+        ||2021-11-05 21:39:32|B  |20 |20   |4    |18       |
+        |+-------------------+---+---+-----+-----+---------+
         |""".stripMargin)
   }
 
@@ -858,17 +858,17 @@ class VerificationTest extends AnyFunSuite with ProcessProxy with BeforeAndAfter
   }
 
   test("makeresults") {
-    executes("makeresults count=5 annotate=t server_group=\"group1\" " +
+    executes("makeresults count=5 annotate=t splunk_server_group=\"group1\" " +
       "| fields - _time",
-      """+----+----+------+----------+------+------------+
-        ||_raw|host|source|sourcetype|server|server_group|
-        |+----+----+------+----------+------+------------+
-        ||null|null|null  |null      |local |null        |
-        ||null|null|null  |null      |local |null        |
-        ||null|null|null  |null      |local |null        |
-        ||null|null|null  |null      |local |null        |
-        ||null|null|null  |null      |local |null        |
-        |+----+----+------+----------+------+------------+
+      """+----+----+------+----------+-------------+-------------------+
+        ||_raw|host|source|sourcetype|splunk_server|splunk_server_group|
+        |+----+----+------+----------+-------------+-------------------+
+        ||null|null|null  |null      |local        |group1             |
+        ||null|null|null  |null      |local        |group1             |
+        ||null|null|null  |null      |local        |group1             |
+        ||null|null|null  |null      |local        |group1             |
+        ||null|null|null  |null      |local        |group1             |
+        |+----+----+------+----------+-------------+-------------------+
         |""".stripMargin)
   }
 

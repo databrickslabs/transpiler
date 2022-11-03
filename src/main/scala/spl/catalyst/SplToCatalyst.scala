@@ -537,8 +537,9 @@ object SplToCatalyst extends Logging {
   private def withColumn(ctx: LogicalContext,
                          tree: LogicalPlan,
                          name: String,
-                         expression: Expression): Project =
+                         expression: Expression): Project = {
     selectColumn(ctx, tree, Alias(expression, name)())
+  }
 
   private def selectColumn(ctx: LogicalContext,
                            tree: LogicalPlan,
@@ -910,6 +911,15 @@ object SplToCatalyst extends Logging {
     determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, wFrame)
   }
 
+  private def getColName(expr: Expression): String = {
+    val keys = Seq("(", ")")
+    val columnName = expr.toString.replace("'", "")
+    if (keys.exists(columnName.contains)) {
+      return s"`${columnName}`"
+    }
+    columnName
+  }
+
   private def determineWindowStats(ctx: LogicalContext,
                                    tree: LogicalPlan,
                                    funcs: Seq[ast.Expr],
@@ -924,7 +934,7 @@ object SplToCatalyst extends Logging {
         withColumn(ctx, plan,
           // when no name/alias is passed to the spl command, spl generates default column name
           // based on the expression: `eventstats min(column) ...` -> "min(column)"
-          expression(ctx, expr).toString.replace("'", ""),
+          getColName(expression(ctx, expr)),
           WindowExpression(expression(ctx, expr), windowSpec))
     }
   }
@@ -1019,8 +1029,8 @@ object SplToCatalyst extends Logging {
               "host", Literal(null)),
             "source", Literal(null)),
           "sourcetype", Literal(null)),
-        "server", Literal(mr.server)),
-      "server_group", Literal(mr.serverGroup))
+        "splunk_server", Literal(mr.server)),
+      "splunk_server_group", Literal(mr.serverGroup))
 
     if (!mr.annotate) {
       Project(Seq(
@@ -1033,8 +1043,8 @@ object SplToCatalyst extends Logging {
         UnresolvedAttribute("host"),
         UnresolvedAttribute("source"),
         UnresolvedAttribute("sourcetype"),
-        UnresolvedAttribute("server"),
-        UnresolvedAttribute("server_group")
+        UnresolvedAttribute("splunk_server"),
+        UnresolvedAttribute("splunk_server_group")
       ), genPlan)
     }
   }
