@@ -4,7 +4,7 @@
 .idea
 target
 project/*
-spark-spl.iml
+*.iml
 !project/plugins.sbt
 .databricks
 dbl_transpiler/lib/*.jar

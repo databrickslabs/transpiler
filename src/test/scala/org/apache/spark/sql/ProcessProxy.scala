@@ -6,7 +6,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.util.sideBySide
 import org.apache.spark.util.Utils
 import org.scalatest.Assertions
-import spl.Transpiler
+import com.databricks.labs.transpiler.spl.Transpiler
 
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.matching.Regex
