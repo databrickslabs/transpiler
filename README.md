@@ -1,4 +1,4 @@
-# SPL-to-PySpark transpiler
+# SIEM-to-PySpark transpiler
 
 Learn and migrate from your familiar SIEM syntax to Databricks Runtime.
 
@@ -10,7 +10,7 @@ For code-generation mode:
 
 ```shell script
 mvn -DskipTests=true -Plocal package
-cat spl-query.txt | java -jar target/spark-spl-0.4.jar > pyspark-equivalent.py
+cat query.txt | java -jar target/transpiler-0.4.jar > pyspark-equivalent.py
 ```
 
 ## Language support
