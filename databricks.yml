@@ -1,0 +1,5 @@
+name: transpiler
+dev_cluster:
+  cluster_name: transpiler
+notebooks:
+  folder: src/test/python
