@@ -4,9 +4,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <name>spark-spl</name>
+    <name>transpiler</name>
     <groupId>com.databricks.labs</groupId>
-    <artifactId>spark-spl</artifactId>
+    <artifactId>transpiler</artifactId>
     <version>0.4.0</version>
 
     <developers>
@@ -157,7 +157,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>Main</mainClass>
+                            <mainClass>com.databricks.labs.transpiler.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -306,7 +306,7 @@
                             </descriptors>
                             <archive>
                                 <manifest>
-                                    <mainClass>Main</mainClass>
+                                    <mainClass>com.databricks.labs.transpiler.Main</mainClass>
                                 </manifest>
                             </archive>
                         </configuration>
