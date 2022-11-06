@@ -7,7 +7,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{CidrMatch, FillNullShim, Term}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.types.{DoubleType, StringType}
+import org.apache.spark.sql.types.{DataType, DoubleType, StringType}
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.{Inner, LeftOuter, LeftSemi, UsingJoin}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAttribute, UnresolvedRelation}
@@ -465,6 +465,32 @@ object SplToCatalyst extends Logging {
     newAggregateIgnoringABI(groupBy, groupBy ++ agg, child)
   }
 
+  // Spark 3.3.x came with ASCII mode, which requires a bit more ABI hacks, than before
+  private def newArithIgnoringABI[T](klass: Class[T],
+                                     left: Expression,
+                                     right: Expression): T = klass
+    .getConstructor(classOf[Expression], classOf[Expression])
+    .newInstance(left, right)
+    .asInstanceOf[T]
+
+  private def Cast(left: Expression, dt: DataType, timeZoneId: Option[String] = None): Cast =
+    classOf[Cast]
+      .getConstructor(classOf[Expression], classOf[DataType], classOf[Option[String]])
+      .newInstance(left, dt, timeZoneId)
+      .asInstanceOf[Cast]
+
+  private def Add(left: Expression, right: Expression): Add =
+    newArithIgnoringABI(classOf[Add], left, right)
+
+  private def Subtract(left: Expression, right: Expression): Subtract =
+    newArithIgnoringABI(classOf[Subtract], left, right)
+
+  private def Multiply(left: Expression, right: Expression): Multiply =
+    newArithIgnoringABI(classOf[Multiply], left, right)
+
+  private def Divide(left: Expression, right: Expression): Divide =
+    newArithIgnoringABI(classOf[Divide], left, right)
+
   // we're using Spark Catalyst's private APIs, so there are absolutely no guarantees
   // on binary compatibility of different Spark implementations. This is a hack to
   // make one of the most important SPL commands to be runnable in Databricks Runtime.
@@ -511,8 +537,9 @@ object SplToCatalyst extends Logging {
   private def withColumn(ctx: LogicalContext,
                          tree: LogicalPlan,
                          name: String,
-                         expression: Expression): Project =
+                         expression: Expression): Project = {
     selectColumn(ctx, tree, Alias(expression, name)())
+  }
 
   private def selectColumn(ctx: LogicalContext,
                            tree: LogicalPlan,
@@ -884,6 +911,15 @@ object SplToCatalyst extends Logging {
     determineWindowStats(ctx, tree, funcs, partitionSpec, sortOrderSpec, wFrame)
   }
 
+  private def getColName(expr: Expression): String = {
+    val keys = Seq("(", ")")
+    val columnName = expr.toString.replace("'", "")
+    if (keys.exists(columnName.contains)) {
+      return s"`${columnName}`"
+    }
+    columnName
+  }
+
   private def determineWindowStats(ctx: LogicalContext,
                                    tree: LogicalPlan,
                                    funcs: Seq[ast.Expr],
@@ -898,7 +934,7 @@ object SplToCatalyst extends Logging {
         withColumn(ctx, plan,
           // when no name/alias is passed to the spl command, spl generates default column name
           // based on the expression: `eventstats min(column) ...` -> "min(column)"
-          expression(ctx, expr).toString.replace("'", ""),
+          getColName(expression(ctx, expr)),
           WindowExpression(expression(ctx, expr), windowSpec))
     }
   }
@@ -993,8 +1029,8 @@ object SplToCatalyst extends Logging {
               "host", Literal(null)),
             "source", Literal(null)),
           "sourcetype", Literal(null)),
-        "server", Literal(mr.server)),
-      "server_group", Literal(mr.serverGroup))
+        "splunk_server", Literal(mr.server)),
+      "splunk_server_group", Literal(mr.serverGroup))
 
     if (!mr.annotate) {
       Project(Seq(
@@ -1007,8 +1043,8 @@ object SplToCatalyst extends Logging {
         UnresolvedAttribute("host"),
         UnresolvedAttribute("source"),
         UnresolvedAttribute("sourcetype"),
-        UnresolvedAttribute("server"),
-        UnresolvedAttribute("server_group")
+        UnresolvedAttribute("splunk_server"),
+        UnresolvedAttribute("splunk_server_group")
       ), genPlan)
     }
   }

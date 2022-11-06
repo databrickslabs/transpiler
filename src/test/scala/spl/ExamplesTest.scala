@@ -101,7 +101,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("eval coalesced=coalesce(b,c)") {
     generates("index=main | eval coalesced=coalesce(b,c)",
       """(spark.table('main')
-        |.withColumn('coalesced', F.expr('coalesce(`b`, `c`)')))
+        |.withColumn('coalesced', F.expr('coalesce(b, c)')))
         |""".stripMargin)
   }
 
@@ -123,7 +123,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
   test("eval mvsubset=mvindex(d,0,1)") {
     generates("eval count=mvindex(d,0,1)",
       """(spark.table('main')
-        |.withColumn('count', F.expr('slice(`d`, 1, 2)')))
+        |.withColumn('count', F.expr('slice(d, 1, 2)')))
         |""".stripMargin)
   }
 
@@ -225,8 +225,8 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.withColumn('host', F.lit(None))
         |.withColumn('source', F.lit(None))
         |.withColumn('sourcetype', F.lit(None))
-        |.withColumn('server', F.lit('local'))
-        |.withColumn('server_group', F.lit(None))
+        |.withColumn('splunk_server', F.lit('local'))
+        |.withColumn('splunk_server_group', F.lit(None))
         |.select('_time'))
         |""".stripMargin)
   }
@@ -244,6 +244,7 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
     spark.conf.set("spl.field._time", "ts")
     spark.conf.set("spl.field._raw", "json")
     spark.conf.set("spl.index", "custom_table")
+    spark.conf.set("spl.generator.lineWidth", "80")
     spark.range(10).createTempView("custom_table")
     val generatedCode = Transpiler.toPython(spark,
       "foo > 3 | join type=inner id [makeresults count=10 annotate=t]")
@@ -256,15 +257,15 @@ class ExamplesTest extends AnyFunSuite with ProcessProxy {
         |.withColumn('host', F.lit(None))
         |.withColumn('source', F.lit(None))
         |.withColumn('sourcetype', F.lit(None))
-        |.withColumn('server', F.lit('local'))
-        |.withColumn('server_group', F.lit(None))
+        |.withColumn('splunk_server', F.lit('local'))
+        |.withColumn('splunk_server_group', F.lit(None))
         |.select(F.col('json'),
         |  F.col('ts'),
         |  F.col('host'),
         |  F.col('source'),
         |  F.col('sourcetype'),
-        |  F.col('server'),
-        |  F.col('server_group')),
+        |  F.col('splunk_server'),
+        |  F.col('splunk_server_group')),
         |['id'], 'inner'))
         |""".stripMargin, generatedCode, "Code does not match")
      spark.conf.set("spl.field._time", "_time")

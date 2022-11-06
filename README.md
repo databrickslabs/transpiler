@@ -1,5 +1,7 @@
 # SPL-to-PySpark transpiler
 
+Learn and migrate from your familiar SIEM syntax to Databricks Runtime.
+
 ![.](spark-spl.png)
 
 ## Quickstart

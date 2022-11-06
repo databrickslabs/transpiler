@@ -7,7 +7,7 @@
     <name>spark-spl</name>
     <groupId>com.databricks.labs</groupId>
     <artifactId>spark-spl</artifactId>
-    <version>0.4</version>
+    <version>0.4.0</version>
 
     <developers>
         <developer>
@@ -32,9 +32,7 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
 
-        <spark.version>3.1.2</spark.version>
-        <log4j.version>1.2.17</log4j.version>
-        <slf4j.version>1.7.30</slf4j.version>
+        <spark.version>3.3.0</spark.version>
         <scoverage.plugin.version>1.4.11</scoverage.plugin.version>
     </properties>
 
@@ -94,18 +92,6 @@
             <version>0.5.4</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>log4j</groupId>
-            <artifactId>apache-log4j-extras</artifactId>
-            <version>1.2.17</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-            <version>1.2.17</version>
-            <scope>provided</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -134,6 +120,32 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.0.2</version>
+                <executions>
+                    <execution>
+                        <id>copy-files-on-build</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${basedir}/dbl_transpiler/lib</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${basedir}/target/</directory>
+                                    <include>*.jar</include>
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
