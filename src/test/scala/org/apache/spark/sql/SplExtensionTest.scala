@@ -77,7 +77,7 @@ class SplExtensionTest extends AnyFunSuite with ProcessProxy {
 
   test("FillNullShim output(...) method should raise an `UnresolvedException`") {
     val shimToTest = FillNullShim("0", Set("id", "score"), dataFrame.logicalPlan)
-    assertThrows[UnresolvedException[FillNullShim]] {
+    assertThrows[UnresolvedException] {
       shimToTest.output
     }
   }

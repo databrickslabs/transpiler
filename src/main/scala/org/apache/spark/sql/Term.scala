@@ -37,4 +37,8 @@ case class Term(child: Expression) extends Unevaluable {
   override def nullable: Boolean = false
   override def dataType: DataType = BooleanType
   override def children: Seq[Expression] = Seq(child)
+
+  override protected def withNewChildrenInternal(
+    newChildren: IndexedSeq[Expression]
+  ): Expression = copy(child = newChildren(0))
 }

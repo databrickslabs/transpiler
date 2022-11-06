@@ -1421,23 +1421,23 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                     UnresolvedAttribute("host"),
                     UnresolvedAttribute("source"),
                     UnresolvedAttribute("sourcetype"),
-                    UnresolvedAttribute("server"),
-                    UnresolvedAttribute("server_group")),
+                    UnresolvedAttribute("splunk_server"),
+                    UnresolvedAttribute("splunk_server_group")),
                     Project(Seq(
                         Alias(Literal(null), "_raw")(),
                         Alias(CurrentTimestamp(), "_time")(),
                         Alias(Literal(null), "host")(),
                         Alias(Literal(null), "source")(),
                         Alias(Literal(null), "sourcetype")(),
-                        Alias(Literal("local"), "server")(),
-                        Alias(Literal("group0"), "server_group")()
+                        Alias(Literal("local"), "splunk_server")(),
+                        Alias(Literal("group0"), "splunk_server_group")()
                     ), Project(Seq(
                         Alias(Literal(null), "_raw")(),
                         Alias(CurrentTimestamp(), "_time")(),
                         Alias(Literal(null), "host")(),
                         Alias(Literal(null), "source")(),
                         Alias(Literal(null), "sourcetype")(),
-                        Alias(Literal("local"), "server")()
+                        Alias(Literal("local"), "splunk_server")()
                     ), Project(Seq(
                         Alias(Literal(null), "_raw")(),
                         Alias(CurrentTimestamp(), "_time")(),

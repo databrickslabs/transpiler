@@ -6,3 +6,5 @@ target
 project/*
 spark-spl.iml
 !project/plugins.sbt
+.databricks
+dbl_transpiler/lib/*.jar

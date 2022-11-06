@@ -943,7 +943,7 @@ class SplParserTest extends ParserSuite {
       serverGroup = null))
   }
 
-  test("makeresults count=10 annotate=t server_group=group0") {
+  test("makeresults count=10 annotate=t splunk_server_group=group0") {
     p(command(_), MakeResults(
       count = 10,
       annotate = true,
@@ -959,6 +959,16 @@ class SplParserTest extends ParserSuite {
       fieldName = "num_total",
       labelField = null,
       label = "Total"
+    ))
+  }
+
+  test("eventstats min(n) by gender") {
+    p(command(_), EventStatsCommand(
+      allNum = false,
+      funcs = Seq(
+        Call("min", Seq(Field("n")))
+      ),
+      by = Seq(Field("gender"))
     ))
   }
 
