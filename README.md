@@ -1,6 +1,6 @@
-# SIEM-to-PySpark transpiler
+# SPL-to-PySpark transpiler
 
-Cybersecurity practitioners have plenty of ETL or alerting rules coded in SIEM language to run within some of the industry-standard SIEM environments. In reality, only the most common commands are used the most by SIEM practitioners, and it’s possible to automatically translate them into corresponding PySpark Structured Streaming or, even later - Spark SQL so that we get the same results on the same datasets with the same query from both SIEM and Databricks. It’s also possible to use this tooling to teach PySpark equivalents to SIEM practitioners to accelerate their time-to-comfort level with Databricks Lakehouse foundations.
+Cybersecurity practitioners have plenty of ETL or alerting rules coded in Search Processing Language (SPL) to run within some of the industry-standard SIEM environments. In reality, only the most common commands are used the most by SIEM practitioners, and it’s possible to automatically translate them into corresponding PySpark Structured Streaming or, even later - Spark SQL so that we get the same results on the same datasets with the same query from both SIEM and Databricks. It’s also possible to use this tooling to teach PySpark equivalents to SIEM practitioners to accelerate their time-to-comfort level with Databricks Lakehouse foundations.
 
 ![.](spark-spl.png)
 
@@ -22,10 +22,10 @@ There's also basic support for functions like `auto()`, `cidr_match()`, `coalesc
 `substr()`, `sum()`, `term()`, `values()`. 
 
 ### Cross-Compilation Samples
-Query `index=fake | bin span=5m timestamp | stats count by timestamp | sort timestamp`:
+Query `index=security_log | bin span=5m timestamp | stats count by timestamp | sort timestamp`:
 
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('timestamp', F.window(F.col('timestamp'), '5 minutes'))
 .withColumn('timestamp', F.col('timestamp.start'))
 .groupBy('timestamp')
@@ -33,135 +33,135 @@ Query `index=fake | bin span=5m timestamp | stats count by timestamp | sort time
 .orderBy(F.col('timestamp').asc()))
 ```
 
-Query `index=fake | stats count(id) by gender`:
+Query `index=security_log | stats count(id) by eventType`:
 ```python
-(spark.table('fake')
-.groupBy('gender')
+(spark.table('security_log')
+.groupBy('eventType')
 .agg(F.count(F.lit('id')).alias('count')))
 ```
 
-Query `index=fake | eval len_ip=len(ipAddress), len_mail=len(email) | fields +gender, len_ip, len_mail | stats sum(len_*) by gender | sort gender`:
+Query `index=security_log | eval len_ip=len(ipAddress), len_mail=len(email) | fields +eventType, len_ip, len_mail | stats sum(len_*) by eventType | sort eventType`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('len_ip', F.length(F.col('ipAddress')))
 .withColumn('len_mail', F.length(F.col('email')))
-.select('gender', 'len_ip', 'len_mail')
-.groupBy('gender')
+.select('eventType', 'len_ip', 'len_mail')
+.groupBy('eventType')
 .agg(F.sum(F.col('len_ip')).alias('sum'), F.sum(F.col('len_mail')).alias('sum'))
-.orderBy(F.col('gender').asc()))
+.orderBy(F.col('eventType').asc()))
 ```
 
-Query `index=fake | eval len_ip=len(ipAddress), len_mail=len(email) | stats min(len_*) AS min_* by gender | sort gender`:
+Query `index=security_log | eval len_ip=len(ipAddress), len_mail=len(email) | stats min(len_*) AS min_* by eventType | sort eventType`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('len_ip', F.length(F.col('ipAddress')))
 .withColumn('len_mail', F.length(F.col('email')))
-.groupBy('gender')
+.groupBy('eventType')
 .agg(F.min(F.col('len_ip')).alias('min_ip'), F.min(F.col('len_mail')).alias('min_mail'))
-.orderBy(F.col('gender').asc()))
+.orderBy(F.col('eventType').asc()))
 ```
 
-Query `index=fake | eval len_mail=len(email) | fields +id, gender, cardNumber, len_mail | stats max(*) AS max_* by gender | sort gender`:
+Query `index=security_log | eval len_mail=len(email) | fields +id, eventType, cardNumber, len_mail | stats max(*) AS max_* by eventType | sort eventType`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('len_mail', F.length(F.col('email')))
-.select(F.col('id'), F.col('gender'), F.col('cardNumber'), F.col('len_mail'))
-.groupBy('gender')
+.select(F.col('id'), F.col('eventType'), F.col('cardNumber'), F.col('len_mail'))
+.groupBy('eventType')
 .agg(F.max(F.col('id')).alias('max_id'),
-  F.max(F.col('gender')).alias('max_gender'),
+  F.max(F.col('eventType')).alias('max_eventType'),
   F.max(F.col('cardNumber')).alias('max_cardNumber'),
   F.max(F.col('len_mail')).alias('max_len_mail'))
-.orderBy(F.col('gender').asc()))
+.orderBy(F.col('eventType').asc()))
 ```
 
-Query `index=fake | id > 17 | fields + id, gender, email, ipAddress`:
+Query `index=security_log | id > 17 | fields + id, eventType, email, ipAddress`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') > F.lit(17)))
-.select(F.col('id'), F.col('gender'), F.col('email'), F.col('ipAddress')))
+.select(F.col('id'), F.col('eventType'), F.col('email'), F.col('ipAddress')))
 ```
 
-Query `index=fake | eval array_count=mvcount(array) | where array_count=1 | fields + id, gender, email, array, array_count`:
+Query `index=security_log | eval array_count=mvcount(array) | where array_count=1 | fields + id, eventType, email, array, array_count`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('array_count', F.size(F.col('array')))
 .where((F.col('array_count') == F.lit(1)))
-.select(F.col('id'), F.col('gender'), F.col('email'), F.col('array'), F.col('array_count')))
+.select(F.col('id'), F.col('eventType'), F.col('email'), F.col('array'), F.col('array_count')))
 ```
 
-Query `index=fake | eval test = mvfilter(len(array) = 2) | fields + array, test`:
+Query `index=security_log | eval test = mvfilter(len(array) = 2) | fields + array, test`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('test', F.filter(F.col('array'), lambda array: (F.length(array) == F.lit(2))))
 .select('array', 'test'))
 ```
 
-Query `index=fake | eval test = mvcount(mvfilter(len(array) = 2)) | eval original_count = mvcount(array) | where tonumber(original_count) > tonumber(test) | fields + array, original_count, test`:
+Query `index=security_log | eval test = mvcount(mvfilter(len(array) = 2)) | eval original_count = mvcount(array) | where tonumber(original_count) > tonumber(test) | fields + array, original_count, test`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('test', F.size(F.filter(F.col('array'), lambda array: (F.length(array) == F.lit(2)))))
 .withColumn('original_count', F.size(F.col('array')))
 .where((F.col('original_count').cast('double') > F.col('test').cast('double')))
 .select(F.col('array'), F.col('original_count'), F.col('test')))
 ```
 
-Query `index=fake | eval email_len = len(email) | id > len(email) - 10 | fields + id, email, email_len`:
+Query `index=security_log | eval email_len = len(email) | id > len(email) - 10 | fields + id, email, email_len`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('email_len', F.length(F.col('email')))
 .where((F.col('id') > (F.length(F.col('email')) - F.lit(10))))
 .select(F.col('id'), F.col('email'), F.col('email_len')))
 ```
 
-Query `index=fake | eval test = substr(country, 3) | fields country, test`:
+Query `index=security_log | eval test = substr(country, 3) | fields country, test`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('test', F.substring(F.col('country'), 3, 2147483647))
 .select('country', 'test'))
 ```
 
-Query `index=fake | eval test = substr(country, 3, 3) | fields country, test`:
+Query `index=security_log | eval test = substr(country, 3, 3) | fields country, test`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('test', F.substring(F.col('country'), 3, 3))
 .select('country', 'test'))
 ```
 
-Query `index=fake | eval test = substr(country, -5) | fields country, test`:
+Query `index=security_log | eval test = substr(country, -5) | fields country, test`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('test', F.substring(F.col('country'), -5, 2147483647))
 .select('country', 'test'))
 ```
 
-Query `index=fake | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields +_raw, from, to`:
+Query `index=security_log | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields +_raw, from, to`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select('_raw')
 .withColumn('from', F.regexp_extract(F.col('_raw'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 1))
 .withColumn('to', F.regexp_extract(F.col('_raw'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 2))
 .select(F.col('_raw'), F.col('from'), F.col('to')))
 ```
 
-Query `index=fake | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields +from, to`:
+Query `index=security_log | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields +from, to`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select('_raw')
 .withColumn('from', F.regexp_extract(F.col('_raw'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 1))
 .withColumn('to', F.regexp_extract(F.col('_raw'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 2))
 .select(F.col('from'), F.col('to')))
 ```
 
-Query `index=fake | fields +id, gender, country, email | rename country as pays`:
+Query `index=security_log | fields +id, eventType, country, email | rename country as pays`:
 ```python
-(spark.table('fake')
-.select(F.col('id'), F.col('gender'), F.col('country'), F.col('email'))
-.select(F.col('id'), F.col('gender'), F.col('country').alias('pays'), F.col('email')))
+(spark.table('security_log')
+.select(F.col('id'), F.col('eventType'), F.col('country'), F.col('email'))
+.select(F.col('id'), F.col('eventType'), F.col('country').alias('pays'), F.col('email')))
 ```
 
-Query `index=fake | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields +from, to | rename from AS emailFrom, to AS emailTo`:
+Query `index=security_log | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields +from, to | rename from AS emailFrom, to AS emailTo`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select('_raw')
 .withColumn('from', F.regexp_extract(F.col('_raw'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 1))
 .withColumn('to', F.regexp_extract(F.col('_raw'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 2))
@@ -169,9 +169,9 @@ Query `index=fake | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields +from, to
 .select(F.col('from').alias('emailFrom'), F.col('to').alias('emailTo')))
 ```
 
-Query `index=fake | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields - _raw | return 4 emailFrom=from emailTo=to`:
+Query `index=security_log | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields - _raw | return 4 emailFrom=from emailTo=to`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select('_raw')
 .withColumn('from', F.regexp_extract(F.col('_raw'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 1))
 .withColumn('to', F.regexp_extract(F.col('_raw'), 'From: <(?<from>.*)> To: <(?<to>.*)>', 2))
@@ -180,86 +180,86 @@ Query `index=fake | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields - _raw | 
 .limit(4))
 ```
 
-Query `index=fake | join type=inner id [search index=fake_for_join] | fields +id, email, sport`:
+Query `index=security_log | join type=inner id [search index=enrichment_table] | fields +id, email, sport`:
 ```python
-(spark.table('fake')
-.join(spark.table('fake_for_join'), ['id'], 'inner')
+(spark.table('security_log')
+.join(spark.table('enrichment_table'), ['id'], 'inner')
 .select(F.col('id'), F.col('email'), F.col('sport')))
 ```
 
-Query `index=fake | join type=left id [search index=fake_for_join] | fields +id, email, sport`:
+Query `index=security_log | join type=left id [search index=enrichment_table] | fields +id, email, sport`:
 ```python
-(spark.table('fake')
-.join(spark.table('fake_for_join'), ['id'], 'left_outer')
+(spark.table('security_log')
+.join(spark.table('enrichment_table'), ['id'], 'left_outer')
 .select(F.col('id'), F.col('email'), F.col('sport')))
 ```
 
-Query `multisearch [index=fake | id < 2 | fields +id, gender] [index=fake_for_join | id < 2] [index=fake | id < 2] | fields +id, gender, sport`:
+Query `multisearch [index=security_log | id < 2 | fields +id, eventType] [index=enrichment_table | id < 2] [index=security_log | id < 2] | fields +id, eventType, sport`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(2)))
-.select('id', 'gender').unionByName(spark.table('fake_for_join')
-.where((F.col('id') < F.lit(2))), allowMissingColumns=True).unionByName(spark.table('fake')
+.select('id', 'eventType').unionByName(spark.table('enrichment_table')
+.where((F.col('id') < F.lit(2))), allowMissingColumns=True).unionByName(spark.table('security_log')
 .where((F.col('id') < F.lit(2))), allowMissingColumns=True)
-.select(F.col('id'), F.col('gender'), F.col('sport')))
+.select(F.col('id'), F.col('eventType'), F.col('sport')))
 ```
 
-Query `index=fake | fields +email | eval b_not_null=if(isnotnull(email), 1, 0)`:
+Query `index=security_log | fields +email | eval b_not_null=if(isnotnull(email), 1, 0)`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select('email')
 .withColumn('b_not_null', F.when(F.col('email').isNotNull(), F.lit(1)).otherwise(F.lit(0))))
 ```
 
-Query `index=fake | eval id_null=if(id > 10, null(), id) | table id id_null`:
+Query `index=security_log | eval id_null=if(id > 10, null(), id) | table id id_null`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('id_null', F.when((F.col('id') > F.lit(10)), F.lit(None)).otherwise(F.col('id')))
 .select('id', 'id_null'))
 ```
 
-Query `index=fake_with_double | fields +id, score | fillnull`:
+Query `index=security_log_with_double | fields +id, score | fillnull`:
 ```python
-(spark.table('fake_with_double')
+(spark.table('security_log_with_double')
 .select(F.col('id'), F.col('score'))
 .na.fill('0')
 .replace(float('nan'), float(0.0)))
 ```
 
-Query `index=fake | fields +id, email | fillnull`:
+Query `index=security_log | fields +id, email | fillnull`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select(F.col('id'), F.col('email'))
 .na.fill('0')
 .replace(float('nan'), float(0.0)))
 ```
 
-Query `index=fake | fields +id, email | fillnull value=NA`:
+Query `index=security_log | fields +id, email | fillnull value=NA`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select(F.col('id'), F.col('email'))
 .na.fill('NA'))
 ```
 
-Query `index=fake | fields +id, email, gender, ipAddress | fillnull value=NA email gender`:
+Query `index=security_log | fields +id, email, eventType, ipAddress | fillnull value=NA email eventType`:
 ```python
-(spark.table('fake')
-.select(F.col('id'), F.col('email'), F.col('gender'), F.col('ipAddress'))
-.na.fill('NA', ['email', 'gender']))
+(spark.table('security_log')
+.select(F.col('id'), F.col('email'), F.col('eventType'), F.col('ipAddress'))
+.na.fill('NA', ['email', 'eventType']))
 ```
 
-Query `index=fake | eval n = len(email) | fields +id, email, gender, n | eventstats max(n) AS max_n, min(n) by gender`:
+Query `index=security_log | eval n = len(email) | fields +id, email, eventType, n | eventstats max(n) AS max_n, min(n) by eventType`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('n', F.length(F.col('email')))
-.select(F.col('id'), F.col('email'), F.col('gender'), F.col('n'))
-.withColumn('max_n', F.max(F.col('n')).over(Window.partitionBy(F.col('gender')).orderBy(F.col('gender').asc())))
-.withColumn('min(n)', F.min(F.col('n')).over(Window.partitionBy(F.col('gender')).orderBy(F.col('gender').asc()))))
+.select(F.col('id'), F.col('email'), F.col('eventType'), F.col('n'))
+.withColumn('max_n', F.max(F.col('n')).over(Window.partitionBy(F.col('eventType')).orderBy(F.col('eventType').asc())))
+.withColumn('min(n)', F.min(F.col('n')).over(Window.partitionBy(F.col('eventType')).orderBy(F.col('eventType').asc()))))
 ```
 
-Query `index=fake | eval _time=timestamp | streamstats count(_time) AS n | eval cat=if(n < 4, "A","B") | table _time cat n | streamstats max(n) AS max_n, min(n) by cat | streamstats current=false window=2 min(n) AS min_n_lag`:
+Query `index=security_log | eval _time=timestamp | streamstats count(_time) AS n | eval cat=if(n < 4, "A","B") | table _time cat n | streamstats max(n) AS max_n, min(n) by cat | streamstats current=false window=2 min(n) AS min_n_lag`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumnRenamed('timestamp', '_time')
 .withColumn('n', F.count(F.lit('_time')).over(Window.partitionBy().orderBy(F.col('_time').asc()).rowsBetween(Window.unboundedPreceding, 0)))
 .withColumn('cat', F.when((F.col('n') < F.lit(4)), F.lit('A')).otherwise(F.lit('B')))
@@ -269,88 +269,88 @@ Query `index=fake | eval _time=timestamp | streamstats count(_time) AS n | eval 
 .withColumn('min_n_lag', F.min(F.col('n')).over(Window.partitionBy().orderBy(F.col('_time').asc()).rowsBetween((-1 - 1), -1))))
 ```
 
-Query `index=fake | id > 10 | eval min=min(id,15), max=max(id,15) | fields + id, min, max`:
+Query `index=security_log | id > 10 | eval min=min(id,15), max=max(id,15) | fields + id, min, max`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') > F.lit(10)))
 .withColumn('min', F.least(F.col('id'), F.lit(15)))
 .withColumn('max', F.greatest(F.col('id'), F.lit(15)))
 .select('id', 'min', 'max'))
 ```
 
-Query `index=fake | eval static=10 | fields + gender, static | dedup 1 gender static`:
+Query `index=security_log | eval static=10 | fields + eventType, static | dedup 1 eventType static`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('static', F.lit(10))
-.select('gender', 'static')
+.select('eventType', 'static')
 .withColumn('_no', F.monotonically_increasing_id())
-.withColumn('_rn', F.row_number().over(Window.partitionBy(F.col('gender'), F.col('static')).orderBy(F.col('_no').asc())))
+.withColumn('_rn', F.row_number().over(Window.partitionBy(F.col('eventType'), F.col('static')).orderBy(F.col('_no').asc())))
 .where((F.col('_rn') <= F.lit(1)))
-.select('gender', 'static'))
+.select('eventType', 'static'))
 ```
 
-Query `inputlookup fake where id < 3 | fields +id, gender, email, ipAddress, country`:
+Query `inputlookup security_log where id < 3 | fields +id, eventType, email, ipAddress, country`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(3)))
 .limit(1000000000)
-.select(F.col('id'), F.col('gender'), F.col('email'), F.col('ipAddress'), F.col('country')))
+.select(F.col('id'), F.col('eventType'), F.col('email'), F.col('ipAddress'), F.col('country')))
 ```
 
-Query `inputlookup max=2 fake where id > 10 | fields +id, gender, email, ipAddress, country`:
+Query `inputlookup max=2 security_log where id > 10 | fields +id, eventType, email, ipAddress, country`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') > F.lit(10)))
 .limit(2)
-.select(F.col('id'), F.col('gender'), F.col('email'), F.col('ipAddress'), F.col('country')))
+.select(F.col('id'), F.col('eventType'), F.col('email'), F.col('ipAddress'), F.col('country')))
 ```
 
-Query `index=fake | fields +id, gender, email | format maxresults=2`:
+Query `index=security_log | fields +id, eventType, email | format maxresults=2`:
 ```python
-(spark.table('fake')
-.select(F.col('id'), F.col('gender'), F.col('email'))
+(spark.table('security_log')
+.select(F.col('id'), F.col('eventType'), F.col('email'))
 .limit(2)
 .groupBy()
-.agg(F.array_join(F.collect_list(F.format_string('((id=%s) AND (gender=%s) AND (email=%s))', F.col('id'), F.col('gender'), F.col('email'))), ' OR ').alias('search')))
+.agg(F.array_join(F.collect_list(F.format_string('((id=%s) AND (eventType=%s) AND (email=%s))', F.col('id'), F.col('eventType'), F.col('email'))), ' OR ').alias('search')))
 ```
 
-Query `index=fake | fields +id, gender, email | format maxresults=2 "[" "[" "&&" "]" "||" "]"`:
+Query `index=security_log | fields +id, eventType, email | format maxresults=2 "[" "[" "&&" "]" "||" "]"`:
 ```python
-(spark.table('fake')
-.select(F.col('id'), F.col('gender'), F.col('email'))
+(spark.table('security_log')
+.select(F.col('id'), F.col('eventType'), F.col('email'))
 .limit(2)
 .groupBy()
-.agg(F.array_join(F.collect_list(F.format_string('[[id=%s] && [gender=%s] && [email=%s]]', F.col('id'), F.col('gender'), F.col('email'))), ' || ').alias('search')))
+.agg(F.array_join(F.collect_list(F.format_string('[[id=%s] && [eventType=%s] && [email=%s]]', F.col('id'), F.col('eventType'), F.col('email'))), ' || ').alias('search')))
 ```
 
-Query `index=fake | fields +id, country | mvcombine id`:
+Query `index=security_log | fields +id, country | mvcombine id`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select(F.col('id'), F.col('country'))
 .groupBy('country')
 .agg(F.collect_list(F.col('id')).alias('id')))
 
 ```
 
-Query `index=fake | fields +id, country | mvcombine delim=";" id`:
+Query `index=security_log | fields +id, country | mvcombine delim=";" id`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select(F.col('id'), F.col('country'))
 .groupBy('country')
 .agg(F.array_join(F.collect_list(F.col('id')), ';').alias('id')))
 ```
 
-Query `index=fake | fields +id, array | mvexpand array | where id=1`:
+Query `index=security_log | fields +id, array | mvexpand array | where id=1`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select(F.col('id'), F.col('array'))
 .select(F.col('id'), F.explode(F.col('array')).alias('array'))
 .where((F.col('id') == F.lit(1))))
 ```
 
-Query `index=fake | fields +id, array | mvexpand array limit=1 | where id=1`:
+Query `index=security_log | fields +id, array | mvexpand array limit=1 | where id=1`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .select(F.col('id'), F.col('array'))
 .select(F.col('id'), F.explode(F.expr('slice(array, 1, 1)')).alias('array'))
 .where((F.col('id') == F.lit(1))))
@@ -376,25 +376,25 @@ Query `makeresults count=5 annotate=t server_group="group1" | fields - _time`:
 .select(F.col('_raw'), F.col('host'), F.col('source'), F.col('sourcetype'), F.col('server'), F.col('server_group')))
 ```
 
-Query `index=fake | id < 5 | eval in_range = if(cidrmatch("109.177.0.0/16", ipAddress),1,0) | fields +id, ipAddress, in_range`:
+Query `index=security_log | id < 5 | eval in_range = if(cidrmatch("109.177.0.0/16", ipAddress),1,0) | fields +id, ipAddress, in_range`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(5)))
 .withColumn('in_range', F.when(F.expr("cidr_match('109.177.0.0/16', ipAddress)"), F.lit(1)).otherwise(F.lit(0)))
 .select(F.col('id'), F.col('ipAddress'), F.col('in_range')))
 ```
 
-Query `index=fake | id < 5 | ipAddress=109.177.0.0/16 | fields +id, ipAddress`:
+Query `index=security_log | id < 5 | ipAddress=109.177.0.0/16 | fields +id, ipAddress`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(5)))
 .where(F.expr("cidr_match('109.177.0.0/16', ipAddress)"))
 .select('id', 'ipAddress'))
 ```
 
-Query `index=fake | id < 5 | eval quant=round((id/3),2), unit=if(id < 3, "M", "G") | eval size=quant.unit, memk=memk(size) | fields +id, size, memk`:
+Query `index=security_log | id < 5 | eval quant=round((id/3),2), unit=if(id < 3, "M", "G") | eval size=quant.unit, memk=memk(size) | fields +id, size, memk`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(5)))
 .withColumn('quant', F.round((F.col('id') / F.lit(3)), 2))
 .withColumn('unit', F.when((F.col('id') < F.lit(3)), F.lit('M')).otherwise(F.lit('G')))
@@ -406,9 +406,9 @@ Query `index=fake | id < 5 | eval quant=round((id/3),2), unit=if(id < 3, "M", "G
 .select(F.col('id'), F.col('size'), F.col('memk')))
 ```
 
-Query `index=fake | id < 5 | eval unit=if(id < 3, "Megabyte", "GB") | eval size=id.unit, rmunit=rmunit(size) | fields +id, size, rmunit`:
+Query `index=security_log | id < 5 | eval unit=if(id < 3, "Megabyte", "GB") | eval size=id.unit, rmunit=rmunit(size) | fields +id, size, rmunit`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(5)))
 .withColumn('unit', F.when((F.col('id') < F.lit(3)), F.lit('Megabyte')).otherwise(F.lit('GB')))
 .withColumn('size', F.concat(F.col('id'), F.col('unit')))
@@ -416,34 +416,34 @@ Query `index=fake | id < 5 | eval unit=if(id < 3, "Megabyte", "GB") | eval size=
 .select(F.col('id'), F.col('size'), F.col('rmunit')))
 ```
 
-Query `index=fake | id < 5 | eval s=substr(ipAddress,1,3).",".substr(ipAddress, 5, 2) | eval n=rmcomma(s) | fields +id, s, n`:
+Query `index=security_log | id < 5 | eval s=substr(ipAddress,1,3).",".substr(ipAddress, 5, 2) | eval n=rmcomma(s) | fields +id, s, n`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(5)))
 .withColumn('s', F.concat(F.substring(F.col('ipAddress'), 1, 3), F.concat(F.lit(','), F.substring(F.col('ipAddress'), 5, 2))))
 .withColumn('n', F.regexp_replace(F.col('s'), ',', '').cast('double'))
 .select('id', 's', 'n'))
 ```
 
-Query `index=fake | id < 3 | convert timeformat="%H" ctime(timestamp) AS hour | fields +id, timestamp, hour`:
+Query `index=security_log | id < 3 | convert timeformat="%H" ctime(timestamp) AS hour | fields +id, timestamp, hour`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(3)))
 .withColumn('hour', F.date_format(F.col('timestamp'), 'HH'))
 .select(F.col('id'), F.col('timestamp'), F.col('hour')))
 ```
 
-Query `index=fake | id < 3 | convert ctime(timestamp) AS ctime | fields +id, timestamp, ctime`:
+Query `index=security_log | id < 3 | convert ctime(timestamp) AS ctime | fields +id, timestamp, ctime`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(3)))
 .withColumn('ctime', F.date_format(F.col('timestamp'), 'MM/dd/yyyy HH:mm:ss'))
 .select(F.col('id'), F.col('timestamp'), F.col('ctime')))
 ```
 
-Query `index=fake | id < 3 | fields +id, cardType, cardNumber | convert num(card*) none(cardType)`:
+Query `index=security_log | id < 3 | fields +id, cardType, cardNumber | convert num(card*) none(cardType)`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(3)))
 .select(F.col('id'), F.col('cardType'), F.col('cardNumber'))
 .select(F.col('id'),
@@ -462,9 +462,9 @@ Query `index=fake | id < 3 | fields +id, cardType, cardNumber | convert num(card
 .alias('cardNumber')))
 ```
 
-Query `index=fake | id < 3 | fields +id, ipAddress, cardType, cardNumber | convert auto(*) none(i*)`:
+Query `index=security_log | id < 3 | fields +id, ipAddress, cardType, cardNumber | convert auto(*) none(i*)`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(3)))
 .select(F.col('id'), F.col('ipAddress'), F.col('cardType'), F.col('cardNumber'))
 .select(F.col('id'),
@@ -510,28 +510,28 @@ Query `index=fake | id < 3 | fields +id, ipAddress, cardType, cardNumber | conve
 .otherwise(F.col('cardNumber')).alias('cardNumber')))
 ```
 
-Query `index=fake | id < 3 | eval date = strftime(timeStamp, "%m/%d/%Y %H:%M:%S") | eval hour=strftime("2021-11-05 21:20:32", "%H") | fields +id, date, hour`:
+Query `index=security_log | id < 3 | eval date = strftime(timeStamp, "%m/%d/%Y %H:%M:%S") | eval hour=strftime("2021-11-05 21:20:32", "%H") | fields +id, date, hour`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .where((F.col('id') < F.lit(3)))
 .withColumn('date', F.date_format(F.col('timeStamp'), 'MM/dd/yyyy HH:mm:ss'))
 .withColumn('hour', F.date_format(F.lit('2021-11-05 21:20:32'), 'HH'))
 .select('id', 'date', 'hour'))
 ```
 
-Query `index=fake | eval anotherNum=10 | fields +id, gender, anotherNum | addtotals fieldname=my_total`:
+Query `index=security_log | eval anotherNum=10 | fields +id, eventType, anotherNum | addtotals fieldname=my_total`:
 ```python
-(spark.table('fake')
+(spark.table('security_log')
 .withColumn('anotherNum', F.lit(10))
-.select(F.col('id'), F.col('gender'), F.col('anotherNum'))
-.withColumn('my_total', (F.when(F.col('anotherNum').cast('double').isNotNull(), F.col('anotherNum')).otherwise(F.lit(0.0)) + (F.when(F.col('gender').cast('double').isNotNull(), F.col('gender')).otherwise(F.lit(0.0)) + F.when(F.col('id').cast('double').isNotNull(), F.col('id')).otherwise(F.lit(0.0))))))
+.select(F.col('id'), F.col('eventType'), F.col('anotherNum'))
+.withColumn('my_total', (F.when(F.col('anotherNum').cast('double').isNotNull(), F.col('anotherNum')).otherwise(F.lit(0.0)) + (F.when(F.col('eventType').cast('double').isNotNull(), F.col('eventType')).otherwise(F.lit(0.0)) + F.when(F.col('id').cast('double').isNotNull(), F.col('id')).otherwise(F.lit(0.0))))))
 ```
 
-Query `index=fake | map search="search index=fake_for_join id=$id$"`:
+Query `index=security_log | map search="search index=enrichment_table id=$id$"`:
 ```python
-(spark.table('fake_for_join')
+(spark.table('enrichment_table')
 .limit(10).alias('l')
-.join(spark.table('fake').alias('r'),
+.join(spark.table('security_log').alias('r'),
 (F.col('l.id') == F.col('r.id')), 'left_semi'))
 ```
 
