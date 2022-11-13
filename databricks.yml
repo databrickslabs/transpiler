@@ -1,0 +1,11 @@
+environments:
+  development:
+    workspace:
+      profile: demo
+name: transpiler
+dev_cluster:
+  cluster_name: transpiler
+notebooks:
+  folder: src/test/python
+python:
+  mirror_libraries: true

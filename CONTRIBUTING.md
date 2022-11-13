@@ -20,3 +20,5 @@ Scalastyle complaints:
 Code coverage report:
 
 * `open target/site/jacoco/index.html`
+
+PySpark tests assume that you have PySpark 3.3.0 installed in your Python environment.
