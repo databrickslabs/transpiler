@@ -49,5 +49,3 @@ jobs:
             target/transpiler-*.jar
             target/transpiler-*.jar.asc
             dist/dbl_transpiler-*.whl
-            LICENSE
-            NOTICE
