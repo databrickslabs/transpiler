@@ -41,21 +41,5 @@ jobs:
       - name: Run Tests with Maven
         run: mvn -B scoverage:report --file pom.xml --fail-at-end
 
-      - name: Code Coverage Summary Report
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: target/cobertura.xml
-          badge: false
-          format: markdown
-          output: both
-          hide_branch_rate: false
-          hide_complexity: true
-          indicators: true
-          thresholds: '80 80'
-
-      - name: Add Coverage PR Comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        if: github.event_name == 'pull_request'
-        with:
-          recreate: true
-          path: code-coverage-results.md
+      - name: Publish test coverage
+        uses: codecov/codecov-action@v1

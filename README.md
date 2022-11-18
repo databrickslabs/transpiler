@@ -1,5 +1,7 @@
 # SPL-to-PySpark transpiler
 
+[![codecov](https://codecov.io/gh/databrickslabs/transpiler/branch/main/graph/badge.svg?token=sVMIEvUjvC)](https://codecov.io/gh/databrickslabs/transpiler)
+
 Cybersecurity practitioners have plenty of ETL or alerting rules coded in Search Processing Language (SPL) to run within some of the industry-standard SIEM environments. In reality, only the most common commands are used the most by SIEM practitioners, and it’s possible to automatically translate them into corresponding PySpark Structured Streaming or, even later - Spark SQL so that we get the same results on the same datasets with the same query from both SIEM and Databricks. It’s also possible to use this tooling to teach PySpark equivalents to SIEM practitioners to accelerate their time-to-comfort level with Databricks Lakehouse foundations.
 
 ![.](spark-spl.png)
