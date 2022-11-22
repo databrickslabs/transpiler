@@ -182,28 +182,28 @@ Query `index=security_log | rex "From: <(?<from>.*)> To: <(?<to>.*)>" | fields -
 .limit(4))
 ```
 
-Query `index=security_log | join type=inner id [search index=enrichment_table] | fields +id, email, sport`:
+Query `index=security_log | join type=inner id [search index=enrichment_table] | fields +id, email, user_role`:
 ```python
 (spark.table('security_log')
 .join(spark.table('enrichment_table'), ['id'], 'inner')
-.select(F.col('id'), F.col('email'), F.col('sport')))
+.select(F.col('id'), F.col('email'), F.col('user_role')))
 ```
 
-Query `index=security_log | join type=left id [search index=enrichment_table] | fields +id, email, sport`:
+Query `index=security_log | join type=left id [search index=enrichment_table] | fields +id, email, user_role`:
 ```python
 (spark.table('security_log')
 .join(spark.table('enrichment_table'), ['id'], 'left_outer')
-.select(F.col('id'), F.col('email'), F.col('sport')))
+.select(F.col('id'), F.col('email'), F.col('user_role')))
 ```
 
-Query `multisearch [index=security_log | id < 2 | fields +id, eventType] [index=enrichment_table | id < 2] [index=security_log | id < 2] | fields +id, eventType, sport`:
+Query `multisearch [index=security_log | id < 2 | fields +id, eventType] [index=enrichment_table | id < 2] [index=security_log | id < 2] | fields +id, eventType, user_role`:
 ```python
 (spark.table('security_log')
 .where((F.col('id') < F.lit(2)))
 .select('id', 'eventType').unionByName(spark.table('enrichment_table')
 .where((F.col('id') < F.lit(2))), allowMissingColumns=True).unionByName(spark.table('security_log')
 .where((F.col('id') < F.lit(2))), allowMissingColumns=True)
-.select(F.col('id'), F.col('eventType'), F.col('sport')))
+.select(F.col('id'), F.col('eventType'), F.col('user_role')))
 ```
 
 Query `index=security_log | fields +email | eval b_not_null=if(isnotnull(email), 1, 0)`:
