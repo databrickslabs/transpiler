@@ -110,7 +110,7 @@
         <dependency>
             <groupId>com.lihaoyi</groupId>
             <artifactId>pprint_${scala.binary.version}</artifactId>
-            <version>0.8.0</version>
+            <version>0.8.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
