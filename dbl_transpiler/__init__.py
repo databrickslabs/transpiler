@@ -1,9 +1,9 @@
-def transpile(spl: str):
+def transpile(query: str):
     """Transpiles a query into PySpark DataFrame DSL"""
     from pyspark.sql import SparkSession
     spark = SparkSession.getActiveSession()
     spl = spark._jvm.com.databricks.labs.transpiler.spl
-    code = spl.Transpiler.toPython(spl)
+    code = spl.Transpiler.toPython(query)
     print(code)
 
 def spl(query: str, do_display=False) -> 'pyspark.sql.DataFrame':
