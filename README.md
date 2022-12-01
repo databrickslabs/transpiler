@@ -4,7 +4,7 @@
 
 Cybersecurity practitioners have plenty of ETL or alerting rules coded in Search Processing Language (SPL) to run within some of the industry-standard SIEM environments. In reality, only the most common commands are used the most by SIEM practitioners, and it’s possible to automatically translate them into corresponding PySpark Structured Streaming or, even later - Spark SQL so that we get the same results on the same datasets with the same query from both SIEM and Databricks. It’s also possible to use this tooling to teach PySpark equivalents to SIEM practitioners to accelerate their time-to-comfort level with Databricks Lakehouse foundations.
 
-![.](spark-spl.png)
+![.](docs/spark-spl.png)
 
 Queries could be manually translated, requiring expert knowledge of SIEM and PySpark (or SQL). It takes a week to translate a dozen queries but may take months to translate hundreds of those. With this cross-compiler, we can cut down migration time from months to weeks or even days and significantly increase the speed of learning for the new Databricks practitioners. Some tools like https://uncoder.io/ or https://github.com/SigmaHQ/sigma translate SIEM into other formats, but none exist so far that translates a vast amount of queries to PySpark or Spark SQL.
 
@@ -22,6 +22,32 @@ There's also basic support for functions like `auto()`, `cidr_match()`, `coalesc
 `memk()`, `min()`, `mvappend()`, `mvcount()`, `mvfilter()`, `mvindex()`, `none()`, 
 `null()`, `num()`, `replace()`, `rmcomma()`, `rmunit()`, `round()`, `strftime()`, 
 `substr()`, `sum()`, `term()`, `values()`. 
+
+## Usage
+
+To use transpiler, please create a Databricks Cluster with **DBR 11.3 LTS**, otherwise functionality won't work. 
+Once the cluster is created, navigate to `Libraries` tab and click on `Install new`, pick `Maven`, in coordinates 
+field please enter `com.databricks.labs:transpiler:0.4.0`, and click `Install`:
+
+![.](docs/install.png)
+
+Once installation is done, you can use the `toPython` method from `com.databricks.labs.transpiler.spl.Transpiler` Scala object:
+
+![.](docs/run-scala.png)
+
+You can use Python as well:
+
+```python
+def transpile(query: str):
+    """Transpiles a query into PySpark DataFrame DSL"""
+    from pyspark.sql import SparkSession
+    spark = SparkSession.getActiveSession()
+    spl = spark._jvm.com.databricks.labs.transpiler.spl
+    code = spl.Transpiler.toPython(query)
+    print(code)
+
+transpile('index=security_log | bin span=5m timestamp | stats count by timestamp | sort timestamp')
+```
 
 ### Cross-Compilation Samples
 Query `index=security_log | bin span=5m timestamp | stats count by timestamp | sort timestamp`:
@@ -546,15 +572,6 @@ setting the following spark conf values from code or cluster config:
 spark.conf.set("spl.field._time", "ts")
 spark.conf.set("spl.field._raw", "json")
 spark.conf.set("spl.index", "custom_table")
-```
-
-## Quickstart
-
-For code-generation mode:
-
-```shell script
-mvn -DskipTests=true -Plocal package
-cat query.txt | java -jar target/transpiler-0.4.jar > pyspark-equivalent.py
 ```
 
 ## Featured on
