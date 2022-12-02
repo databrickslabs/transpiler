@@ -1,0 +1,20 @@
+name: pypi
+
+on:
+  workflow_dispatch:
+    # noop
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: sudo apt-get install -y python3-pip
+      - run: pip3 install wheel
+      - run: python3 setup.py bdist_wheel
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.LABS_PYPI_TOKEN }}
