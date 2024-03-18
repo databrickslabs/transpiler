@@ -1096,6 +1096,30 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
         )
     }
 
+    test("simple LIKE converted to CONTAINS") {
+        check(ast.SearchCommand(
+            ast.Call("like", Seq(ast.Field("a"), ast.StrValue("%foo%")))),
+            (_, tree) =>
+                Filter(
+                    Contains(
+                        UnresolvedAttribute("a"),
+                        Literal.create("foo")),
+                    tree)
+        )
+    }
+
+    test("complex LIKE not converted to CONTAINS") {
+        check(ast.SearchCommand(
+            ast.Call("like", Seq(ast.Field("a"), ast.StrValue("%foo%bar%")))),
+            (_, tree) =>
+                Filter(
+                    Like(
+                        UnresolvedAttribute("a"),
+                        Literal.create("%foo%bar%"), '\\'),
+                    tree)
+        )
+    }
+
     test("eventstats max(colA) AS maxA by colC") {
         check(ast.EventStatsCommand(
             allNum = false,

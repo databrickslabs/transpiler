@@ -173,6 +173,30 @@ object SplToCatalyst extends Logging {
       determineMax(ctx, call)
     case "len" =>
       Length(attrOrExpr(ctx, call.args.head))
+    case "like" =>
+      val field = attrOrExpr(ctx, call.args.head)
+      val pattern = attrOrExpr(ctx, call.args(1))
+      pattern match {
+        case Literal(patternLiteral: UTF8String, StringType) =>
+          val patternString = patternLiteral.toString
+          // If the pattern is a simple LIKE (%foo%) pattern, we can convert it into a CONTAINS
+          // expression.
+          // For this to be safe, the pattern must start with %, end with % (unescaped), and contain
+          // exactly 2 instances of the wildcard character %. Note that this approach is
+          // conservative, as there may exist cases like %foo\%bar% that can be safely converted
+          // (as the wildcard in the middle of the string is escaped).
+          if (patternString.length > 2 &&
+              patternString.charAt(0) == '%' &&
+              patternString.charAt(patternString.length - 1) == '%' &&
+              patternString.charAt(patternString.length - 2) != '\\' &&
+              patternString.count(_ == '%') == 2) {
+            Contains(field,
+              Literal(patternString.substring(1, patternString.length - 1)))
+          } else {
+            Like(field, pattern, '\\')
+          }
+        case _ => Like(field, pattern, '\\')
+      }
     case "substr" =>
       val str = attrOrExpr(ctx, call.args.head)
       val pos = expression(ctx, call.args(1))

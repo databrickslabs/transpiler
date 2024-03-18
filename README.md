@@ -19,7 +19,7 @@ There's basic support for the most used commands like `addtotals`, `bin`, `colle
 `streamstats`, `table`, `where`.
 
 There's also basic support for functions like `auto()`, `cidr_match()`, `coalesce()`, `count()`, 
-`ctime()`, `earliest()`, `if()`, `isnotnull()`, `latest()`, `len()`, `lower()`, `max()`, 
+`ctime()`, `earliest()`, `if()`, `isnotnull()`, `latest()`, `len()`, `like`, `lower()`, `max()`, 
 `memk()`, `min()`, `mvappend()`, `mvcount()`, `mvfilter()`, `mvindex()`, `none()`, 
 `null()`, `num()`, `replace()`, `rmcomma()`, `rmunit()`, `round()`, `strftime()`, 
 `substr()`, `sum()`, `term()`, `values()`. 
