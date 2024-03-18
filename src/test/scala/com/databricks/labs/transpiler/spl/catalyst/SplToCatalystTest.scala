@@ -1118,6 +1118,15 @@ class SplToCatalystTest extends AnyFunSuite with PlanTestBase {
                         Literal.create("%foo%bar%"), '\\'),
                     tree)
         )
+        check(ast.SearchCommand(
+            ast.Call("like", Seq(ast.Field("a"), ast.StrValue("%foo\\%")))),
+            (_, tree) =>
+                Filter(
+                    Like(
+                        UnresolvedAttribute("a"),
+                        Literal.create("%foo\\%"), '\\'),
+                    tree)
+        )
     }
 
     test("eventstats max(colA) AS maxA by colC") {
