@@ -1,3 +1,5 @@
+# THIS REPO IS ARCHIVED AND WILL NOT RECEIVE ANY FUTURE UPDATES
+
 # SPL-to-PySpark transpiler
 
 [![codecov](https://codecov.io/gh/databrickslabs/transpiler/branch/main/graph/badge.svg?token=sVMIEvUjvC)](https://codecov.io/gh/databrickslabs/transpiler)
